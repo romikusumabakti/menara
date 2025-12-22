@@ -4,7 +4,7 @@ services:
     container_name: menara-db
     restart: always
     environment:
-      POSTGRES_PASSWORD: Admin@123$$$$
+      POSTGRES_PASSWORD: Admin@123
       POSTGRES_DB: menara
       TZ: Asia/Jakarta
     ports:
@@ -22,7 +22,7 @@ services:
     ports:
       - "80:3000"
     environment:
-      DATABASE_URL: postgres://postgres:Admin@123$$$$@db:5432/menara
+      DATABASE_URL: postgres://postgres:Admin@123@db:5432/menara
       # Host URL for Inngest to find the app
       NEXT_PUBLIC_APP_URL: http://localhost:3000
     healthcheck:

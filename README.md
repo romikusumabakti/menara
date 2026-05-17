@@ -1,4 +1,4 @@
-# Admin Panel
+# Menara
 
 A whitelabel admin panel for managing servers, projects, services, and database lifecycle tasks over SSH.
 

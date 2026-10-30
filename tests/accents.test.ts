@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   ACCENTS,
   accentSchema,
@@ -7,12 +7,6 @@ import {
   effectiveAccent,
   isAccent,
 } from "@/lib/accents";
-
-const saved = process.env.BRAND;
-afterEach(() => {
-  if (saved === undefined) delete process.env.BRAND;
-  else process.env.BRAND = saved;
-});
 
 describe("accents", () => {
   it("lists neutral plus shadcn's seven colour themes", () => {
@@ -29,25 +23,21 @@ describe("accents", () => {
   });
 
   it("defaults to the brand's accent", () => {
-    process.env.BRAND = "acme";
-    expect(defaultAccent()).toBe("blue");
-    delete process.env.BRAND;
-    expect(defaultAccent()).toBe("neutral");
+    expect(defaultAccent("acme")).toBe("blue");
+    expect(defaultAccent("default")).toBe("neutral");
   });
 
   it("uses a valid stored accent", () => {
-    process.env.BRAND = "acme";
-    expect(effectiveAccent({ accentColor: "rose" })).toBe("rose");
-    expect(effectiveAccent({ accentColor: "neutral" })).toBe("neutral");
+    expect(effectiveAccent({ accentColor: "rose" }, "acme")).toBe("rose");
+    expect(effectiveAccent({ accentColor: "neutral" }, "acme")).toBe("neutral");
   });
 
   it("falls back to the brand default for null, missing or unknown values", () => {
-    process.env.BRAND = "acme";
-    expect(effectiveAccent({ accentColor: null })).toBe("blue");
-    expect(effectiveAccent({})).toBe("blue");
-    expect(effectiveAccent(null)).toBe("blue");
-    expect(effectiveAccent({ accentColor: "teal" })).toBe("blue");
-    expect(effectiveAccent({ accentColor: "" })).toBe("blue");
+    expect(effectiveAccent({ accentColor: null }, "acme")).toBe("blue");
+    expect(effectiveAccent({}, "acme")).toBe("blue");
+    expect(effectiveAccent(null, "acme")).toBe("blue");
+    expect(effectiveAccent({ accentColor: "teal" }, "acme")).toBe("blue");
+    expect(effectiveAccent({ accentColor: "" }, "acme")).toBe("blue");
   });
 
   it("validates input to the closed set", () => {

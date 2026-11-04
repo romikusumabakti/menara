@@ -47,7 +47,20 @@ describe("build:ops", () => {
 
 describe("deploy-app database failures", () => {
   it.each([
-    ["create", ["create", "demo-app", "acme/demo-bundle"]],
+    [
+      "create",
+      [
+        "create",
+        "demo-app",
+        "acme/demo-bundle",
+        "--app",
+        "demo",
+        "--repo",
+        "acme/demo",
+        "--ci",
+        "Woodpecker",
+      ],
+    ],
     ["rotate", ["rotate", "demo-app"]],
   ])(
     "%s prints no query params or ciphertext when the DB is unreachable",

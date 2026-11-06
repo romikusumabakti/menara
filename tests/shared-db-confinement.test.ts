@@ -134,11 +134,13 @@ beforeEach(() => {
 const forbidden = { status: 403, message: "sharedDatabaseConfined" };
 
 describe("database operations on a shared binding (maintainer)", () => {
-  it("allows the binding's copies and refuses other databases", async () => {
-    await expect(
-      dropDatabase(ENV_ID, { database: "cnry_sandbox1_copy" })
-    ).resolves.toEqual({ runId: "run-1" });
-    for (const database of ["hris_acme", "cnry_sandbox10", "postgres"]) {
+  it("refuses create, drop and rename outright", async () => {
+    for (const database of [
+      "cnry_sandbox1_copy",
+      "hris_acme",
+      "cnry_sandbox10",
+      "postgres",
+    ]) {
       await expect(dropDatabase(ENV_ID, { database })).rejects.toMatchObject(
         forbidden
       );
@@ -146,20 +148,21 @@ describe("database operations on a shared binding (maintainer)", () => {
         forbidden
       );
     }
-    await expect(
-      renameDatabase(ENV_ID, { from: "hris_acme", to: "cnry_sandbox1_x" })
-    ).rejects.toMatchObject(forbidden);
-    await expect(
-      renameDatabase(ENV_ID, { from: "cnry_sandbox1_copy", to: "hris_acme" })
-    ).rejects.toMatchObject(forbidden);
-    expect(jobs.enqueue).toHaveBeenCalledTimes(1);
+    for (const [from, to] of [
+      ["hris_acme", "cnry_sandbox1_x"],
+      ["cnry_sandbox1_copy", "cnry_sandbox1_x"],
+    ] as const) {
+      await expect(renameDatabase(ENV_ID, { from, to })).rejects.toMatchObject(
+        forbidden
+      );
+    }
+    expect(jobs.enqueue).not.toHaveBeenCalled();
   });
 
-  it("lists only the allowed databases", async () => {
+  it("lists only the binding's own database", async () => {
     const result = await getDatabaseList(ENV_ID);
     expect(result.success && result.data.map((d) => d.name)).toEqual([
       "cnry_sandbox1",
-      "cnry_sandbox1_copy",
     ]);
   });
 
@@ -171,41 +174,47 @@ describe("database operations on a shared binding (maintainer)", () => {
     ]);
   });
 
-  it("refuses a backup or restore of another environment's database", async () => {
-    await expect(
-      createDatabaseBackup(ENV_ID, { database: "hris_acme" })
-    ).rejects.toMatchObject(forbidden);
-    await expect(
-      restoreDatabaseBackup(ENV_ID, {
-        filename: "cnry_sandbox1_2026-11-05T02-00-00-000Z.sql.gz",
-        database: "hris_acme",
-      })
-    ).rejects.toMatchObject(forbidden);
+  it("backs up and restores only the binding's own database, from its own backups", async () => {
+    for (const database of ["hris_acme", "cnry_sandbox1_copy"]) {
+      await expect(
+        createDatabaseBackup(ENV_ID, { database })
+      ).rejects.toMatchObject(forbidden);
+      await expect(
+        restoreDatabaseBackup(ENV_ID, {
+          filename: "cnry_sandbox1_2026-11-05T02-00-00-000Z.sql.gz",
+          database,
+        })
+      ).rejects.toMatchObject(forbidden);
+    }
     // Restoring another database's backup file into its own database.
     await expect(
       restoreDatabaseBackup(ENV_ID, {
         filename: "hris_acme_2026-11-05T01-00-00-000Z.sql.gz",
       })
     ).rejects.toMatchObject(forbidden);
-    // A source environment's file must be one of the source's own.
-    await expect(
-      restoreDatabaseBackup(ENV_ID, {
-        filename: "cnry_sandbox1_2026-11-05T02-00-00-000Z.sql.gz",
-        sourceEnvironmentId: SOURCE_ENV_ID,
-      })
-    ).rejects.toMatchObject(forbidden);
+    // Never from another environment's backups, even the source's own file.
+    for (const filename of [
+      "cnry_source_2026-11-05T02-00-00-000Z.sql.gz",
+      "cnry_sandbox1_2026-11-05T02-00-00-000Z.sql.gz",
+    ]) {
+      await expect(
+        restoreDatabaseBackup(ENV_ID, {
+          filename,
+          sourceEnvironmentId: SOURCE_ENV_ID,
+        })
+      ).rejects.toMatchObject(forbidden);
+    }
     expect(jobs.enqueue).not.toHaveBeenCalled();
 
     await expect(
       restoreDatabaseBackup(ENV_ID, {
-        filename: "cnry_sandbox1_2026-11-05T02-00-00-000Z.sql.gz",
-        database: "cnry_sandbox1_copy",
+        filename: "cnry_sandbox1_copy_2026-11-05T03-00-00-000Z.sql",
       })
     ).resolves.toEqual({ runId: "run-1" });
     await expect(
       restoreDatabaseBackup(ENV_ID, {
-        filename: "cnry_source_2026-11-05T02-00-00-000Z.sql.gz",
-        sourceEnvironmentId: SOURCE_ENV_ID,
+        filename: "cnry_sandbox1_2026-11-05T02-00-00-000Z.sql.gz",
+        database: "cnry_sandbox1",
       })
     ).resolves.toEqual({ runId: "run-1" });
     await expect(createDatabaseBackup(ENV_ID)).resolves.toEqual({
@@ -245,6 +254,18 @@ describe("the same calls by an admin, or on other bindings", () => {
       setup();
       await expect(
         dropDatabase(ENV_ID, { database: "hris_acme" })
+      ).resolves.toEqual({ runId: "run-1" });
+      await expect(
+        createDatabase(ENV_ID, { database: "cnry_sandbox1_copy" })
+      ).resolves.toEqual({ runId: "run-1" });
+      await expect(
+        renameDatabase(ENV_ID, { from: "hris_acme", to: "hris_old" })
+      ).resolves.toEqual({ runId: "run-1" });
+      await expect(
+        restoreDatabaseBackup(ENV_ID, {
+          filename: "cnry_source_2026-11-05T02-00-00-000Z.sql.gz",
+          sourceEnvironmentId: SOURCE_ENV_ID,
+        })
       ).resolves.toEqual({ runId: "run-1" });
       await expect(
         restoreDatabaseBackup(ENV_ID, {

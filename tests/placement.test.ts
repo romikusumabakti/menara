@@ -58,6 +58,7 @@ type Service = {
   databaseHostId?: string | null;
   dbName?: string | null;
   dbRole?: string | null;
+  dbUser?: string | null;
 };
 
 const state = vi.hoisted(() => ({
@@ -793,6 +794,18 @@ describe("open placement: shared database hosts", () => {
           dbRole: "cnry_sandbox1",
         },
       ],
+      // This role is another environment's database, or its legacy login.
+      [
+        {
+          environmentId: OTHER_ENV_ID,
+          role: "db",
+          serverId: SERVER_OPEN,
+          serviceName: "acme-postgres",
+          databaseHostId: null,
+          dbName: "cnry_legacy",
+          dbUser: "cnry_sandbox1",
+        },
+      ],
       // A database inside this one's confinement, and the other way round.
       ...["cnry_sandbox1_copy", "cnry"].map((dbName) => [
         {
@@ -827,6 +840,23 @@ describe("open placement: shared database hosts", () => {
       },
     ];
     expect((await createEnvironment(sandbox)).success).toBe(true);
+  });
+
+  it("refuses a role that is another environment's database name", async () => {
+    state.used = [
+      {
+        environmentId: OTHER_ENV_ID,
+        role: "db",
+        serverId: SERVER_OPEN,
+        serviceName: "acme-postgres",
+        databaseHostId: HOST_ID,
+        dbName: "cnry_app",
+        dbRole: "cnry_other",
+      },
+    ];
+    await expect(
+      createEnvironment({ ...sandbox, dbRole: "cnry_app" })
+    ).rejects.toMatchObject({ status: 403, message: "placementDatabaseInUse" });
   });
 
   it("keeps refusing an unprefixed container that is not bound as shared", async () => {

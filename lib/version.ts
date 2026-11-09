@@ -1,7 +1,9 @@
-// The version baked into the image (Dockerfile ARG -> ENV). Pure and
-// client-safe: no server-only imports.
+// The version baked into the image (Dockerfile ARG -> ENV), and semver
+// helpers. No server-only imports, so the SPA may import the helpers; but
+// MENARA_VERSION is the server's: the browser has no process.env and gets
+// "0.0.0-dev", so client code takes the version from the API.
 export const MENARA_VERSION: string =
-  process.env.MENARA_VERSION || "0.0.0-dev";
+  globalThis.process?.env?.MENARA_VERSION || "0.0.0-dev";
 
 export type ParsedVersion = {
   major: number;

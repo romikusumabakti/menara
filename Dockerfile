@@ -29,11 +29,6 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# The release workflow passes the version without the leading v (1.2.3). It is
-# baked in so /api/health and the update check can report what is running.
-ARG MENARA_VERSION=0.0.0-dev
-ENV MENARA_VERSION=$MENARA_VERSION
-
 # `menara backup run` needs pg_dump (and restore pg_restore) of the server's
 # major, 18, which Debian does not ship: client only, from the PGDG apt repo.
 # The repo key is pinned by checksum.
@@ -58,6 +53,12 @@ RUN groupadd --system --gid 1001 app \
     && printf '#!/bin/sh\nexec bun /app/dist/cli.js "$@"\n' > /usr/local/bin/menara \
     && chmod 755 /usr/local/bin/menara \
     && install -d -o app -g app /var/lib/menara/backups
+
+# The release workflow passes the version without the leading v (1.2.3). It is
+# baked in so /api/health and the update check can report what is running.
+# Declared after the apt and useradd layers so a new version reuses them.
+ARG MENARA_VERSION=0.0.0-dev
+ENV MENARA_VERSION=$MENARA_VERSION
 
 # The server resolves ./dist/client and ./public against the working directory.
 COPY --from=builder --chown=app:app /app/dist ./dist

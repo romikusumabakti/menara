@@ -1,0 +1,11 @@
+# Watches the request the menara app at /opt/<instance> writes, e.g.
+# menara-updater@menara-beta.path for /opt/menara-beta.
+[Unit]
+Description=menara update requests for /opt/%i
+
+[Path]
+PathChanged=/opt/%i/updates/request.json
+Unit=menara-updater@%i.service
+
+[Install]
+WantedBy=multi-user.target

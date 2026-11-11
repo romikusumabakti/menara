@@ -283,6 +283,14 @@ describe("project group", () => {
     expect(linkByHref("/HMEM")?.getAttribute("data-active")).toBeNull();
   });
 
+  it("does not mark Issues active on an environment slugged issues-old", async () => {
+    await renderSidebar("member", "/HMEM/issues-old/deploys", {
+      ...scope(true),
+      environments: [{ ...env(true), slug: "issues-old" }],
+    });
+    expect(linkByHref("/HMEM/issues")?.getAttribute("data-active")).toBeNull();
+  });
+
   it("marks Overview active on the project page", async () => {
     await renderSidebar("member", "/HMEM", scope(true));
     expect(linkByHref("/HMEM")?.getAttribute("data-active")).toBe("true");

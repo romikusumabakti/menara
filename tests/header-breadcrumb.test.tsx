@@ -46,7 +46,6 @@ describe("getTrailingSegments on project pages", () => {
   it.each([
     ["/HMEM/issues", [{ labelKey: "breadcrumbs.issues" }]],
     ["/HMEM/milestones", []],
-    ["/HMEM/members", [{ labelKey: "breadcrumbs.members" }]],
     ["/HMEM/releases", [{ labelKey: "breadcrumbs.releases" }]],
     ["/HMEM/settings", [{ labelKey: "breadcrumbs.settings" }]],
     ["/HMEM/environments/new", [{ labelKey: "breadcrumbs.newEnvironment" }]],

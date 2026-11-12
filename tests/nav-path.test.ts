@@ -69,7 +69,7 @@ describe("parseNavPath", () => {
     ["/CMEM/issues/42", "issue"],
     ["/CMEM/environments/new", "new-environment"],
     ["/CMEM/members", "members"],
-    ["/CMEM/milestones", "milestones"],
+    ["/CMEM/milestones", "other"],
     ["/CMEM/releases", "releases"],
     ["/CMEM/new", "other"],
   ])("reads project-level path %s as %s", (path, page) => {
@@ -101,7 +101,6 @@ describe("parseNavPath", () => {
 describe("parseNavPath project pages", () => {
   it.each([
     ["/HMEM/issues", "issues"],
-    ["/HMEM/milestones", "milestones"],
     ["/HMEM/members", "members"],
     ["/HMEM/releases", "releases"],
     ["/HMEM/settings", "settings"],
@@ -128,7 +127,6 @@ describe("projectNavItems", () => {
     expect(projectNavItems("HMEM", "engineer", true)).toEqual([
       { key: "overview", href: "/HMEM" },
       { key: "issues", href: "/HMEM/issues" },
-      { key: "milestones", href: "/HMEM/milestones" },
       { key: "releases", href: "/HMEM/releases" },
       { key: "members", href: "/HMEM/members" },
       { key: "settings", href: "/HMEM/settings" },
@@ -142,7 +140,7 @@ describe("projectNavItems", () => {
   it("gives QA only what its role allows", () => {
     // Derived from canProject so the test follows the role matrix.
     const keys = projectNavItems("HMEM", "qa", true).map((i) => i.key);
-    expect(keys.slice(0, 3)).toEqual(["overview", "issues", "milestones"]);
+    expect(keys.slice(0, 2)).toEqual(["overview", "issues"]);
     expect(keys.includes("members")).toBe(
       canProject("qa", { member: ["manage"] })
     );
@@ -416,7 +414,7 @@ describe("projectSwitchHref", () => {
   it.each([
     ["/CMEM/issues", true, "/KESTREL/issues"],
     ["/CMEM/issues/42", true, "/KESTREL/issues"],
-    ["/CMEM/milestones", true, "/KESTREL/milestones"],
+    ["/CMEM/milestones", true, "/KESTREL"],
     ["/CMEM/members", true, "/KESTREL/members"],
     ["/CMEM/releases", true, "/KESTREL/releases"],
     ["/CMEM/releases", false, "/KESTREL"],

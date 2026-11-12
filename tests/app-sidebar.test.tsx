@@ -241,7 +241,6 @@ describe("project group", () => {
     expect(groupRows("Heron Membership")).toEqual([
       "Overview",
       "Issues",
-      "Milestones",
       "Releases",
       "Members",
       "Settings",

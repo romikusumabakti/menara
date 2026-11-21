@@ -1,5 +1,9 @@
-import { ilike } from "drizzle-orm";
-import { getTableConfig, type PgTable } from "drizzle-orm/pg-core";
+import { type SQL, sql } from "drizzle-orm";
+import {
+  type AnyPgColumn,
+  getTableConfig,
+  type PgTable,
+} from "drizzle-orm/pg-core";
 import type { db as Db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { type Legacy, legacyPattern } from "@/lib/legacy";
@@ -46,7 +50,21 @@ export const SECRET_COLUMNS: ReadonlySet<string> = new Set([
   "environment_variables.value",
 ]);
 
-const ROW_LIMIT = 1000;
+/** Rows read per column; one more is fetched so truncation is reported. */
+export const ROW_LIMIT = 1000;
+
+/** text, jsonb and text[] are scanned (the last two as their text form). */
+function scannable(column: {
+  columnType: string;
+  baseColumn?: { columnType: string };
+}): boolean {
+  return (
+    column.columnType === "PgText" ||
+    column.columnType === "PgJsonb" ||
+    (column.columnType === "PgArray" &&
+      column.baseColumn?.columnType === "PgText")
+  );
+}
 
 export type ScanTarget = {
   table: string;
@@ -83,7 +101,7 @@ export function scanTargets(): (ScanTarget & { source: unknown })[] {
     ).map((c) => c.name);
     for (const column of config.columns) {
       if (
-        column.columnType !== "PgText" ||
+        !scannable(column as never) ||
         SECRET_COLUMN.test(column.name) ||
         SECRET_COLUMNS.has(`${config.name}.${column.name}`)
       ) {
@@ -100,18 +118,23 @@ export function scanTargets(): (ScanTarget & { source: unknown })[] {
   return targets;
 }
 
-/** The default reader: rows of one column that mention the name at all. */
+/**
+ * The default reader: rows whose text form names the product as a whole word
+ * (the same pattern as `legacyPattern`, evaluated by Postgres), at most
+ * ROW_LIMIT + 1 so the caller can tell the result was cut.
+ */
 export function drizzleScanColumn(db: typeof Db, l: Legacy): ScanColumn {
   const sources = new Map(
     scanTargets().map((t) => [`${t.table}.${t.column}`, t.source])
   );
+  const pattern = legacyPattern(l).source;
   return async (target) => {
     const { table, column } = sources.get(
       `${target.table}.${target.column}`
-    ) as { table: PgTable; column: Parameters<typeof ilike>[0] };
+    ) as { table: PgTable; column: AnyPgColumn };
     const cols = getTableConfig(table).columns;
-    const fields: Record<string, (typeof cols)[number]> = {
-      value: column as never,
+    const fields: Record<string, AnyPgColumn | SQL> = {
+      value: sql`${column}::text`,
     };
     for (const name of target.idColumns) {
       const c = cols.find((x) => x.name === name);
@@ -120,8 +143,8 @@ export function drizzleScanColumn(db: typeof Db, l: Legacy): ScanColumn {
     const rows = (await db
       .select(fields as never)
       .from(table)
-      .where(ilike(column, `%${l.name.replace(/[\\%_]/g, "\\$&")}%`))
-      .limit(ROW_LIMIT)) as Record<string, unknown>[];
+      .where(sql`${column}::text ~* ${pattern}`)
+      .limit(ROW_LIMIT + 1)) as Record<string, unknown>[];
     return rows.map((row) => ({
       id: target.idColumns.map((n) => String(row[`id:${n}`])).join(",") || "-",
       value: String(row.value ?? ""),
@@ -139,8 +162,9 @@ function excerpt(text: string, l: Legacy): string {
 }
 
 /**
- * One hit per row whose text names the previous product as a word. The SQL
- * filter is a coarse substring match; the whole-word check is here.
+ * One hit per row whose text names the previous product as a word (checked
+ * in SQL and again here). A column with more matches than ROW_LIMIT yields a
+ * "could not check" hit, so the report is never falsely complete.
  */
 export async function scanDatabase(
   db: typeof Db,
@@ -151,7 +175,14 @@ export async function scanDatabase(
   const hits: SweepHit[] = [];
   for (const target of scanTargets()) {
     const rows = await scanColumn(target);
-    for (const row of rows) {
+    if (rows.length > ROW_LIMIT) {
+      hits.push({
+        system: "database",
+        location: `${target.table}.${target.column}`,
+        excerpt: `could not check: truncated, more than ${ROW_LIMIT} rows match`,
+      });
+    }
+    for (const row of rows.slice(0, ROW_LIMIT)) {
       if (isEncrypted(row.value) || !pattern.test(row.value)) continue;
       hits.push({
         system: "database",

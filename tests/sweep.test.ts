@@ -50,7 +50,8 @@ vi.doMock("@/lib/remark/woodpecker", async () => ({
 }));
 
 const { runSweep, formatSweepReport } = await import("@/lib/sweep/run");
-const { HISTORICAL_TABLES, scanDatabase } = await import("@/lib/sweep/db-scan");
+const { HISTORICAL_TABLES, ROW_LIMIT, scanDatabase, scanTargets } =
+  await import("@/lib/sweep/db-scan");
 
 const legacy = {
   name: "oldtool",
@@ -199,5 +200,45 @@ describe("scanDatabase", () => {
     expect(hits.map((h) => h.location)).toEqual(["projects.name (p3)"]);
     expect(hits.some((h) => h.location.endsWith("(p1)"))).toBe(false);
     expect(hits.some((h) => h.location.endsWith("(p2)"))).toBe(false);
+  });
+
+  it("scans jsonb and text[] columns but not secret-named ones", () => {
+    const names = scanTargets().map((t) => `${t.table}.${t.column}`);
+    expect(names).toContain("saved_views.params");
+    expect(names).toContain("app_components.build_spec");
+    expect(names).toContain("users.working_hours");
+    expect(names).toContain("deploy_targets.services");
+    expect(names).not.toContain("activity_log.data");
+  });
+
+  it("reports a jsonb hit with its text form", async () => {
+    const hits = await scanDatabase(base.db, legacy, async (target) =>
+      target.table === "saved_views" && target.column === "params"
+        ? [{ id: "v1", value: '{"q": "oldtool"}' }]
+        : []
+    );
+    expect(hits).toEqual([
+      {
+        system: "database",
+        location: "saved_views.params (v1)",
+        excerpt: '{"q": "oldtool"}',
+      },
+    ]);
+  });
+
+  it("reports truncation instead of dropping rows silently", async () => {
+    const rows = Array.from({ length: ROW_LIMIT + 1 }, (_, i) => ({
+      id: String(i),
+      value: "oldtool",
+    }));
+    const hits = await scanDatabase(base.db, legacy, async (target) =>
+      target.table === "issues" && target.column === "title" ? rows : []
+    );
+    expect(hits).toHaveLength(ROW_LIMIT + 1);
+    expect(hits.at(0)).toEqual({
+      system: "database",
+      location: "issues.title",
+      excerpt: `could not check: truncated, more than ${ROW_LIMIT} rows match`,
+    });
   });
 });

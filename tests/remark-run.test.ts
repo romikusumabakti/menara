@@ -31,6 +31,14 @@ vi.mock("@/lib/remark/assistant-logins", () => ({
   apply: async () => {},
 }));
 
+// Built, with nothing to convert here.
+for (const step of ["cloudflare", "targets", "s3"]) {
+  vi.doMock(`@/lib/remark/${step}`, () => ({
+    plan: async () => [],
+    apply: async () => {},
+  }));
+}
+
 const { runRemark, formatRemarkReport } = await import("@/lib/remark/run");
 
 const base = {
@@ -75,9 +83,9 @@ describe("runRemark", () => {
     ]);
     // Steps not built yet are listed as such, never run.
     expect(rest.map((s) => [s.step, s.available])).toEqual([
-      ["cloudflare", false],
-      ["targets", false],
-      ["s3", false],
+      ["cloudflare", true],
+      ["targets", true],
+      ["s3", true],
       ["woodpecker", false],
       ["jira", false],
       ["instance-db", false],

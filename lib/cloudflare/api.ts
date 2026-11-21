@@ -430,12 +430,19 @@ export async function findAccessAppByDomain(
   return (await listAccessAppsByDomain(creds, domain))[0] ?? null;
 }
 
+/** Every Access app of the account. */
+export async function listAccessApps(
+  creds: CloudflareCreds
+): Promise<AccessApp[]> {
+  return listAll<AccessApp>(creds, "/access/apps");
+}
+
 /** Every Access app that covers exactly `domain`, as findAccessAppByDomain matches. */
 export async function listAccessAppsByDomain(
   creds: CloudflareCreds,
   domain: string
 ): Promise<AccessApp[]> {
-  const apps = await listAll<AccessApp>(creds, "/access/apps");
+  const apps = await listAccessApps(creds);
   return apps.filter((app) =>
     accessAppDomains(app).some((candidate) => sameHostname(candidate, domain))
   );
@@ -468,6 +475,41 @@ export async function getAccessApp(
     creds,
     `${account({ ...creds, accountId })}/access/apps/${encodeURIComponent(appId)}`
   );
+}
+
+/**
+ * Renames an Access app; null when it is gone. Cloudflare has no partial
+ * update for an app (its PUT replaces the whole definition), so the app is
+ * read and written back as it is with only the name changed: read-only
+ * fields (id, aud, timestamps) left out, and its policies as references with
+ * their precedence (the GET expands them).
+ */
+export async function renameAccessApp(
+  creds: CloudflareCreds,
+  appId: string,
+  name: string
+): Promise<AccessApp | null> {
+  const path = `${account(creds)}/access/apps/${encodeURIComponent(appId)}`;
+  const current = await getResource<Record<string, unknown>>(creds, path);
+  if (!current) return null;
+  const {
+    id: _id,
+    aud: _aud,
+    created_at: _createdAt,
+    updated_at: _updatedAt,
+    policies,
+    ...rest
+  } = current;
+  const body: Record<string, unknown> = { ...rest, name };
+  if (Array.isArray(policies)) {
+    body.policies = (policies as { id: string; precedence?: number }[]).map(
+      (p) => ({ id: p.id, precedence: p.precedence })
+    );
+  }
+  return request<AccessApp>(creds.apiToken, path, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
 }
 
 export async function deleteAccessApp(

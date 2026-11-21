@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { lockLines, moveIfLegacyLine } from "@/lib/deploy/legacy-shell";
+import {
+  legacyComposeFiles,
+  lockLines,
+  moveIfLegacyLine,
+} from "@/lib/deploy/legacy-shell";
 import {
   bundleImageSchema,
   composeServiceSchema,
@@ -138,20 +142,9 @@ export const OVERRIDE_SED_EXPR = `s|^COMPOSE_FILE=compose\\.yaml:|COMPOSE_FILE=c
 // Persistent files an install on the previous name left in the deploy dir.
 function legacyMoves(l: Legacy | null, overlay: boolean): string[] {
   if (!l) return [];
-  const pairs: [string, string][] = [
-    [`.env.${l.name}-unmanaged`, ".env.menara-unmanaged"],
-    [`.env.${l.name}-prev`, ".env.menara-prev"],
-  ];
-  if (overlay) {
-    pairs.push(
-      [`compose.${l.name}.yaml`, COMPOSE_OVERLAY_FILE],
-      [
-        `compose.${l.name}.yaml.${l.name}-prev`,
-        `${COMPOSE_OVERLAY_FILE}.menara-prev`,
-      ]
-    );
-  }
-  return pairs.map(([o, n]) => moveIfLegacyLine(o, n, "ENV INSTALL FAILED"));
+  return legacyComposeFiles(l, overlay).map(([o, n]) =>
+    moveIfLegacyLine(o, n, "ENV INSTALL FAILED")
+  );
 }
 
 /**

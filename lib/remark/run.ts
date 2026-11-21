@@ -1,6 +1,9 @@
 import * as assistantLogins from "@/lib/remark/assistant-logins";
+import * as cloudflare from "@/lib/remark/cloudflare";
 import * as dbMarkers from "@/lib/remark/db-markers";
+import * as s3 from "@/lib/remark/s3";
 import * as ssh from "@/lib/remark/ssh";
+import * as targets from "@/lib/remark/targets";
 import {
   messageOf,
   REMARK_STEPS,
@@ -18,6 +21,9 @@ const REGISTRY: Partial<Record<RemarkStep, RemarkStepModule>> = {
   ssh,
   "db-markers": dbMarkers,
   "assistant-logins": assistantLogins,
+  cloudflare,
+  targets,
+  s3,
 };
 
 export function stepModule(step: RemarkStep): RemarkStepModule | undefined {

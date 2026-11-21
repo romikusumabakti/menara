@@ -7,11 +7,17 @@ import { stat } from "node:fs/promises";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
+  CopyObjectCommand,
+  CreateMultipartUploadCommand,
   DeleteObjectsCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   ListObjectsV2Command,
   S3Client,
   type S3ClientConfig,
+  UploadPartCopyCommand,
 } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import { eq } from "drizzle-orm";
@@ -33,6 +39,17 @@ export interface ObjectStore {
   /** Streams `filePath` into an object. */
   upload(key: string, filePath: string): Promise<void>;
   delete(keys: string[]): Promise<void>;
+  /** An object's size and ETag, or null when there is none. S3 stores only. */
+  head?(key: string): Promise<{ size: number; etag: string } | null>;
+  /**
+   * Copies an object to another key of the same bucket, server side, only
+   * while it is still the object `head` saw (`etag`). S3 stores only.
+   */
+  copy?(
+    from: string,
+    to: string,
+    source: { size: number; etag: string }
+  ): Promise<void>;
 }
 
 // 16 MiB parts: up to ~160 GiB within S3's 10 000-part limit.
@@ -100,6 +117,8 @@ export function prefixedStore(
   prefix: string | null
 ): ObjectStore {
   if (!prefix) return inner;
+  const head = inner.head?.bind(inner);
+  const copy = inner.copy?.bind(inner);
   return {
     async list(under) {
       return (await inner.list(`${prefix}${under}`))
@@ -110,7 +129,89 @@ export function prefixedStore(
     read: (key) => inner.read(`${prefix}${key}`),
     upload: (key, filePath) => inner.upload(`${prefix}${key}`, filePath),
     delete: (keys) => inner.delete(keys.map((key) => `${prefix}${key}`)),
+    ...(head && { head: (key: string) => head(`${prefix}${key}`) }),
+    ...(copy && {
+      copy: (
+        from: string,
+        to: string,
+        source: { size: number; etag: string }
+      ) => copy(`${prefix}${from}`, `${prefix}${to}`, source),
+    }),
   };
+}
+
+// CopyObject takes objects up to 5 GiB; larger ones are copied in parts.
+const COPY_SINGLE_MAX = 5 * 1024 ** 3;
+const COPY_PART_SIZE = 512 * 1024 ** 2;
+
+const copySource = (Bucket: string, key: string) =>
+  `${Bucket}/${key.split("/").map(encodeURIComponent).join("/")}`;
+
+/**
+ * Copies `from` to `to` inside the bucket, server side: one CopyObject up to
+ * `singleMax` bytes, else a multipart upload of UploadPartCopy ranges
+ * (aborted on failure). Every request is conditional on the source's ETag,
+ * so an object replaced meanwhile is not copied. Exported for tests.
+ */
+export async function copyObject(
+  client: S3Client,
+  Bucket: string,
+  from: string,
+  to: string,
+  source: { size: number; etag: string },
+  limits = { singleMax: COPY_SINGLE_MAX, partSize: COPY_PART_SIZE }
+): Promise<void> {
+  const CopySource = copySource(Bucket, from);
+  const CopySourceIfMatch = source.etag;
+  if (source.size <= limits.singleMax) {
+    await client.send(
+      new CopyObjectCommand({ Bucket, Key: to, CopySource, CopySourceIfMatch })
+    );
+    return;
+  }
+  const { UploadId } = await client.send(
+    new CreateMultipartUploadCommand({ Bucket, Key: to })
+  );
+  try {
+    const Parts: { PartNumber: number; ETag?: string }[] = [];
+    for (
+      let start = 0, PartNumber = 1;
+      start < source.size;
+      start += limits.partSize, PartNumber++
+    ) {
+      const end = Math.min(start + limits.partSize, source.size) - 1;
+      const res = await client.send(
+        new UploadPartCopyCommand({
+          Bucket,
+          Key: to,
+          UploadId,
+          PartNumber,
+          CopySource,
+          CopySourceIfMatch,
+          CopySourceRange: `bytes=${start}-${end}`,
+        })
+      );
+      Parts.push({ PartNumber, ETag: res.CopyPartResult?.ETag });
+    }
+    await client.send(
+      new CompleteMultipartUploadCommand({
+        Bucket,
+        Key: to,
+        UploadId,
+        MultipartUpload: { Parts },
+      })
+    );
+  } catch (error) {
+    await client
+      .send(new AbortMultipartUploadCommand({ Bucket, Key: to, UploadId }))
+      .catch(() => {});
+    throw error;
+  }
+}
+
+function isNotFound(error: unknown): boolean {
+  const e = error as { name?: string; $metadata?: { httpStatusCode?: number } };
+  return e?.name === "NotFound" || e?.$metadata?.httpStatusCode === 404;
 }
 
 export function s3ObjectStore(client: S3Client, Bucket: string): ObjectStore {
@@ -162,6 +263,16 @@ export function s3ObjectStore(client: S3Client, Bucket: string): ObjectStore {
         leavePartsOnError: false,
       }).done();
     },
+    async head(Key) {
+      try {
+        const res = await client.send(new HeadObjectCommand({ Bucket, Key }));
+        return { size: res.ContentLength ?? 0, etag: res.ETag ?? "" };
+      } catch (error) {
+        if (isNotFound(error)) return null;
+        throw error;
+      }
+    },
+    copy: (from, to, source) => copyObject(client, Bucket, from, to, source),
     async delete(keys) {
       // DeleteObjects takes at most 1000 keys per call.
       for (let i = 0; i < keys.length; i += 1000) {

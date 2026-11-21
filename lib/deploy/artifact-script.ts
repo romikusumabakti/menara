@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { lockLines, moveIfLegacyLine } from "@/lib/deploy/legacy-shell";
+import {
+  legacyPrevPath,
+  lockLines,
+  moveIfLegacyLine,
+} from "@/lib/deploy/legacy-shell";
 import { DEFAULT_STABLE_SECONDS } from "@/lib/deploy/script";
 import {
   deployDirSchema,
@@ -185,8 +189,7 @@ function jarLines(
     ...(l
       ? [
           moveIfLegacyLine(
-            `${dir}/.${l.name}-prev`,
-            `${dir}/.menara-prev`,
+            ...legacyPrevPath(l, "jar", dir),
             "LEGACY MOVE FAILED"
           ),
         ]
@@ -281,8 +284,7 @@ function staticLines(
     ...(l
       ? [
           moveIfLegacyLine(
-            `${webRoot}.${l.name}-prev`,
-            `${webRoot}.menara-prev`,
+            ...legacyPrevPath(l, "static", webRoot),
             "LEGACY MOVE FAILED"
           ),
         ]

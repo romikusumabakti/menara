@@ -1,7 +1,8 @@
-// Minimal Cloudflare REST client — the three DNS-record calls this feature
-// needs, plus a token check.
+// Minimal Cloudflare REST client — the DNS-record calls this feature needs
+// (plus a token check, and the reads and comment update `menara remark`
+// uses on the records it made).
 //
-// This is deliberately not the Cloudflare SDK: the whole surface is three
+// This is deliberately not the Cloudflare SDK: the whole surface is a few
 // endpoints, and a dependency that can reach every Cloudflare product is a
 // poor match for a credential scoped to `Zone:DNS:Edit` on one zone.
 //
@@ -16,6 +17,7 @@ import {
   CloudflareApiError,
   describeCloudflareErrors,
   request,
+  requestWithInfo,
 } from "@/lib/cloudflare/request";
 
 // Re-exported: callers and tests import the error type and its formatter from
@@ -28,6 +30,7 @@ export type DnsRecord = {
   type: string;
   content: string;
   proxied: boolean;
+  comment?: string | null;
 };
 
 /**
@@ -94,6 +97,63 @@ export async function createCnameRecord(
         comment: options.comment,
       }),
     }
+  );
+}
+
+/** The record with this id, or null when it is gone. */
+export async function getDnsRecord(
+  zone: { zoneId: string; apiToken: string },
+  recordId: string
+): Promise<DnsRecord | null> {
+  try {
+    return await request<DnsRecord>(
+      zone.apiToken,
+      `/zones/${encodeURIComponent(zone.zoneId)}/dns_records/${encodeURIComponent(recordId)}`
+    );
+  } catch (error) {
+    if (error instanceof CloudflareApiError && error.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/** Every record of the zone whose content is exactly `content`, across pages. */
+export async function listDnsRecordsByContent(
+  zone: { zoneId: string; apiToken: string },
+  content: string
+): Promise<DnsRecord[]> {
+  const records: DnsRecord[] = [];
+  let page = 1;
+  let totalPages = 1;
+  do {
+    const query = new URLSearchParams({
+      content,
+      page: String(page),
+      per_page: "100",
+    });
+    const { result, info } = await requestWithInfo<DnsRecord[]>(
+      zone.apiToken,
+      `/zones/${encodeURIComponent(zone.zoneId)}/dns_records?${query}`
+    );
+    records.push(...result);
+    totalPages = info.total_pages ?? 1;
+    page++;
+  } while (page <= totalPages);
+  // The filter is exact on Cloudflare's side; the check keeps it so here.
+  return records.filter((record) => record.content === content);
+}
+
+/** Sets a record's comment and leaves the rest of it as it is (PATCH). */
+export async function setDnsRecordComment(
+  zone: { zoneId: string; apiToken: string },
+  recordId: string,
+  comment: string
+): Promise<DnsRecord> {
+  return request<DnsRecord>(
+    zone.apiToken,
+    `/zones/${encodeURIComponent(zone.zoneId)}/dns_records/${encodeURIComponent(recordId)}`,
+    { method: "PATCH", body: JSON.stringify({ comment }) }
   );
 }
 

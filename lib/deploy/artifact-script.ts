@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { lockLines, moveIfLegacyLine } from "@/lib/deploy/legacy-shell";
 import { DEFAULT_STABLE_SECONDS } from "@/lib/deploy/script";
 import {
   deployDirSchema,
@@ -7,6 +8,7 @@ import {
   jarNameSchema,
   systemdUnitSchema,
 } from "@/lib/deploy/validation";
+import type { Legacy } from "@/lib/legacy";
 import { shq } from "@/lib/sh";
 
 /**
@@ -117,15 +119,17 @@ export function buildArtifactExtractCommand(stagingDir: string): string {
 
 /** Throws a ZodError when any field of the input is invalid. */
 export function buildArtifactDeployScript(
-  input: ArtifactDeployScriptInput
+  input: ArtifactDeployScriptInput,
+  legacyConfig: Legacy | null = null
 ): string {
   const v = inputSchema.parse(input);
   const lines =
     v.kind === "jar"
-      ? jarLines(v)
+      ? jarLines(v, legacyConfig)
       : staticLines(
           v.deployDir,
-          artifactStagingDir("static", v.deployDir, v.deploymentId)
+          artifactStagingDir("static", v.deployDir, v.deploymentId),
+          legacyConfig
         );
   return `${lines.join("\n")}\n`;
 }
@@ -135,6 +139,7 @@ export function buildArtifactDeployScript(
 // deploy per target at a time.
 function preamble(
   lockFile: string,
+  legacyLockFile: string | null,
   staging: string,
   cdDir: string | null
 ): string[] {
@@ -143,20 +148,26 @@ function preamble(
     "trap '' HUP PIPE",
     `trap ${shq(`rm -rf ${shq(staging)}`)} EXIT`,
     ...(cdDir === null ? [] : [`cd ${shq(cdDir)}`]),
-    `exec 9>${shq(lockFile)}`,
-    `flock -w ${LOCK_WAIT_SECONDS} 9 || { echo 'DEPLOY LOCKED'; exit 1; }`,
+    ...lockLines(9, lockFile, LOCK_WAIT_SECONDS),
+    // The previous name's lock too, always taken after Menara's.
+    ...(legacyLockFile === null
+      ? []
+      : lockLines(6, legacyLockFile, LOCK_WAIT_SECONDS)),
   ];
 }
 
-function jarLines(v: {
-  deployDir: string;
-  deploymentId: string;
-  jarName: string;
-  systemdUnit: string;
-  healthUrl: string | null;
-  healthTimeoutSeconds: number;
-  stableSeconds: number;
-}): string[] {
+function jarLines(
+  v: {
+    deployDir: string;
+    deploymentId: string;
+    jarName: string;
+    systemdUnit: string;
+    healthUrl: string | null;
+    healthTimeoutSeconds: number;
+    stableSeconds: number;
+  },
+  l: Legacy | null
+): string[] {
   const dir = v.deployDir;
   const staging = artifactStagingDir("jar", dir, v.deploymentId);
   const unit = shq(v.systemdUnit);
@@ -164,7 +175,22 @@ function jarLines(v: {
   const prevDir = shq(`${dir}/.menara-prev`);
   const prev = shq(`${dir}/.menara-prev/${v.jarName}`);
   return [
-    ...preamble(`${dir}/.menara-deploy.lock`, staging, dir),
+    ...preamble(
+      `${dir}/.menara-deploy.lock`,
+      l ? `${dir}/.${l.name}-deploy.lock` : null,
+      staging,
+      dir
+    ),
+    // Moved before the prev dir is used below.
+    ...(l
+      ? [
+          moveIfLegacyLine(
+            `${dir}/.${l.name}-prev`,
+            `${dir}/.menara-prev`,
+            "LEGACY MOVE FAILED"
+          ),
+        ]
+      : []),
 
     // 1. Exactly one non-empty *.jar staged (an unmatched glob stays literal).
     `set -- ${shq(`${staging}/bundle/artifact`)}/*.jar`,
@@ -236,13 +262,31 @@ function jarLines(v: {
   ];
 }
 
-function staticLines(webRoot: string, staging: string): string[] {
+function staticLines(
+  webRoot: string,
+  staging: string,
+  l: Legacy | null
+): string[] {
   const artifact = shq(`${staging}/bundle/artifact`);
   const root = shq(webRoot);
   const next = shq(`${webRoot}.menara-new`);
   const prev = shq(`${webRoot}.menara-prev`);
   return [
-    ...preamble(`${webRoot}.menara-deploy.lock`, staging, null),
+    ...preamble(
+      `${webRoot}.menara-deploy.lock`,
+      l ? `${webRoot}.${l.name}-deploy.lock` : null,
+      staging,
+      null
+    ),
+    ...(l
+      ? [
+          moveIfLegacyLine(
+            `${webRoot}.${l.name}-prev`,
+            `${webRoot}.menara-prev`,
+            "LEGACY MOVE FAILED"
+          ),
+        ]
+      : []),
 
     // 1. A web root without index.html is not a build.
     `if [ ! -f ${artifact}/index.html ]; then echo 'ARTIFACT INVALID'; exit 1; fi`,
@@ -264,6 +308,9 @@ function staticLines(webRoot: string, staging: string): string[] {
     //    reload cover every site, so two deploys must not interleave.
     `exec 8>${shq(NGINX_LOCK_FILE)}`,
     `flock -w ${NGINX_LOCK_WAIT_SECONDS} 8 || { echo 'DEPLOY LOCKED'; exit 1; }`,
+    ...(l
+      ? lockLines(7, `/run/${l.name}-nginx.lock`, NGINX_LOCK_WAIT_SECONDS)
+      : []),
     `rm -rf ${prev}`,
     "had_root=0",
     `if [ -e ${root} ]; then mv ${root} ${prev}; had_root=1; fi`,
@@ -277,6 +324,7 @@ function staticLines(webRoot: string, staging: string): string[] {
     "fi",
     "systemctl reload nginx",
     "exec 8>&-",
+    ...(l ? ["exec 7>&-"] : []),
 
     // 5.
     "echo 'HEALTHY'",

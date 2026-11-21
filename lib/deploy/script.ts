@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { lockLines, moveIfLegacyLine } from "@/lib/deploy/legacy-shell";
 import {
   bundleImageSchema,
   composeServiceSchema,
@@ -8,6 +9,7 @@ import {
   envVarNameSchema,
   HEALTH_TIMEOUT_MAX_SECONDS,
 } from "@/lib/deploy/validation";
+import type { Legacy } from "@/lib/legacy";
 import { shq } from "@/lib/sh";
 import { COMPOSE_OVERLAY_FILE } from "@/lib/variables/compose-overlay";
 
@@ -133,8 +135,34 @@ export const COMPOSE_OVERRIDE_FILE = "compose.override.yaml";
 // Inserts the override right after compose.yaml in the staged COMPOSE_FILE line.
 export const OVERRIDE_SED_EXPR = `s|^COMPOSE_FILE=compose\\.yaml:|COMPOSE_FILE=compose.yaml:${COMPOSE_OVERRIDE_FILE}:|`;
 
-/** Throws a ZodError when any field of the input is invalid. */
-export function buildDeployScript(input: DeployScriptInput): string {
+// Persistent files an install on the previous name left in the deploy dir.
+function legacyMoves(l: Legacy | null, overlay: boolean): string[] {
+  if (!l) return [];
+  const pairs: [string, string][] = [
+    [`.env.${l.name}-unmanaged`, ".env.menara-unmanaged"],
+    [`.env.${l.name}-prev`, ".env.menara-prev"],
+  ];
+  if (overlay) {
+    pairs.push(
+      [`compose.${l.name}.yaml`, COMPOSE_OVERLAY_FILE],
+      [
+        `compose.${l.name}.yaml.${l.name}-prev`,
+        `${COMPOSE_OVERLAY_FILE}.menara-prev`,
+      ]
+    );
+  }
+  return pairs.map(([o, n]) => moveIfLegacyLine(o, n, "ENV INSTALL FAILED"));
+}
+
+/**
+ * Throws a ZodError when any field of the input is invalid. `legacyConfig`
+ * (from `legacy()`, read by the caller) adds the previous name's lock and file
+ * moves; null leaves the script exactly as it is without transition support.
+ */
+export function buildDeployScript(
+  input: DeployScriptInput,
+  legacyConfig: Legacy | null = null
+): string {
   const v = deployScriptInputSchema.parse(input);
   const image = shq(`${v.registry}/${v.bundleImage}:${v.tag}`);
   const services = v.services.map(shq).join(" ");
@@ -166,6 +194,11 @@ export function buildDeployScript(input: DeployScriptInput): string {
     // dropped session is still running.
     "exec 9>.menara-deploy.lock",
     `flock -w ${LOCK_WAIT_SECONDS} 9 || { echo 'DEPLOY LOCKED'; exit 1; }`,
+    // A target also deployed by an install still on the previous name: hold
+    // its lock too, always taken after Menara's.
+    ...(legacyConfig
+      ? lockLines(6, `.${legacyConfig.name}-deploy.lock`, LOCK_WAIT_SECONDS)
+      : []),
 
     // 1. Deploy bundle: compose.yaml and friends, extracted into the deploy dir.
     `docker pull ${image}`,
@@ -185,6 +218,7 @@ export function buildDeployScript(input: DeployScriptInput): string {
     //     deploy.
     ...(v.installStagedEnvFile
       ? [
+          ...legacyMoves(legacyConfig, overlayMode !== undefined),
           "if [ ! -e .env.menara-unmanaged ] && [ -e .env ]; then cp -p .env .env.menara-unmanaged && chmod 600 .env.menara-unmanaged || { echo 'ENV INSTALL FAILED'; exit 1; }; fi",
           "if [ -f .env ]; then cp -p .env .env.menara-prev && chmod 600 .env.menara-prev || { echo 'ENV INSTALL FAILED'; exit 1; }; fi",
           ...(overlayMode === undefined

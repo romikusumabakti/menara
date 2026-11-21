@@ -25,6 +25,7 @@ import {
 import { deployTagSchema, envVarNameSchema } from "@/lib/deploy/validation";
 import { loadServerCredentials } from "@/lib/environments";
 import { handleCreateDatabaseBackup } from "@/lib/jobs/processor";
+import { legacy } from "@/lib/legacy";
 import { enqueue, type JobMap } from "@/lib/queue";
 import { openArtifactLayer } from "@/lib/registry/artifact";
 import { RemoteCommandError } from "@/lib/remote-command-error";
@@ -363,26 +364,29 @@ async function runClaimedDeployment(
 
   // Built (and validated) before the backup, so a bad target fails the deploy
   // without taking a backup first.
-  const script = buildDeployScript({
-    registry,
-    bundleImage: component.bundleImage,
-    tag: deployment.tag,
-    deployDir: target.deployDir,
-    services: target.services,
-    tagVariable: target.tagVariable,
-    preStartCommand: target.preStartCommand,
-    healthUrl: target.healthUrl,
-    healthTimeoutSeconds: target.healthTimeoutSeconds,
-    ...(managedVars
-      ? {
-          installStagedEnvFile: {
-            deploymentId,
-            variableCount: managedVars.length,
-            overlay: databaseNetwork !== null,
-          },
-        }
-      : {}),
-  });
+  const script = buildDeployScript(
+    {
+      registry,
+      bundleImage: component.bundleImage,
+      tag: deployment.tag,
+      deployDir: target.deployDir,
+      services: target.services,
+      tagVariable: target.tagVariable,
+      preStartCommand: target.preStartCommand,
+      healthUrl: target.healthUrl,
+      healthTimeoutSeconds: target.healthTimeoutSeconds,
+      ...(managedVars
+        ? {
+            installStagedEnvFile: {
+              deploymentId,
+              variableCount: managedVars.length,
+              overlay: databaseNetwork !== null,
+            },
+          }
+        : {}),
+    },
+    legacy()
+  );
 
   if (target.backupBeforeDeploy) {
     // The backup is part of the deploy: it carries the deploy run's actor
@@ -534,22 +538,28 @@ async function runArtifactDeployment(
         "The jar target has no jar name or systemd unit — set them in Menara"
       );
     }
-    script = buildArtifactDeployScript({
-      kind: "jar",
-      deployDir: target.deployDir,
-      deploymentId,
-      jarName: target.jarName,
-      systemdUnit: target.systemdUnit,
-      healthUrl: target.healthUrl,
-      healthTimeoutSeconds: target.healthTimeoutSeconds,
-    });
+    script = buildArtifactDeployScript(
+      {
+        kind: "jar",
+        deployDir: target.deployDir,
+        deploymentId,
+        jarName: target.jarName,
+        systemdUnit: target.systemdUnit,
+        healthUrl: target.healthUrl,
+        healthTimeoutSeconds: target.healthTimeoutSeconds,
+      },
+      legacy()
+    );
   } else {
-    script = buildArtifactDeployScript({
-      kind: "static",
-      deployDir: target.deployDir,
-      deploymentId,
-      healthTimeoutSeconds: target.healthTimeoutSeconds,
-    });
+    script = buildArtifactDeployScript(
+      {
+        kind: "static",
+        deployDir: target.deployDir,
+        deploymentId,
+        healthTimeoutSeconds: target.healthTimeoutSeconds,
+      },
+      legacy()
+    );
   }
   const staging = artifactStagingDir(
     target.kind,

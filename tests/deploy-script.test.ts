@@ -15,6 +15,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildDeployScript, type DeployScriptInput } from "@/lib/deploy/script";
 import { deployDirSchema } from "@/lib/deploy/validation";
+import type { Legacy } from "@/lib/legacy";
 
 // The deploy script is what runs on a client's Compose host over SSH. Like the
 // job command builders, it is tested both by asserting on the produced text
@@ -35,6 +36,13 @@ const base: DeployScriptInput = {
   healthTimeoutSeconds: 180,
   // Most stub runs only need one OK poll; the stability window has its own tests.
   stableSeconds: 0,
+};
+
+const LEGACY: Legacy = {
+  name: "oldtool",
+  upper: "OLDTOOL",
+  title: "Oldtool",
+  instance: "oldtool-beta",
 };
 
 const DEPLOYMENT_ID = "0197f3a0-1b2c-7def-8000-0123456789a4";
@@ -404,6 +412,8 @@ interface StubRun {
   overlayPrevMode: number | null;
   /** Staged overlay files still in the deploy dir. */
   overlayStagedLeft: string[];
+  /** Everything left in the deploy dir. */
+  files: string[];
   log: string;
   elapsedMs: number;
 }
@@ -421,7 +431,8 @@ async function runStub(
   extraStubs: Record<string, string> = {},
   staged: string | null = null,
   leftovers: string[] = [],
-  overlayFiles: { staged?: string; existing?: string; prev?: string } = {}
+  overlayFiles: { staged?: string; existing?: string; prev?: string } = {},
+  legacyConfig: Legacy | null = null
 ): Promise<StubRun> {
   const root = mkdtempSync(join(tmpdir(), "deploy-script-"));
   const bin = join(root, "bin");
@@ -456,7 +467,10 @@ async function runStub(
   const log = join(root, "argv.log");
   writeFileSync(log, "");
 
-  const script = buildDeployScript({ ...base, deployDir, ...input });
+  const script = buildDeployScript(
+    { ...base, deployDir, ...input },
+    legacyConfig
+  );
   const started = Date.now();
   const child = spawn("sh", ["-c", script], {
     timeout: 20_000,
@@ -500,6 +514,7 @@ async function runStub(
     overlayStagedLeft: readdirSync(deployDir).filter((f) =>
       f.startsWith(`${OVERLAY}.menara-new`)
     ),
+    files: readdirSync(deployDir),
     log: readFileSync(log, "utf8"),
     elapsedMs: Date.now() - started,
   };
@@ -958,6 +973,84 @@ describe.concurrent("buildDeployScript stub runs", () => {
     expect(r.log).not.toContain("compose");
     expect(r.env).toBe("IMAGE_TAG=old\n");
   });
+
+  // --- transition: the previous name's lock and files ------------------------
+
+  it("takes one lock without legacy config", () => {
+    const script = buildDeployScript({
+      ...base,
+      installStagedEnvFile: WITH_OVERLAY,
+    });
+    expect(script.match(/^exec \d+>/gm)).toEqual(["exec 9>"]);
+    expect(script).not.toContain("oldtool");
+    expect(script).not.toContain("mv --");
+  });
+
+  it("takes both lock files when a legacy name is set", () => {
+    const script = buildDeployScript(base, LEGACY);
+    expect(script).toContain(
+      [
+        "exec 9>.menara-deploy.lock",
+        "flock -w 600 9 || { echo 'DEPLOY LOCKED'; exit 1; }",
+        "exec 6>'.oldtool-deploy.lock'",
+        "flock -w 600 6 || { echo 'DEPLOY LOCKED'; exit 1; }",
+        "",
+      ].join("\n")
+    );
+  });
+
+  it("moves legacy target files", () => {
+    const script = buildDeployScript(
+      { ...base, installStagedEnvFile: WITH_OVERLAY },
+      LEGACY
+    );
+    const move = (o: string, n: string) =>
+      `if [ -e '${o}' ] && [ ! -e '${n}' ]; then mv -- '${o}' '${n}' || { echo 'ENV INSTALL FAILED'; exit 1; }; fi`;
+    for (const line of [
+      move(".env.oldtool-unmanaged", ".env.menara-unmanaged"),
+      move(".env.oldtool-prev", ".env.menara-prev"),
+      move("compose.oldtool.yaml", "compose.menara.yaml"),
+      move(
+        "compose.oldtool.yaml.oldtool-prev",
+        "compose.menara.yaml.menara-prev"
+      ),
+    ]) {
+      expect(script).toContain(line);
+      expect(script.indexOf(line)).toBeLessThan(
+        script.indexOf("if [ ! -e .env.menara-unmanaged ]")
+      );
+    }
+    // Overlay files are only moved when the overlay is managed.
+    expect(
+      buildDeployScript({ ...base, installStagedEnvFile: MANAGED }, LEGACY)
+    ).not.toContain("compose.oldtool.yaml");
+  });
+
+  it(
+    "stub run with legacy config: moves the previous name's files before using them",
+    async () => {
+      const r = await runStub(
+        { installStagedEnvFile: WITH_OVERLAY },
+        "IMAGE_TAG=old\n",
+        "backend running healthy",
+        {},
+        {},
+        `IMAGE_TAG=${base.tag}\n`,
+        [".env.oldtool-unmanaged", "compose.oldtool.yaml"],
+        { staged: "new: overlay\n" },
+        LEGACY
+      );
+      expect(r.status).toBe(0);
+      // The old hand-written copy was moved, not replaced by a fresh one.
+      expect(r.unmanaged).toBe("OLD=1\n");
+      expect(r.overlayPrev).toBe("OLD=1\n");
+      expect(r.overlay).toBe("new: overlay\n");
+      expect(r.files.filter((f) => f.includes("oldtool"))).toEqual([
+        ".oldtool-deploy.lock",
+      ]);
+    },
+    SLOW
+  );
 
   // --- compose overlay, installed with the .env -----------------------------
 

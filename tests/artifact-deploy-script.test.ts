@@ -20,6 +20,7 @@ import {
   buildArtifactExtractCommand,
   NGINX_LOCK_FILE,
 } from "@/lib/deploy/artifact-script";
+import type { Legacy } from "@/lib/legacy";
 
 // The artifact deploy scripts run as root on a legacy (Rocky 8) VM over SSH.
 // Like tests/deploy-script.test.ts, they are tested on their text and by
@@ -33,6 +34,13 @@ type StaticInput = Extract<ArtifactDeployScriptInput, { kind: "static" }>;
 const ID = "0197f3a0-1b2c-7def-8000-0123456789a4";
 const OTHER_ID = "0197f3a0-1b2c-7def-8000-0123456789b5";
 const INCOMING = `.menara-incoming-${ID}`;
+
+const LEGACY: Legacy = {
+  name: "oldtool",
+  upper: "OLDTOOL",
+  title: "Oldtool",
+  instance: "oldtool-beta",
+};
 
 const jarBase: JarInput = {
   kind: "jar",
@@ -134,6 +142,113 @@ describe("buildArtifactDeployScript validation", () => {
 // left is the unquoted text. The trap's nested quoting has its own exact test.
 const unquoted = (script: string) =>
   script.replaceAll("'\\''", "").replace(/'[^']*'/g, "''");
+
+describe("buildArtifactDeployScript with legacy config", () => {
+  it("takes one lock without legacy config", () => {
+    expect(
+      buildArtifactDeployScript(jarBase).match(/^exec \d+>[^&]/gm)
+    ).toEqual(["exec 9>'"]);
+    expect(
+      buildArtifactDeployScript(staticBase).match(/^exec \d+>[^&]/gm)
+    ).toEqual(["exec 9>'", "exec 8>'"]);
+    expect(buildArtifactDeployScript(jarBase)).not.toContain("oldtool");
+    expect(buildArtifactDeployScript(staticBase)).not.toContain("oldtool");
+  });
+
+  it("takes both lock files when a legacy name is set (jar)", () => {
+    const script = buildArtifactDeployScript(jarBase, LEGACY);
+    expect(script).toContain(
+      [
+        "exec 9>'/srv/core/.menara-deploy.lock'",
+        "flock -w 600 9 || { echo 'DEPLOY LOCKED'; exit 1; }",
+        "exec 6>'/srv/core/.oldtool-deploy.lock'",
+        "flock -w 600 6 || { echo 'DEPLOY LOCKED'; exit 1; }",
+        "",
+      ].join("\n")
+    );
+  });
+
+  it("takes both deploy locks and both nginx locks when a legacy name is set (static)", () => {
+    const script = buildArtifactDeployScript(staticBase, LEGACY);
+    expect(script).toContain(
+      [
+        "exec 9>'/usr/share/nginx/html.menara-deploy.lock'",
+        "flock -w 600 9 || { echo 'DEPLOY LOCKED'; exit 1; }",
+        "exec 6>'/usr/share/nginx/html.oldtool-deploy.lock'",
+        "flock -w 600 6 || { echo 'DEPLOY LOCKED'; exit 1; }",
+        "",
+      ].join("\n")
+    );
+    expect(script).toContain(
+      [
+        "exec 8>'/run/menara-nginx.lock'",
+        "flock -w 120 8 || { echo 'DEPLOY LOCKED'; exit 1; }",
+        "exec 7>'/run/oldtool-nginx.lock'",
+        "flock -w 120 7 || { echo 'DEPLOY LOCKED'; exit 1; }",
+        "",
+      ].join("\n")
+    );
+    expect(script).toContain("exec 8>&-\nexec 7>&-");
+  });
+
+  it("moves legacy target files", () => {
+    const move = (o: string, n: string) =>
+      `if [ -e '${o}' ] && [ ! -e '${n}' ]; then mv -- '${o}' '${n}' || { echo 'LEGACY MOVE FAILED'; exit 1; }; fi`;
+    const jar = buildArtifactDeployScript(jarBase, LEGACY);
+    const jarMove = move("/srv/core/.oldtool-prev", "/srv/core/.menara-prev");
+    expect(jar).toContain(jarMove);
+    expect(jar.indexOf(jarMove)).toBeLessThan(
+      jar.indexOf("mkdir -p '/srv/core/.menara-prev'")
+    );
+    const web = buildArtifactDeployScript(staticBase, LEGACY);
+    const webMove = move(
+      "/usr/share/nginx/html.oldtool-prev",
+      "/usr/share/nginx/html.menara-prev"
+    );
+    expect(web).toContain(webMove);
+    expect(web.indexOf(webMove)).toBeLessThan(
+      web.indexOf("rm -rf '/usr/share/nginx/html.menara-prev'")
+    );
+  });
+});
+
+describe.concurrent("buildArtifactDeployScript stub runs with legacy config", () => {
+  it(
+    "jar: moves the previous name's prev dir and holds both locks",
+    async () => {
+      const r = await runJar({}, { legacy: LEGACY, legacyPrev: "ANCIENT" });
+      try {
+        expect(r.status).toBe(0);
+        expect(existsSync(join(r.deployDir, ".oldtool-prev"))).toBe(false);
+        // The moved dir is the new prev; the current jar replaces its entry.
+        expect(
+          read(join(r.deployDir, ".menara-prev/core-web-service.jar"))
+        ).toBe("OLD");
+        expect(r.log).toContain(`${r.deployDir}/.menara-deploy.lock`);
+        expect(r.log).toContain(`${r.deployDir}/.oldtool-deploy.lock`);
+      } finally {
+        rmSync(r.root, { recursive: true });
+      }
+    },
+    SLOW
+  );
+
+  it(
+    "static: moves the previous name's prev root before it is replaced",
+    async () => {
+      const r = await runStatic({ legacy: LEGACY, legacyPrev: "ANCIENT" });
+      try {
+        expect(r.status).toBe(0);
+        expect(existsSync(`${r.webRoot}.oldtool-prev`)).toBe(false);
+        expect(read(`${r.webRoot}.menara-prev/index.html`)).toBe("OLD");
+        expect(r.log).toContain(join(r.root, "legacy-nginx.lock"));
+      } finally {
+        rmSync(r.root, { recursive: true });
+      }
+    },
+    SLOW
+  );
+});
 
 describe("buildArtifactDeployScript output", () => {
   it("jar: starts with set -eu, ignores HUP/PIPE and takes the deploy-dir lock", () => {
@@ -331,6 +446,9 @@ async function runJar(
     current?: string | null;
     currentMode?: number;
     env?: Record<string, string>;
+    legacy?: Legacy;
+    /** Content of the jar kept in the previous name's prev dir, if any. */
+    legacyPrev?: string;
   } = {}
 ) {
   const root = mkdtempSync(join(tmpdir(), "artifact-script-"));
@@ -361,7 +479,17 @@ async function runJar(
       options.currentMode ?? 0o644
     );
   }
-  const script = buildArtifactDeployScript({ ...jarBase, deployDir, ...input });
+  if (options.legacyPrev !== undefined) {
+    mkdirSync(join(deployDir, ".oldtool-prev"));
+    writeFileSync(
+      join(deployDir, ".oldtool-prev/core-web-service.jar"),
+      options.legacyPrev
+    );
+  }
+  const script = buildArtifactDeployScript(
+    { ...jarBase, deployDir, ...input },
+    options.legacy ?? null
+  );
   const run = await runScript(script, root, options.env ?? {});
   return { ...run, deployDir };
 }
@@ -373,6 +501,9 @@ async function runStatic(
     staleNext?: boolean;
     rootMode?: number;
     env?: Record<string, string>;
+    legacy?: Legacy;
+    /** Content of a file kept in the previous name's prev root, if any. */
+    legacyPrev?: string;
   } = {}
 ) {
   const root = mkdtempSync(join(tmpdir(), "artifact-script-"));
@@ -403,13 +534,19 @@ async function runStatic(
     mkdirSync(`${webRoot}.menara-new`);
     writeFileSync(`${webRoot}.menara-new/stale.html`, "stale");
   }
+  if (options.legacyPrev !== undefined) {
+    mkdirSync(`${webRoot}.oldtool-prev`);
+    writeFileSync(`${webRoot}.oldtool-prev/index.html`, options.legacyPrev);
+  }
   const lock = join(root, "nginx.lock");
   // /run is root-only here: point the constant at a temp file; the stub flock
   // logs the path it locks.
-  const script = buildArtifactDeployScript({
-    ...staticBase,
-    deployDir: webRoot,
-  }).replaceAll(NGINX_LOCK_FILE, lock);
+  const script = buildArtifactDeployScript(
+    { ...staticBase, deployDir: webRoot },
+    options.legacy ?? null
+  )
+    .replaceAll(NGINX_LOCK_FILE, lock)
+    .replaceAll("/run/oldtool-nginx.lock", join(root, "legacy-nginx.lock"));
   const run = await runScript(script, root, options.env ?? {});
   return { ...run, webRoot, lock };
 }

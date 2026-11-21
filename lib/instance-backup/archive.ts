@@ -27,6 +27,7 @@ import { pipeline } from "node:stream/promises";
 import { and, eq, gte, lt } from "drizzle-orm";
 import { db, pgClient } from "@/lib/db";
 import { instanceBackups, instanceSettings } from "@/lib/db/schema";
+import { type Legacy, legacy } from "@/lib/legacy";
 import { MENARA_VERSION } from "@/lib/version";
 import {
   type BackupDestination,
@@ -51,6 +52,14 @@ import {
 
 export const LOCAL_BACKUP_ROOT = "/var/lib/menara/backups";
 export const REMOTE_PREFIX = "menara-backups/";
+/**
+ * Where a migrated install's older backups live: `<legacy name>-backups/<instance>/`
+ * (the instance falls back to the legacy name). Listed, restorable and pruned,
+ * never written to.
+ */
+export function legacyBackupPrefix(l: Legacy): string {
+  return `${l.name}-backups/${l.instance ?? l.name}/`;
+}
 export const LOCAL_KEEP = 3;
 /**
  * Marks a local folder as a safety backup (trigger `restore`): the way back
@@ -172,6 +181,8 @@ export interface BackupDeps {
   ) => Promise<{ sha256: string; bytes: number }>;
   localRoot: string;
   instance: string;
+  /** Transition config; its older backups age out with the new ones. */
+  legacy: Legacy | null;
   version: string;
   secretsKey: string | undefined;
   now: () => Date;
@@ -382,6 +393,7 @@ function defaultDeps(): BackupDeps {
     },
     localRoot: LOCAL_BACKUP_ROOT,
     instance: instanceName(),
+    legacy: legacy(),
     version: MENARA_VERSION,
     secretsKey: process.env.SECRETS_KEY,
     now: () => new Date(),
@@ -504,24 +516,30 @@ async function applyLocalRetention(
   }
 }
 
-/** Remote retention: the destination's daily and weekly counts. */
+/**
+ * Remote retention: the destination's daily and weekly counts, over the
+ * instance's backups and a migrated install's legacy ones together.
+ */
 async function applyRemoteRetention(
   destination: BackupDestination,
-  instancePrefix: string,
+  instancePrefixes: string[],
   current: string,
   now: Date
 ): Promise<void> {
   const byName = new Map<string, string[]>();
-  for (const { key } of await destination.store.list(instancePrefix)) {
-    const name = key.slice(instancePrefix.length).split("/")[0] ?? "";
-    byName.set(name, [...(byName.get(name) ?? []), key]);
+  const manifests = new Set<string>();
+  for (const prefix of instancePrefixes) {
+    for (const { key } of await destination.store.list(prefix)) {
+      const name = key.slice(prefix.length).split("/")[0] ?? "";
+      byName.set(name, [...(byName.get(name) ?? []), key]);
+      if (key === `${prefix}${name}/${MANIFEST_FILE}`) manifests.add(name);
+    }
   }
   const listed: Listed[] = [];
-  for (const [name, keys] of byName) {
+  for (const name of byName.keys()) {
     const createdAt = parseBackupName(name);
     if (!createdAt) continue;
-    const complete = keys.includes(`${instancePrefix}${name}/${MANIFEST_FILE}`);
-    listed.push({ name, createdAt, complete });
+    listed.push({ name, createdAt, complete: manifests.has(name) });
   }
   const doomed = doomedNames(listed, current, now, (keys) =>
     selectForDeletion(keys, destination.keepDaily, destination.keepWeekly)
@@ -814,9 +832,12 @@ async function backUp(
     );
   }
   await rememberFingerprint();
+  const legacyPrefix = deps.legacy ? legacyBackupPrefix(deps.legacy) : null;
   await applyRemoteRetention(
     destination,
-    instancePrefix,
+    legacyPrefix && legacyPrefix !== instancePrefix
+      ? [instancePrefix, legacyPrefix]
+      : [instancePrefix],
     name,
     deps.now()
   ).catch((e) => log(`backupRetentionFailed: ${describe(e)}`));

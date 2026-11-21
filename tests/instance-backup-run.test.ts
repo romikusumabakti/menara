@@ -14,6 +14,7 @@ import {
   type BackupDeps,
   BackupError,
   type BackupRecorder,
+  legacyBackupPrefix,
   runInstanceBackup,
 } from "@/lib/instance-backup/archive";
 import {
@@ -316,6 +317,88 @@ describe("runInstanceBackup", () => {
         `acme/${PREFIX}manifest.json`,
       ].sort()
     );
+  });
+
+  describe("migrated install (legacy name oldtool)", () => {
+    const LEGACY = {
+      name: "oldtool",
+      upper: "OLDTOOL",
+      title: "Oldtool",
+      instance: "oldtool-beta",
+    };
+
+    it("derives the legacy prefix, falling back to the name", () => {
+      expect(legacyBackupPrefix(LEGACY)).toBe("oldtool-backups/oldtool-beta/");
+      expect(legacyBackupPrefix({ ...LEGACY, instance: null })).toBe(
+        "oldtool-backups/oldtool/"
+      );
+    });
+
+    it("writes under menara-backups/<instance>/ and prunes legacy objects", async () => {
+      const bucket = memoryStore({
+        "oldtool-backups/oldtool-beta/2026-11-08T010000Z-1.2.2/manifest.json":
+          "{}",
+        "oldtool-backups/oldtool-beta/2026-11-08T010000Z-1.2.2/database.dump":
+          "old",
+        "oldtool-backups/oldtool-beta/2026-11-07T010000Z-1.2.2/manifest.json":
+          "{}",
+        "menara-backups/test/2026-11-06T010000Z-1.2.2/manifest.json": "{}",
+        // Another legacy instance: untouched.
+        "oldtool-backups/elsewhere/2026-11-01T010000Z-1.2.2/manifest.json":
+          "{}",
+      });
+      const result = await runInstanceBackup(
+        "manual",
+        deps({
+          legacy: LEGACY,
+          destination: destination(bucket.store, {
+            keepDaily: 2,
+            keepWeekly: 0,
+          }),
+        })
+      );
+      expect(result).toMatchObject({ status: "succeeded", objectKey: PREFIX });
+      expect(bucket.uploads.every((k) => k.startsWith("menara-backups/"))).toBe(
+        true
+      );
+      const keys = [...bucket.objects.keys()];
+      // Newest two kept across both prefixes: the new one and the 11-08 legacy.
+      expect(keys).toContain(
+        "oldtool-backups/oldtool-beta/2026-11-08T010000Z-1.2.2/manifest.json"
+      );
+      expect(keys).toContain(
+        "oldtool-backups/oldtool-beta/2026-11-08T010000Z-1.2.2/database.dump"
+      );
+      expect(keys).not.toContain(
+        "oldtool-backups/oldtool-beta/2026-11-07T010000Z-1.2.2/manifest.json"
+      );
+      expect(keys).not.toContain(
+        "menara-backups/test/2026-11-06T010000Z-1.2.2/manifest.json"
+      );
+      expect(keys).toContain(
+        "oldtool-backups/elsewhere/2026-11-01T010000Z-1.2.2/manifest.json"
+      );
+    });
+
+    it("leaves legacy objects alone without legacy config", async () => {
+      const bucket = memoryStore({
+        "oldtool-backups/oldtool-beta/2026-11-01T010000Z-1.2.2/manifest.json":
+          "{}",
+      });
+      await runInstanceBackup(
+        "manual",
+        deps({
+          legacy: null,
+          destination: destination(bucket.store, {
+            keepDaily: 1,
+            keepWeekly: 0,
+          }),
+        })
+      );
+      expect([...bucket.objects.keys()]).toContain(
+        "oldtool-backups/oldtool-beta/2026-11-01T010000Z-1.2.2/manifest.json"
+      );
+    });
   });
 
   it("keeps a local copy when the destination can't be loaded (an undecryptable secret)", async () => {

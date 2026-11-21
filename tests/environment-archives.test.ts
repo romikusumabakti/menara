@@ -145,7 +145,9 @@ const { app } = await import("@/server/app");
 const { pruneEnvironmentArchives } = await import(
   "@/server/services/environment-archives"
 );
-const { localArchiveDir } = await import("@/lib/teardown/archive");
+const { legacyArchivePrefix, localArchiveDir } = await import(
+  "@/lib/teardown/archive"
+);
 
 const DAY = 86_400_000;
 const NOW = new Date("2026-11-10T03:00:00Z");
@@ -446,6 +448,83 @@ describe("archives written to the backup destination", () => {
       failed: 0,
     });
     expect(state.removedRows).toEqual([S3_ARCHIVE_ID]);
+  });
+});
+
+describe("archives of a migrated install (legacy name oldtool)", () => {
+  const OLD_ENV = {
+    name: process.env.MENARA_LEGACY_NAME,
+    instance: process.env.MENARA_LEGACY_INSTANCE,
+  };
+  const url = `/api/instance/environment-archives/${S3_ARCHIVE_ID}/files/db-hris-0123456789.dump`;
+  const legacyRow = () =>
+    s3Row({
+      keyPrefix: `oldtool-env-archives/oldtool-beta/${S3_ARCHIVE_ID}/`,
+    });
+
+  afterEach(() => {
+    for (const [key, value] of [
+      ["MENARA_LEGACY_NAME", OLD_ENV.name],
+      ["MENARA_LEGACY_INSTANCE", OLD_ENV.instance],
+    ] as const) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+
+  it("derives the legacy archive prefix, falling back to the name", () => {
+    const l = { name: "oldtool", upper: "OLDTOOL", title: "Oldtool" };
+    expect(legacyArchivePrefix({ ...l, instance: "oldtool-beta" })).toBe(
+      "oldtool-env-archives/oldtool-beta/"
+    );
+    expect(legacyArchivePrefix({ ...l, instance: null })).toBe(
+      "oldtool-env-archives/oldtool/"
+    );
+  });
+
+  it("reads and prunes a legacy-prefixed archive only when legacy is configured", async () => {
+    const archive = legacyRow();
+    state.rows = [archive];
+    state.objects.set(
+      `${archive.keyPrefix}db-hris-0123456789.dump`,
+      Buffer.from("s3 dump 10")
+    );
+    expect((await app.request(url)).status).toBe(404);
+
+    process.env.MENARA_LEGACY_NAME = "oldtool";
+    process.env.MENARA_LEGACY_INSTANCE = "oldtool-beta";
+    const res = await app.request(url);
+    expect(res.status).toBe(200);
+    expect(state.reads).toContain(
+      `oldtool-env-archives/oldtool-beta/${S3_ARCHIVE_ID}/db-hris-0123456789.dump`
+    );
+  });
+
+  it("prunes a legacy-prefixed archive's objects", async () => {
+    process.env.MENARA_LEGACY_NAME = "oldtool";
+    process.env.MENARA_LEGACY_INSTANCE = "oldtool-beta";
+    const archive = legacyRow();
+    state.objects.set(
+      `${archive.keyPrefix}db-hris-0123456789.dump`,
+      Buffer.from("x")
+    );
+    state.prunable = [archive];
+    expect(await pruneEnvironmentArchives(new Date())).toEqual({
+      deleted: 1,
+      failed: 0,
+    });
+    expect(state.objects.size).toBe(0);
+  });
+
+  it("still refuses another legacy instance's prefix", async () => {
+    process.env.MENARA_LEGACY_NAME = "oldtool";
+    process.env.MENARA_LEGACY_INSTANCE = "oldtool-beta";
+    state.rows = [
+      s3Row({
+        keyPrefix: `oldtool-env-archives/elsewhere/${S3_ARCHIVE_ID}/`,
+      }),
+    ];
+    expect((await app.request(url)).status).toBe(404);
   });
 });
 

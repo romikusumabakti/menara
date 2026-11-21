@@ -4,9 +4,11 @@ import { basename, dirname, resolve, sep } from "node:path";
 import type { Readable } from "node:stream";
 import type { EnvironmentArchive } from "@/lib/db/schema";
 import { LOCAL_BACKUP_ROOT } from "@/lib/instance-backup/archive";
+import { legacy } from "@/lib/legacy";
 import {
   ENV_ARCHIVE_PREFIX,
   ENV_ARCHIVE_RETENTION_DAYS,
+  legacyArchivePrefix,
 } from "@/lib/teardown/archive";
 import { loadArchiveStore } from "@/lib/teardown/archive-store";
 import {
@@ -84,7 +86,8 @@ function localDir(archive: EnvironmentArchive): string | null {
 }
 
 /**
- * Whether an S3 prefix is `menara-env-archives/<instance>/<id>/`, after the
+ * Whether an S3 prefix is `menara-env-archives/<instance>/<id>/` (or the legacy
+ * equivalent, on a migrated install), after the
  * backup destination's own key prefix (a normalised one) for an archive
  * written there; an older archive has none.
  */
@@ -100,9 +103,14 @@ function s3PrefixOk(archive: EnvironmentArchive): boolean {
     (archive.inBackupDestination &&
       normalised.ok &&
       normalised.prefix === leadPrefix);
+  const l = legacy();
+  const rootOk =
+    `${root}/` === ENV_ARCHIVE_PREFIX ||
+    // A migrated install's older archives: its previous root and instance.
+    (l !== null && `${root}/${instance}/` === legacyArchivePrefix(l));
   return (
     leadOk &&
-    `${root}/` === ENV_ARCHIVE_PREFIX &&
+    rootOk &&
     instance !== undefined &&
     instance !== "" &&
     instance !== ".." &&

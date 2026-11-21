@@ -14,6 +14,7 @@ export const RELEASE_VERSION_RE = /^[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$/;
 
 /**
  * A backup to restore: an S3 object prefix (`menara-backups/<instance>/<name>/`)
+ * (or the legacy `<name>-backups/<instance>/<name>/` of a migrated install)
  * or `local:<instance>/<name>/` for a copy in the host's backups dir. No `..`,
  * no leading `-` (it becomes an argv of `menara restore`).
  */

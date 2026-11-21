@@ -49,6 +49,7 @@ import {
 // The temp file is always removed. No secret is part of a command: a sudo
 // password goes on stdin.
 
+import type { Legacy } from "@/lib/legacy";
 import { ENV_ARCHIVE_RETENTION_DAYS } from "@/lib/teardown/retention";
 
 export { ENV_ARCHIVE_RETENTION_DAYS };
@@ -56,6 +57,15 @@ export { ENV_ARCHIVE_RETENTION_DAYS };
  * S3 keys: `[<destination key prefix>]menara-env-archives/<instance>/<archiveId>/<file>`.
  */
 export const ENV_ARCHIVE_PREFIX = "menara-env-archives/";
+
+/**
+ * Where a migrated install's older archives live:
+ * `<legacy name>-env-archives/<instance>/` (the instance falls back to the
+ * legacy name). Read and pruned, never written to.
+ */
+export function legacyArchivePrefix(l: Legacy): string {
+  return `${l.name}-env-archives/${l.instance ?? l.name}/`;
+}
 
 const DAY_MS = 86_400_000;
 /**

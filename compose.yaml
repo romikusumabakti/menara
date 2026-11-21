@@ -66,6 +66,10 @@ services:
       BRAND: ${BRAND-}
       # Cloudflare Access policy (by name) the New environment wizard preselects.
       ACCESS_DEFAULT_POLICY_NAME: ${ACCESS_DEFAULT_POLICY_NAME-}
+      # Set by install.sh --migrate-from on an install migrated from a previous
+      # product name; unset everywhere else (every transition path stays off).
+      MENARA_LEGACY_NAME: ${MENARA_LEGACY_NAME-}
+      MENARA_LEGACY_INSTANCE: ${MENARA_LEGACY_INSTANCE-}
       # Email (Resend) — optional; email features disabled if empty.
       # When EMAIL_FROM is unset, lib/branding.ts derives a default from
       # the instance name + ALLOWED_EMAIL_DOMAIN.

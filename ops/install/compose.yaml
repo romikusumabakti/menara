@@ -123,6 +123,10 @@ services:
       APP_TIMEZONE: ${APP_TIMEZONE-}
       BRAND: ${BRAND-}
       ACCESS_DEFAULT_POLICY_NAME: ${ACCESS_DEFAULT_POLICY_NAME-}
+      # Set by install.sh --migrate-from on an install migrated from a previous
+      # product name; unset everywhere else (every transition path stays off).
+      MENARA_LEGACY_NAME: ${MENARA_LEGACY_NAME-}
+      MENARA_LEGACY_INSTANCE: ${MENARA_LEGACY_INSTANCE-}
       RESEND_API_KEY: ${RESEND_API_KEY-}
       EMAIL_FROM: ${EMAIL_FROM-}
       DEPLOY_REGISTRY: ${DEPLOY_REGISTRY-}

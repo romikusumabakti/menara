@@ -1812,7 +1812,12 @@ describe("product compose", () => {
     );
     expect(app?.environment?.COMPOSE_PROJECT_NAME).toBe("menara");
     // Instance settings the app reads from its own environment.
-    for (const key of ["BRAND", "ACCESS_DEFAULT_POLICY_NAME"]) {
+    for (const key of [
+      "BRAND",
+      "ACCESS_DEFAULT_POLICY_NAME",
+      "MENARA_LEGACY_NAME",
+      "MENARA_LEGACY_INSTANCE",
+    ]) {
       expect(app?.environment, key).toHaveProperty(key);
     }
     expect(app?.volumes).toEqual(

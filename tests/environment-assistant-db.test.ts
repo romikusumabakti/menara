@@ -170,6 +170,10 @@ describe("who writes the assistant_db_* columns", () => {
       "server/services/environments.ts",
       // The project delete refuses while a login is recorded.
       "server/services/project-catalog.ts",
+      // `menara remark` renames a login named under the previous product
+      // name; db-markers only reads which databases have one.
+      "lib/remark/assistant-logins.ts",
+      "lib/remark/db-markers.ts",
     ]);
     const offenders = [...sources("lib"), ...sources("server")].filter(
       (path) =>

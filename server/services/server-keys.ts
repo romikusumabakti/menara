@@ -76,7 +76,7 @@ const NOT_RECORDED: ReadonlySet<KeyMoveCode> = new Set([
   "passwordRejected",
 ]);
 
-const SSH_TUNING = { readyTimeout: 10_000 };
+export const SSH_TUNING = { readyTimeout: 10_000 };
 const COMMAND_TIMEOUT_MS = 15_000;
 
 // The login user's authorized_keys, as POSIX sh run through `sh -c` (the
@@ -204,8 +204,9 @@ function scriptFailure(code: number | null, step: string): StepFailed {
 
 // The file travels as base64 and is handled as latin1, which maps each byte
 // to one character and back: foreign lines (any encoding, even a broken
-// multibyte sequence) are written back byte for byte.
-async function readAuthorizedKeys(ssh: SshSession): Promise<string> {
+// multibyte sequence) are written back byte for byte. Exported, with
+// writeAuthorizedKeys and proveKeyLogin, for `menara remark` (lib/remark/ssh).
+export async function readAuthorizedKeys(ssh: SshSession): Promise<string> {
   const result = await exec(ssh, READ_SCRIPT);
   if (result.code !== 0) throw scriptFailure(result.code, "read");
   return Buffer.from(result.stdout.replace(/\s+/g, ""), "base64").toString(
@@ -213,7 +214,7 @@ async function readAuthorizedKeys(ssh: SshSession): Promise<string> {
   );
 }
 
-async function writeAuthorizedKeys(ssh: SshSession, content: string) {
+export async function writeAuthorizedKeys(ssh: SshSession, content: string) {
   const encoded = Buffer.from(content, "latin1").toString("base64");
   const result = await exec(ssh, WRITE_SCRIPT, encoded);
   if (result.code !== 0) throw scriptFailure(result.code, "write");
@@ -259,13 +260,13 @@ async function rollback(
  * the job for a background job, so a host key pinned on the way is recorded
  * for that run (the admin stays the actor of the key activity itself).
  */
-type ConnectAs = { actor: string; job?: string };
+export type ConnectAs = { actor: string; job?: string };
 
 function connectAs(actorId: string, job: string | undefined): ConnectAs {
   return job === undefined ? { actor: actorId } : { actor: "system", job };
 }
 
-async function proveKeyLogin(
+export async function proveKeyLogin(
   target: SshTarget,
   keyId: string,
   as: ConnectAs

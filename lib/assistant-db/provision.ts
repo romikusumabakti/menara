@@ -297,6 +297,56 @@ export function pgDisableAssistantDbSql(input: {
   return [SEARCH_PATH, `DO ${pgQuoteLiteral(drop)};`, ""].join("\n");
 }
 
+/**
+ * Renames the read-only role `from` to `to` (`menara remark`: a role named
+ * under the previous product name), as postgres in one transaction. Only a
+ * role carrying this environment's marker is renamed; a rerun after the
+ * rename (only `to` exists, marked) does nothing; `to` existing next to
+ * `from` is refused. The role keeps its grants, settings and comment; a
+ * SCRAM verifier survives, an MD5 password is cleared by Postgres (the
+ * caller sets the password again through enableAssistantDbLogin).
+ */
+export function pgRenameAssistantDbSql(input: {
+  from: string;
+  to: string;
+  environmentId: string;
+}): string {
+  if (!UUID.test(input.environmentId)) {
+    throw new Error("environmentId must be a uuid");
+  }
+  const fromLit = pgQuoteLiteral(input.from);
+  const toLit = pgQuoteLiteral(input.to);
+  const marked = (oid: string) =>
+    pgIsNotMarked(
+      `shobj_description(${oid}, 'pg_authid')`,
+      input.environmentId
+    );
+  const rename = [
+    "DECLARE old_oid oid; new_oid oid;",
+    "BEGIN",
+    `  SELECT oid INTO old_oid FROM pg_roles WHERE rolname = ${fromLit};`,
+    `  SELECT oid INTO new_oid FROM pg_roles WHERE rolname = ${toLit};`,
+    "  IF old_oid IS NULL AND new_oid IS NOT NULL THEN",
+    `    IF ${marked("new_oid")} THEN`,
+    `      RAISE EXCEPTION '${LOGIN_EXISTS}: role % already exists', ${toLit};`,
+    "    END IF;",
+    "    RETURN;",
+    "  END IF;",
+    "  IF old_oid IS NULL THEN",
+    `    RAISE EXCEPTION 'role % not found', ${fromLit};`,
+    "  END IF;",
+    "  IF new_oid IS NOT NULL THEN",
+    `    RAISE EXCEPTION '${LOGIN_EXISTS}: role % already exists', ${toLit};`,
+    "  END IF;",
+    `  IF ${marked("old_oid")} THEN`,
+    `    RAISE EXCEPTION 'role % was not created by Menara for this environment', ${fromLit};`,
+    "  END IF;",
+    `  EXECUTE format('ALTER ROLE %I RENAME TO %I', ${fromLit}, ${toLit});`,
+    "END",
+  ].join("\n");
+  return [SEARCH_PATH, `DO ${pgQuoteLiteral(rename)};`, ""].join("\n");
+}
+
 const PSQL_ADMIN = "psql -X -q -1 -v ON_ERROR_STOP=on -U postgres";
 
 /**
@@ -508,6 +558,51 @@ export function mssqlDisableAssistantDbSql(input: {
   ].join("\n");
 }
 
+/**
+ * Renames the login `from` to `to` and its user in `database` (`menara
+ * remark`). Each rename runs only while the old name exists and the new one
+ * does not, so a rerun finishes what an earlier one began; both names
+ * existing, or neither, is refused. The password and the user's role
+ * membership stay.
+ */
+export function mssqlRenameAssistantDbSql(input: {
+  database: string;
+  from: string;
+  to: string;
+}): string {
+  const inDatabase = [
+    "DECLARE @q nvarchar(max);",
+    "IF DATABASE_PRINCIPAL_ID(@old) IS NOT NULL AND DATABASE_PRINCIPAL_ID(@new) IS NOT NULL",
+    `  THROW 50000, N'${LOGIN_EXISTS}: database users with both names exist', 1;`,
+    "IF DATABASE_PRINCIPAL_ID(@old) IS NOT NULL",
+    "BEGIN",
+    "  SET @q = N'ALTER USER ' + QUOTENAME(@old) + N' WITH NAME = ' + QUOTENAME(@new);",
+    "  EXEC (@q);",
+    "END",
+  ].join("\n");
+  return [
+    "SET NOCOUNT ON;",
+    "SET XACT_ABORT ON;",
+    `DECLARE @db sysname = N'${sqlQuoteString(input.database)}';`,
+    `DECLARE @old sysname = N'${sqlQuoteString(input.from)}';`,
+    `DECLARE @new sysname = N'${sqlQuoteString(input.to)}';`,
+    "DECLARE @sql nvarchar(max);",
+    "IF DB_ID(@db) IS NULL THROW 50000, N'database not found', 1;",
+    "IF SUSER_ID(@old) IS NOT NULL AND SUSER_ID(@new) IS NOT NULL",
+    `  THROW 50000, N'${LOGIN_EXISTS}: a login with the new name exists', 1;`,
+    "IF SUSER_ID(@old) IS NULL AND SUSER_ID(@new) IS NULL",
+    "  THROW 50000, N'login not found', 1;",
+    "IF SUSER_ID(@old) IS NOT NULL",
+    "BEGIN",
+    "  SET @sql = N'ALTER LOGIN ' + QUOTENAME(@old) + N' WITH NAME = ' + QUOTENAME(@new);",
+    "  EXEC (@sql);",
+    "END",
+    `SET @sql = N'USE ' + QUOTENAME(@db) + N';' + NCHAR(10) + N'${sqlQuoteString(inDatabase)}';`,
+    "EXEC sp_executesql @sql, N'@old sysname, @new sysname', @old = @old, @new = @new;",
+    "",
+  ].join("\n");
+}
+
 // --- MySQL / MariaDB -----------------------------------------------------------
 
 // Generated names and passwords only: nothing a string literal must escape,
@@ -564,6 +659,22 @@ export function mysqlEnableAssistantDbSql(input: {
 export function mysqlAssistantDbProbeSql(user: string): string {
   mysqlAccount(user);
   return `SELECT COUNT(*) FROM mysql.user WHERE User = '${user}';`;
+}
+
+/** The accounts on 127.0.0.1 among `users` (`-N -B` output: one name a line). */
+export function mysqlAssistantDbUsersSql(users: string[]): string {
+  for (const u of users) mysqlAccount(u);
+  return `SELECT User FROM mysql.user WHERE Host = '127.0.0.1' AND User IN (${users
+    .map((u) => `'${u}'`)
+    .join(", ")});`;
+}
+
+/** Renames the account (its privileges move with it). */
+export function mysqlRenameAssistantDbSql(input: {
+  from: string;
+  to: string;
+}): string {
+  return `RENAME USER ${mysqlAccount(input.from)} TO ${mysqlAccount(input.to)};`;
 }
 
 export function mysqlDisableAssistantDbSql(input: { user: string }): string {
@@ -908,6 +1019,69 @@ export async function disableAssistantDbLogin(
     secrets,
     `${service.dbPassword}\n${mysqlDisableAssistantDbSql({ user: opts.login })}\n`
   );
+}
+
+/**
+ * Renames the environment's read-only login `from` to `to` on its database
+ * server (`menara remark`), through the same admin path as enabling. Done
+ * when only `to` is there (a rerun); refused when both exist or neither, or
+ * (Postgres) when the role lacks the environment's marker. Does not prove a
+ * login: the caller runs enableAssistantDbLogin with `to` as the own login
+ * for that, which also sets the stored password again. Refuses incomplete
+ * config or a missing admin password before any SSH. Errors never carry a
+ * password.
+ */
+export async function renameAssistantDbLogin(
+  input: AssistantDbService,
+  opts: { environmentId: string; from: string; to: string }
+): Promise<void> {
+  const service = ready(input);
+  const creds = sshTarget(service.server);
+  const secrets = secretsOf(service, null);
+  if (service.dbType === "postgres") {
+    const sql = pgRenameAssistantDbSql(opts);
+    await run(
+      creds,
+      pgShell(
+        service,
+        `printf '%s\\n' ${shq(sql)} | ${pgAssistantDbAdminPsql(service.dbName)}`
+      ),
+      secrets
+    );
+    return;
+  }
+  const admin = dbAdminUser(service.dbType, service.dbUser);
+  const adminPassword = service.dbPassword as string;
+  if (service.dbType === "mssql") {
+    await run(
+      creds,
+      sqlcmdStdinCommand(admin, service.serviceType, service.serviceName),
+      secrets,
+      `${adminPassword}\n${mssqlRenameAssistantDbSql({ database: service.dbName, from: opts.from, to: opts.to })}`
+    );
+    return;
+  }
+  const mysql = (sql: string, args: string[] = []) =>
+    run(
+      creds,
+      mysqlStdinCommand(admin, service.serviceType, service.serviceName, args),
+      secrets,
+      `${adminPassword}\n${sql}\n`
+    );
+  const present = new Set(
+    (await mysql(mysqlAssistantDbUsersSql([opts.from, opts.to]), ["-N", "-B"]))
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)
+  );
+  if (present.has(opts.from) && present.has(opts.to)) {
+    throw new AssistantDbLoginRefused("exists", opts.to);
+  }
+  if (present.has(opts.to)) return;
+  if (!present.has(opts.from)) {
+    throw new Error(`Login ${opts.from} not found on the database server`);
+  }
+  await mysql(mysqlRenameAssistantDbSql(opts));
 }
 
 // Postgres admin work runs as its OS user on systemd (peer auth); inside a

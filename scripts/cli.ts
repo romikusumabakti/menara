@@ -7,6 +7,7 @@ import { applyLegacyEnvAndWarn } from "@/lib/legacy";
 import { runBackup } from "./cli/backup";
 import { runKnowledge } from "./cli/knowledge";
 import { runMigrate } from "./cli/migrate";
+import { runRemarkCommand } from "./cli/remark";
 import { runRestoreCommand } from "./cli/restore";
 import { runSeed } from "./cli/seed";
 
@@ -21,6 +22,9 @@ Commands:
                       Fictional demo data and one test account per role (beta)
   knowledge import <folder> --as <email> [--dry-run] [--update-visibility]
                       Import a folder of Markdown files into the knowledge base
+  remark [--apply] [--step <step>]...
+                      Convert traces of the previous product name (dry run
+                      by default; needs MENARA_LEGACY_NAME)
 
 Run a command with --help for its options.`;
 
@@ -30,6 +34,7 @@ const commands: Record<string, (args: string[]) => Promise<number>> = {
   restore: runRestoreCommand,
   seed: runSeed,
   knowledge: runKnowledge,
+  remark: runRemarkCommand,
 };
 
 applyLegacyEnvAndWarn(process.env);

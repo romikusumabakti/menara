@@ -33,6 +33,7 @@ import {
   pipelineMarkerPattern,
 } from "@/lib/ci/pipeline";
 import {
+  legacySecretName,
   NOTIFY_SECRET_EVENTS,
   notifySecretNameFor,
 } from "@/lib/ci/register-artifact-component";
@@ -42,6 +43,7 @@ import type {
 } from "@/lib/ci/registration";
 import { type CiProvider, CiProviderError, type CiRepo } from "@/lib/ci/types";
 import { branchSchema } from "@/lib/deploy/validation";
+import { legacy } from "@/lib/legacy";
 import { isUniqueViolation } from "@/lib/people/names";
 import { canProject, canRegisterApp } from "@/lib/permissions";
 import { encryptSecret } from "@/lib/secrets";
@@ -656,6 +658,46 @@ async function requireService(componentKey: string) {
 }
 
 /**
+ * On a migrated install (MENARA_LEGACY_NAME set), branches not yet
+ * recommitted still sign with the previous-name secret `remark` converted
+ * from (`<legacy>_notify…`) until `remark --finish` deletes it: it gets the
+ * new value too, or those branches' builds would stop deploying. When the
+ * secrets cannot be listed it is written anyway: an extra secret is
+ * harmless, a stale one is not.
+ */
+async function rotateLegacyNotifySecret(
+  provider: CiProvider,
+  ciRepoId: string,
+  name: string,
+  secret: string
+): Promise<void> {
+  const l = legacy();
+  const legacyName = l ? legacySecretName(name, l) : null;
+  if (!legacyName) return;
+  let present = true;
+  try {
+    present = (await provider.listRepoSecrets(ciRepoId)).includes(legacyName);
+  } catch (error) {
+    if (!(error instanceof CiProviderError)) throw error;
+  }
+  if (!present) return;
+  try {
+    await provider.upsertRepoSecret(
+      ciRepoId,
+      legacyName,
+      secret,
+      NOTIFY_SECRET_EVENTS
+    );
+  } catch (error) {
+    if (!(error instanceof CiProviderError)) throw error;
+    fail(
+      502,
+      `Woodpecker secret ${legacyName} not updated; Menara secret unchanged — rotate again`
+    );
+  }
+}
+
+/**
  * New notify secret: Woodpecker first, then Menara, so a failure leaves
  * at most a Woodpecker secret Menara does not know, and says so
  * (Review Focus 5).
@@ -681,6 +723,12 @@ export async function rotateNotifySecret(
     if (!(error instanceof CiProviderError)) throw error;
     fail(502, "Woodpecker secret not updated; Menara secret unchanged");
   }
+  await rotateLegacyNotifySecret(
+    provider,
+    component.ciRepoId as string,
+    component.notifySecretName,
+    secret
+  );
   try {
     await setNotifySecret(componentKey, encryptSecret(secret));
   } catch (error) {

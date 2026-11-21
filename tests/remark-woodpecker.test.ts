@@ -13,6 +13,7 @@ const state = vi.hoisted(() => ({
   secrets: new Map<string, Map<string, string>>(),
   ops: [] as string[],
   failUpsert: false,
+  failBranches: false,
   branches: new Map<string, Record<string, Record<string, string>>>(),
   forge: "bitbucket" as string,
 }));
@@ -55,8 +56,13 @@ vi.mock("@/lib/ci/forges/bitbucket", async (orig) => {
     state.branches.get(repo)?.[branch] ?? {};
   return {
     FILE_TOO_LARGE,
-    listBranches: async (_auth: unknown, repo: string) =>
-      Object.keys(state.branches.get(repo) ?? {}),
+    listBranches: async (_auth: unknown, repo: string) => {
+      if (state.failBranches) {
+        const { CiProviderError } = await import("@/lib/ci/types");
+        throw new CiProviderError("the branch list is incomplete", 0);
+      }
+      return Object.keys(state.branches.get(repo) ?? {});
+    },
     listRepoDir: async (
       _auth: unknown,
       repo: string,
@@ -153,6 +159,7 @@ beforeEach(() => {
   state.secrets = new Map();
   state.ops = [];
   state.failUpsert = false;
+  state.failBranches = false;
   state.branches = new Map();
   state.forge = "bitbucket";
   tables = { app_components: seedOthersRows() };
@@ -368,6 +375,30 @@ describe("remark --finish", () => {
     expect(unread.entries[0]?.reason).toBe(
       "reading github branches is not supported"
     );
+    expect(state.ops).toEqual([]);
+  });
+
+  it("keeps every secret when the branch list is incomplete", async () => {
+    await converted();
+    state.failBranches = true;
+    const report = await step.finish(ctx(), { apply: true });
+    expect(report.entries.map((e) => [e.secret, e.status, e.reason])).toEqual([
+      [
+        "oldtool_notify",
+        "kept",
+        "the branches could not be read (the branch list is incomplete)",
+      ],
+      [
+        "oldtool_notify_kestrel_web",
+        "kept",
+        "the branches could not be read (the branch list is incomplete)",
+      ],
+      [
+        "oldtool_notify",
+        "kept",
+        "the branches could not be read (the branch list is incomplete)",
+      ],
+    ]);
     expect(state.ops).toEqual([]);
   });
 });

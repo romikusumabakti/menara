@@ -330,8 +330,9 @@ const MAX_BRANCH_PAGES = 50;
 
 /**
  * Every branch of the repository, following the listing's `next` links (at
- * most 5000 branches). Throws CiProviderError on any failure, a 404 included:
- * a caller deciding from the list must not take a failed read for "none".
+ * most 5000 branches). Throws CiProviderError on any failure, a 404 included,
+ * and when a page links outside the API: a caller deciding from the list
+ * must never take a partial or failed read for every branch.
  */
 export async function listBranches(
   auth: BitbucketAuth,
@@ -357,8 +358,15 @@ export async function listBranches(
         names.push(value.name);
       }
     }
-    // The credentials only go to the Bitbucket API, whatever `next` says.
-    if (!listing.next?.startsWith(`${prefix}/`)) return names;
+    if (!listing.next) return names;
+    // The credentials only go to the Bitbucket API; a `next` anywhere else
+    // leaves the list incomplete, which a caller must not take for all.
+    if (!listing.next.startsWith(`${prefix}/`)) {
+      throw new CiProviderError(
+        `Bitbucket GET ${repoFullName}/refs/branches paged to another location; the branch list is incomplete`,
+        0
+      );
+    }
     suffix = listing.next.slice(prefix.length);
   }
   throw new CiProviderError(

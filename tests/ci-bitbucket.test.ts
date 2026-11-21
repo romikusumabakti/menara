@@ -322,15 +322,12 @@ describe("bitbucket readRepoFile", () => {
 });
 
 describe("bitbucket listBranches", () => {
-  it("follows next links on the API host only", async () => {
+  it("follows next links", async () => {
     const next =
       "https://api.bitbucket.org/2.0/repositories/acme/widgets/refs/branches?pagelen=100&page=2";
     const pages = [
       Response.json({ values: [{ name: "main" }], next }),
-      Response.json({
-        values: [{ name: "release/2026-11" }],
-        next: "https://evil.example.test/steal",
-      }),
+      Response.json({ values: [{ name: "release/2026-11" }] }),
     ];
     const calls: string[] = [];
     const impl = vi.fn(async (input: RequestInfo | URL) => {
@@ -346,6 +343,24 @@ describe("bitbucket listBranches", () => {
       next,
     ]);
   });
+
+  it.each([
+    ["another host", "https://evil.example.test/steal"],
+    [
+      "another casing of the repo",
+      "https://api.bitbucket.org/2.0/repositories/ACME/widgets/refs/branches?page=2",
+    ],
+  ])(
+    "throws instead of a partial list when next points to %s",
+    async (_label, next) => {
+      const m = mockFetch(Response.json({ values: [{ name: "main" }], next }));
+      await expect(listBranches(AUTH, REPO, m.impl)).rejects.toBeInstanceOf(
+        CiProviderError
+      );
+      // The credentials never went there.
+      expect(m.calls).toHaveLength(1);
+    }
+  );
 
   it("throws on 404 rather than reporting no branches", async () => {
     const m = mockFetch(new Response("{}", { status: 404 }));

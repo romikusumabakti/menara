@@ -59,6 +59,20 @@ export function menaraSecretName(name: string, l: Legacy): string | null {
   return null;
 }
 
+/**
+ * The previous-name notify secret a Menara one was converted from (the
+ * inverse of menaraSecretName): `menara_notify` → `<name>_notify`,
+ * `menara_notify_<key>` → `<name>_notify_<key>`; any other name is null.
+ */
+export function legacySecretName(name: string, l: Legacy): string | null {
+  const base = `${l.name.replaceAll("-", "_")}_notify`;
+  if (name === DEFAULT_NOTIFY_SECRET_NAME) return base;
+  if (name.startsWith(`${DEFAULT_NOTIFY_SECRET_NAME}_`)) {
+    return `${base}${name.slice(DEFAULT_NOTIFY_SECRET_NAME.length)}`;
+  }
+  return null;
+}
+
 /** A refused or failed registration; the message is safe to print. */
 export class ArtifactRegistrationError extends Error {
   constructor(message: string) {

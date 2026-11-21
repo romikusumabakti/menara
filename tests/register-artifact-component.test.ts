@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   takenComponentKeys: vi.fn(),
@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   activateRepo: vi.fn(),
   updateRepoSettings: vi.fn(),
   upsertRepoSecret: vi.fn(),
+  listRepoSecrets: vi.fn(),
   commitFile: vi.fn(),
 }));
 
@@ -60,6 +61,7 @@ vi.mock("@/server/services/ci-connections", () => ({
     activateRepo: mocks.activateRepo,
     updateRepoSettings: mocks.updateRepoSettings,
     upsertRepoSecret: mocks.upsertRepoSecret,
+    listRepoSecrets: mocks.listRepoSecrets,
   }),
   listConnectionOptions: mocks.listConnectionOptions,
 }));
@@ -371,12 +373,58 @@ describe("a stored component's notify secret name", () => {
 
   it("is the Woodpecker secret a rotation writes", async () => {
     await rotateNotifySecret(KEY);
-    expect(mocks.upsertRepoSecret).toHaveBeenCalledWith(
-      "7",
-      SUFFIXED,
-      expect.any(String),
-      ["push", "manual"]
-    );
+    expect(mocks.upsertRepoSecret.mock.calls).toEqual([
+      ["7", SUFFIXED, expect.any(String), ["push", "manual"]],
+    ]);
+    // Without legacy config nothing else is read or written.
+    expect(mocks.listRepoSecrets).not.toHaveBeenCalled();
+  });
+
+  describe("on a migrated install", () => {
+    const LEGACY_NAME = "oldtool_notify_legacy_portal_frontend";
+    beforeEach(() => vi.stubEnv("MENARA_LEGACY_NAME", "oldtool"));
+    afterEach(() => vi.unstubAllEnvs());
+
+    it("rotation also updates the legacy secret while it exists", async () => {
+      mocks.listRepoSecrets.mockResolvedValue([SUFFIXED, LEGACY_NAME]);
+      await rotateNotifySecret(KEY);
+      const calls = mocks.upsertRepoSecret.mock.calls;
+      expect(calls.map((c) => c[1])).toEqual([SUFFIXED, LEGACY_NAME]);
+      // Both carry the one new value Menara stores.
+      expect(calls[1]?.[2]).toBe(calls[0]?.[2]);
+      expect(mocks.setNotifySecret).toHaveBeenCalledWith(
+        KEY,
+        `enc:${calls[0]?.[2]}`
+      );
+    });
+
+    it("leaves a legacy secret --finish removed alone", async () => {
+      mocks.listRepoSecrets.mockResolvedValue([SUFFIXED]);
+      await rotateNotifySecret(KEY);
+      expect(mocks.upsertRepoSecret.mock.calls.map((c) => c[1])).toEqual([
+        SUFFIXED,
+      ]);
+    });
+
+    it("writes the legacy secret when the secrets cannot be listed", async () => {
+      mocks.listRepoSecrets.mockRejectedValue(new CiProviderError("down", 503));
+      await rotateNotifySecret(KEY);
+      expect(mocks.upsertRepoSecret.mock.calls.map((c) => c[1])).toEqual([
+        SUFFIXED,
+        LEGACY_NAME,
+      ]);
+    });
+
+    it("keeps Menara's secret when the legacy one is not updated", async () => {
+      mocks.listRepoSecrets.mockResolvedValue([LEGACY_NAME]);
+      mocks.upsertRepoSecret
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new CiProviderError("nope", 500));
+      await expect(rotateNotifySecret(KEY)).rejects.toThrow(
+        `Woodpecker secret ${LEGACY_NAME} not updated`
+      );
+      expect(mocks.setNotifySecret).not.toHaveBeenCalled();
+    });
   });
 });
 

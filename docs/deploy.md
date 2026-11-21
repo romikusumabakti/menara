@@ -437,6 +437,103 @@ Values an instance sets for itself, outside any app's `.env`:
   organisation and its business that the code assistant and its drafts get in
   their system prompt. Empty: a generic description is used.
 
+## Migrating an install from a previous product name
+
+An install that ran this product under an earlier name moves to Menara in
+four steps. Run them in order; each one is safe to repeat.
+
+### 1. Move the install: `install.sh --migrate-from`
+
+```sh
+sh install.sh --migrate-from /opt/<old dir> --legacy-name <name> --hostname app.example.com --dry-run
+sh install.sh --migrate-from /opt/<old dir> --legacy-name <name> --hostname app.example.com
+```
+
+`--legacy-name` is the previous name in lowercase; the old `.env` keys are
+`<NAME>_*`. The installer copies the old volumes and `backups/` into new
+volumes, writes a new `.env` with the keys renamed (plus `MENARA_LEGACY_NAME`
+and `MENARA_LEGACY_INSTANCE`, which switch the transition code on), and starts
+the new stack. The old stack stays on disk, stopped.
+
+Preflight refuses, before changing anything, when:
+
+- a deploy is queued or running, or a job is waiting or running in the old
+  queues;
+- an update is requested or running in the old install;
+- auto-update is on in the old instance (turn it off in Admin › Updates first);
+- the old stack is not running (the installer asks its own database), the
+  old image is not pinned by digest, or a required key is missing;
+- a `<instance>_*` volume already exists, so it never copies over data;
+- the free disk is less than the old volumes plus 10%.
+
+`--dry-run` runs every check and prints every action. If the migration fails
+part way, the new stack is stopped and the old one is started again; nothing
+old is changed. To retry after a partial failure, remove the new dir the
+installer names and run the command again.
+
+### 2. Convert what the old name left behind: `menara remark`
+
+```sh
+docker compose exec app bun dist/cli.js remark                    # dry run
+docker compose exec app bun dist/cli.js remark --apply
+docker compose exec app bun dist/cli.js remark --step ssh --step s3 --apply
+docker compose exec app bun dist/cli.js remark --finish --apply
+```
+
+Run it in the migrated instance (it needs `MENARA_LEGACY_NAME`; exit 2
+without it). A dry run lists, per step, every trace with what it becomes and
+changes nothing. `--apply` converts the items one by one; a converted item is
+not listed again. `--step <step>` limits the run to the named steps (`ssh`,
+`db-markers`, `assistant-logins`, `cloudflare`, `targets`, `s3`, `woodpecker`,
+`jira`, `instance-db`). `--finish` runs after the `woodpecker` step: it
+deletes the legacy CI secrets that no branch's pipeline file names any more,
+and lists the branches that still do. Exit 1 means an item or target failed;
+the others still ran.
+
+Runbook notes:
+
+- Do not back up or restore the instance while `remark --step s3 --apply`
+  runs: it moves the backup and archive objects.
+- Run `remark --step targets` only after every install that shares those
+  targets has been migrated, because it renames files in the shared deploy
+  directories.
+
+### 3. Check nothing is left: `menara sweep`
+
+```sh
+docker compose exec app bun dist/cli.js sweep
+docker compose exec app bun dist/cli.js sweep --json
+```
+
+Read-only. It lists every remaining trace of the previous name: what `remark`
+would convert, the CI secrets `remark --finish` would delete, and whole-word
+matches in the text columns of the instance database (history such as the
+activity log is not scanned). A system it cannot read is listed as "could not
+check". `--json` prints `[{ system, location, excerpt }]`. Exit 0: nothing
+left. Exit 1: something left or unchecked. Exit 2: `MENARA_LEGACY_NAME` is not
+set.
+
+### 4. Remove the old install: `install.sh --cleanup-legacy`
+
+```sh
+sh install.sh --cleanup-legacy /opt/<old dir> --legacy-name <name> --dry-run
+sh install.sh --cleanup-legacy /opt/<old dir> --legacy-name <name>
+```
+
+Once the migrated install works and `sweep` is clean, this removes the old
+dir, its updater units, volumes and images (only objects named after the
+legacy name). It asks you to type `yes` (or pass `--yes`) and refuses while
+the old stack is running. If it stops part way, run it again; the old dir is
+removed last.
+
+There is no rollback after this step: the old volumes are gone. Before it, the
+old install is intact and can be started again with `docker compose up -d` in
+its dir.
+
+The transition code (`--migrate-from`, `remark`, `sweep`,
+`MENARA_LEGACY_NAME`) is removed in a later release, so migrate every install
+before you move past it.
+
 ## Upgrading to strong sign-in
 
 - Sessions created before the upgrade have no recorded sign-in method and count

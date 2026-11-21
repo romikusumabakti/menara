@@ -128,6 +128,10 @@ stack.
 `sh install.sh --help` and the header of
 [`ops/install/install.sh`](ops/install/install.sh) describe the full contract.
 
+An install that ran under a previous product name moves over with
+`--migrate-from`; see [Migrating an install from a previous product
+name](docs/deploy.md#migrating-an-install-from-a-previous-product-name).
+
 After the first start:
 
 1. **Create the first admin** at `<url>/setup`.

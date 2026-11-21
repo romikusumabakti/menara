@@ -80,6 +80,20 @@ function bucket() {
 const state = vi.hoisted(() => ({
   destination: null as unknown,
   connections: new Map<string, unknown>(),
+  /** Another backup holds the instance backup lock. */
+  backupRunning: false,
+  lockLog: [] as string[],
+}));
+
+vi.mock("@/lib/instance-backup/archive", async (orig) => ({
+  ...(await orig<typeof import("@/lib/instance-backup/archive")>()),
+  pgBackupLock: async () => {
+    if (state.backupRunning) return null;
+    state.lockLog.push("lock");
+    return async () => {
+      state.lockLog.push("release");
+    };
+  },
 }));
 
 vi.mock("@/lib/instance-backup/destination", async (orig) => ({
@@ -148,6 +162,8 @@ function seedOthers() {
 
 beforeEach(() => {
   vi.stubEnv("COMPOSE_PROJECT_NAME", "beta");
+  state.backupRunning = false;
+  state.lockLog = [];
   dest = bucket();
   conn = bucket();
   state.destination = {
@@ -336,6 +352,35 @@ describe("remark s3", () => {
     if (!again) throw new Error("no item");
     await step.apply(ctx(), again);
     expect(legacyKeys(dest)).toEqual([`acme/${OLD_ARCHIVE}database.sql.gz`]);
+  });
+
+  it("moves under the instance backup lock", async () => {
+    seedLegacy();
+    const [item] = await step.plan(ctx());
+    if (!item) throw new Error("no item");
+    state.lockLog = [];
+    await step.apply(ctx(), item);
+    expect(state.lockLog).toEqual(["lock", "release"]);
+    // Released when the move fails too.
+    const [other] = await step.plan(ctx());
+    if (!other) throw new Error("no item");
+    dest.faults.failCopy.add(`acme/${OLD_ARCHIVE}database.sql.gz`);
+    state.lockLog = [];
+    await expect(step.apply(ctx(), other)).rejects.toThrow();
+    expect(state.lockLog).toEqual(["lock", "release"]);
+  });
+
+  it("fails the item while a backup holds the lock", async () => {
+    seedLegacy();
+    const [item] = await step.plan(ctx());
+    if (!item) throw new Error("no item");
+    state.backupRunning = true;
+    dest.ops.length = 0;
+    await expect(step.apply(ctx(), item)).rejects.toThrow(
+      "an instance backup is running; run remark --step s3 --apply again once it has finished"
+    );
+    expect(dest.ops.filter((o) => !o.startsWith("list"))).toEqual([]);
+    expect(legacyKeys(dest)).toContain(`acme/${OLD_BACKUP}manifest.json`);
   });
 
   it("is idempotent", async () => {

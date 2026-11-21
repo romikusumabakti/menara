@@ -8,6 +8,7 @@ import {
 import {
   instanceName,
   legacyBackupPrefix,
+  pgBackupLock,
   REMOTE_PREFIX,
 } from "@/lib/instance-backup/archive";
 import {
@@ -48,6 +49,8 @@ import { sameS3Bucket } from "@/lib/validation";
 // passes it.
 
 type Kind = "backup" | "archive";
+
+type CopyStore = Required<Pick<ObjectStore, "head" | "copy">> & ObjectStore;
 
 type Place = {
   target: string;
@@ -277,11 +280,34 @@ export async function apply(
   if (!store.head || !store.copy) {
     throw new Error("the store cannot copy objects");
   }
-  const s3 = store as Required<Pick<ObjectStore, "head" | "copy">> &
-    ObjectStore;
+  const s3 = store as CopyStore;
+  // The instance backup lock: a backup (and its retention) never lists,
+  // writes or prunes these folders while they move.
+  const release = await pgBackupLock();
+  if (!release) {
+    throw new Error(
+      "an instance backup is running; run remark --step s3 --apply again once it has finished"
+    );
+  }
+  try {
+    await move(ctx, place, map.kind, item, s3);
+  } finally {
+    // The reserved connection is given back either way; an unlock error must
+    // not hide the move's own.
+    await release().catch(() => undefined);
+  }
+}
+
+async function move(
+  ctx: RemarkContext,
+  place: Place,
+  kind: Kind,
+  item: RemarkItem,
+  s3: CopyStore
+): Promise<void> {
   // A folder holds every key under it; a loose key only itself.
   const under = async (key: string) =>
-    (await store.list(key)).filter((o) => key.endsWith("/") || o.key === key);
+    (await s3.list(key)).filter((o) => key.endsWith("/") || o.key === key);
 
   const objects = await under(item.from);
   if (objects.length === 0) {
@@ -289,7 +315,7 @@ export async function apply(
       throw new Error("no object is under the old or the new key");
     }
     // Moved by an earlier run; make sure the rows say so.
-    await record(ctx, place, map.kind, item);
+    await record(ctx, place, kind, item);
     return;
   }
   const failures: string[] = [];
@@ -309,9 +335,9 @@ export async function apply(
       `${failures.length} of ${objects.length} object(s) not copied (${failures[0]}); the old objects are kept`
     );
   }
-  await record(ctx, place, map.kind, item);
+  await record(ctx, place, kind, item);
   try {
-    await store.delete(objects.map((o) => o.key));
+    await s3.delete(objects.map((o) => o.key));
   } catch (error) {
     throw new Error(
       `copied and recorded, but the old objects could not be deleted (${messageOf(error)}); run remark again to delete them`

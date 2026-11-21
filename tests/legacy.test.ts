@@ -35,6 +35,22 @@ describe("legacy", () => {
     warn.mockRestore();
   });
 
+  it("rejects the current product name as a legacy name", async () => {
+    // A fresh module: the warn-once flag is per module instance.
+    vi.resetModules();
+    const fresh = await import("@/lib/legacy");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(fresh.legacy({ MENARA_LEGACY_NAME: "menara" })).toBeNull();
+    expect(
+      fresh.legacy({
+        MENARA_LEGACY_NAME: " menara ",
+        MENARA_LEGACY_INSTANCE: "oldtool-beta",
+      })
+    ).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
   it("applyLegacyEnv copies only unset MENARA_ keys", () => {
     const env: NodeJS.ProcessEnv = {
       MENARA_LEGACY_NAME: "oldtool",

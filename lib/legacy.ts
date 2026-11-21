@@ -23,11 +23,13 @@ let warnedInvalid = false;
 export function legacy(env: NodeJS.ProcessEnv = process.env): Legacy | null {
   const name = env.MENARA_LEGACY_NAME?.trim();
   if (!name) return null;
-  if (!NAME_RE.test(name)) {
+  // The current name is refused: its markers would collide with those of
+  // other Menara instances (e.g. menara:<instance>:<keyId> SSH lines).
+  if (!NAME_RE.test(name) || name === "menara") {
     if (!warnedInvalid) {
       warnedInvalid = true;
       console.warn(
-        "[legacy] MENARA_LEGACY_NAME must match [a-z][a-z0-9-]*; transition support is off"
+        "[legacy] MENARA_LEGACY_NAME must match [a-z][a-z0-9-]* and not be menara; transition support is off"
       );
     }
     return null;

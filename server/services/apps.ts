@@ -46,7 +46,7 @@ import { branchSchema } from "@/lib/deploy/validation";
 import { legacy } from "@/lib/legacy";
 import { isUniqueViolation } from "@/lib/people/names";
 import { canProject, canRegisterApp } from "@/lib/permissions";
-import { encryptSecret } from "@/lib/secrets";
+import { decryptSecret, encryptSecret } from "@/lib/secrets";
 import {
   getService,
   getServiceDetail,
@@ -663,24 +663,24 @@ async function requireService(componentKey: string) {
  * from (`<legacy>_notify…`) until `remark --finish` deletes it: it gets the
  * new value too, or those branches' builds would stop deploying. When the
  * secrets cannot be listed it is written anyway: an extra secret is
- * harmless, a stale one is not.
+ * harmless, a stale one is not. Returns the legacy name a write failed for.
  */
 async function rotateLegacyNotifySecret(
   provider: CiProvider,
   ciRepoId: string,
   name: string,
   secret: string
-): Promise<void> {
+): Promise<{ failed: string } | null> {
   const l = legacy();
   const legacyName = l ? legacySecretName(name, l) : null;
-  if (!legacyName) return;
+  if (!legacyName) return null;
   let present = true;
   try {
     present = (await provider.listRepoSecrets(ciRepoId)).includes(legacyName);
   } catch (error) {
     if (!(error instanceof CiProviderError)) throw error;
   }
-  if (!present) return;
+  if (!present) return null;
   try {
     await provider.upsertRepoSecret(
       ciRepoId,
@@ -690,11 +690,9 @@ async function rotateLegacyNotifySecret(
     );
   } catch (error) {
     if (!(error instanceof CiProviderError)) throw error;
-    fail(
-      502,
-      `Woodpecker secret ${legacyName} not updated; Menara secret unchanged — rotate again`
-    );
+    return { failed: legacyName };
   }
+  return null;
 }
 
 /**
@@ -723,12 +721,36 @@ export async function rotateNotifySecret(
     if (!(error instanceof CiProviderError)) throw error;
     fail(502, "Woodpecker secret not updated; Menara secret unchanged");
   }
-  await rotateLegacyNotifySecret(
+  const legacyWrite = await rotateLegacyNotifySecret(
     provider,
     component.ciRepoId as string,
     component.notifySecretName,
     secret
   );
+  if (legacyWrite) {
+    // The legacy copy keeps the old value, as Menara does: put the Menara
+    // name back on it too, so every branch still signs with what Menara
+    // verifies.
+    const name = component.notifySecretName;
+    try {
+      await provider.upsertRepoSecret(
+        component.ciRepoId as string,
+        name,
+        decryptSecret(component.notifySecret),
+        NOTIFY_SECRET_EVENTS
+      );
+    } catch (error) {
+      if (!(error instanceof CiProviderError)) throw error;
+      fail(
+        502,
+        `Woodpecker secret ${legacyWrite.failed} not updated and ${name} could not be restored: ${name} holds the new secret, ${legacyWrite.failed} and Menara the old one — rotate again`
+      );
+    }
+    fail(
+      502,
+      `Woodpecker secret ${legacyWrite.failed} not updated; ${name} restored, the notify secret is unchanged — rotate again`
+    );
+  }
   try {
     await setNotifySecret(componentKey, encryptSecret(secret));
   } catch (error) {

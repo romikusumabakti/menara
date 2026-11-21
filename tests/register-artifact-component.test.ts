@@ -65,7 +65,10 @@ vi.mock("@/server/services/ci-connections", () => ({
   }),
   listConnectionOptions: mocks.listConnectionOptions,
 }));
-vi.mock("@/lib/secrets", () => ({ encryptSecret: (s: string) => `enc:${s}` }));
+vi.mock("@/lib/secrets", () => ({
+  encryptSecret: (s: string) => `enc:${s}`,
+  decryptSecret: (s: string) => s.replace(/^enc:/, ""),
+}));
 
 import { type BuildSpec, buildSpecSchema } from "@/lib/ci/build-spec";
 import {
@@ -86,6 +89,7 @@ const CONN = "0197f3a0-1b2c-7def-8000-0123456789c1";
 const REPO = "acme/acme-portal";
 const KEY = "legacy-portal-frontend";
 const SUFFIXED = "menara_notify_legacy_portal_frontend";
+const OLD_SECRET = "fictional-old-notify-secret";
 
 const SPEC: BuildSpec = buildSpecSchema.parse({
   branches: [],
@@ -340,6 +344,7 @@ describe("a stored component's notify secret name", () => {
     pipelineMode: "generated",
     buildSpec: SPEC,
     notifySecretName: SUFFIXED,
+    notifySecret: `enc:${OLD_SECRET}`,
     pipelineFileCommits: null,
   };
 
@@ -415,14 +420,36 @@ describe("a stored component's notify secret name", () => {
       ]);
     });
 
-    it("keeps Menara's secret when the legacy one is not updated", async () => {
+    it("restores the Menara secret when the legacy one is not updated", async () => {
       mocks.listRepoSecrets.mockResolvedValue([LEGACY_NAME]);
       mocks.upsertRepoSecret
         .mockResolvedValueOnce(undefined)
-        .mockRejectedValueOnce(new CiProviderError("nope", 500));
-      await expect(rotateNotifySecret(KEY)).rejects.toThrow(
-        `Woodpecker secret ${LEGACY_NAME} not updated`
+        .mockRejectedValueOnce(new CiProviderError("nope", 500))
+        .mockResolvedValueOnce(undefined);
+      const error = await rotateNotifySecret(KEY).catch((e: Error) => e);
+      expect(String(error)).toContain(
+        `Woodpecker secret ${LEGACY_NAME} not updated; ${SUFFIXED} restored, the notify secret is unchanged`
       );
+      expect(String(error)).not.toContain(OLD_SECRET);
+      // All three end on the old value: Menara, the legacy copy (never
+      // written) and the Menara-named secret (written back).
+      const calls = mocks.upsertRepoSecret.mock.calls;
+      expect(calls.map((c) => c[1])).toEqual([SUFFIXED, LEGACY_NAME, SUFFIXED]);
+      expect(calls[2]?.[2]).toBe(OLD_SECRET);
+      expect(mocks.setNotifySecret).not.toHaveBeenCalled();
+    });
+
+    it("says which secret holds which value when the restore fails", async () => {
+      mocks.listRepoSecrets.mockResolvedValue([LEGACY_NAME]);
+      mocks.upsertRepoSecret
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new CiProviderError("nope", 500))
+        .mockRejectedValueOnce(new CiProviderError("still nope", 500));
+      const error = await rotateNotifySecret(KEY).catch((e: Error) => e);
+      expect(String(error)).toContain(
+        `${SUFFIXED} holds the new secret, ${LEGACY_NAME} and Menara the old one — rotate again`
+      );
+      expect(String(error)).not.toContain(OLD_SECRET);
       expect(mocks.setNotifySecret).not.toHaveBeenCalled();
     });
   });

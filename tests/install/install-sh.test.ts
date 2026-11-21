@@ -8,6 +8,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -54,6 +55,16 @@ case "$1 $2" in
     exit 1 ;;
   "ps -aq")
     case "$*" in *"volume=\${STUB_BUSY_VOLUME:-none}") echo 0123abcd ;; esac ;;
+  "ps -q")
+    [ -n "\${STUB_OLD_RUNNING:-}" ] && echo 4567cdef ;;
+  "image ls")
+    [ -n "\${STUB_IMAGES:-}" ] && printf '%s\\n' "$STUB_IMAGES" ;;
+esac
+# Read-only queries of install.sh --migrate-from.
+case "$*" in
+  *" exec -T postgres "*deployments*) echo "\${STUB_DEPLOYS:-0}" ;;
+  *" exec -T valkey "*) echo "\${STUB_QUEUED:-0}" ;;
+  "run --rm --pull never "*) echo "\${STUB_SPACE:-2000 1000000}" ;;
 esac
 exit 0
 `;
@@ -732,6 +743,563 @@ describe("install.sh --adopt --dry-run", () => {
     );
     expect(r.status, r.all).toBe(0);
     expect(r.stdout).toMatch(/\+ cp -p .*\/\.env .*\/\.env\.pre-adopt-/);
+  });
+});
+
+describe("install.sh --migrate-from --dry-run", () => {
+  // An install of the product under a previous (fictional) name: keys
+  // OLDTOOL_*, compose project oldtool-beta in /opt/oldtool-beta, updater
+  // units oldtool-updater@oldtool-beta.*, the database volume kept from an
+  // adopted stack through OLDTOOL_VOLUME_POSTGRES.
+  const pin = (name: string) => image(name, "0.7.9");
+  const SECRET_VALUES = {
+    POSTGRES_PASSWORD: "0f1e2d3c4b5a69788796a5b4c3d2e1f0",
+    BETTER_AUTH_SECRET: "old-auth/Secret=",
+    SECRETS_KEY: Buffer.alloc(32, 5).toString("base64"),
+    S3_SECRET_KEY: "d4".repeat(32),
+    GARAGE_RPC_SECRET: "e5".repeat(32),
+    GARAGE_ADMIN_TOKEN: "old-garage-admin",
+    IMGPROXY_KEY: "f6".repeat(32),
+    IMGPROXY_SALT: "a7".repeat(32),
+  };
+  const S = SECRET_VALUES;
+  const oldEnv = ({
+    user = "postgres",
+    db = "acme_ops" as string | null,
+  }: {
+    user?: string;
+    db?: string | null;
+  } = {}) =>
+    [
+      "# written by the old installer",
+      "COMPOSE_PROJECT_NAME=oldtool-beta",
+      "OLDTOOL_DIR=/opt/oldtool-beta",
+      "OLDTOOL_VERSION=0.7.9",
+      `OLDTOOL_IMAGE=${pin("ghcr.io/romikusumabakti/oldtool")}`,
+      `POSTGRES_IMAGE=${pin(IMAGE_NAMES.postgres)}`,
+      `VALKEY_IMAGE=${pin(IMAGE_NAMES.valkey)}`,
+      `GARAGE_IMAGE=${pin(IMAGE_NAMES.garage)}`,
+      `IMGPROXY_IMAGE=${pin(IMAGE_NAMES.imgproxy)}`,
+      `CADDY_IMAGE=${pin(IMAGE_NAMES.caddy)}`,
+      "OLDTOOL_HTTP_PORT=8090",
+      "BETTER_AUTH_URL=https://beta.example.test",
+      `POSTGRES_USER=${user}`,
+      ...(db === null ? [] : [`POSTGRES_DB=${db}`]),
+      `POSTGRES_PASSWORD=${S.POSTGRES_PASSWORD}`,
+      `DATABASE_URL=postgres://${user}:${S.POSTGRES_PASSWORD}@postgres:5432/${db ?? "oldtool"}`,
+      `BETTER_AUTH_SECRET=${S.BETTER_AUTH_SECRET}`,
+      `SECRETS_KEY=${S.SECRETS_KEY}`,
+      "",
+      `GARAGE_RPC_SECRET=${S.GARAGE_RPC_SECRET}`,
+      `GARAGE_ADMIN_TOKEN=${S.GARAGE_ADMIN_TOKEN}`,
+      "S3_ACCESS_KEY=GK0123456789abcdef01234567",
+      `S3_SECRET_KEY=${S.S3_SECRET_KEY}`,
+      `IMGPROXY_KEY=${S.IMGPROXY_KEY}`,
+      `IMGPROXY_SALT=${S.IMGPROXY_SALT}`,
+      "EMAIL_FROM=oldtool@example.test",
+      "OLDTOOL_TERMINAL_IDLE_MINUTES=30",
+      "OLDTOOL_VOLUME_POSTGRES=oldtool_postgres_data",
+      "OLDTOOL_VOLUME_CADDY_DATA=shared_caddy_data",
+      "",
+    ].join("\n");
+  const OLD_VOLUMES = [
+    "oldtool_postgres_data",
+    "oldtool-beta_valkey",
+    "oldtool-beta_garage_meta",
+    "oldtool-beta_garage_data",
+    "shared_caddy_data",
+    "oldtool-beta_caddy_config",
+    "oldtool-beta_assistant_cache",
+  ].join(" ");
+  const UNITS = [
+    "oldtool-updater@oldtool-beta.path",
+    "oldtool-updater@oldtool-beta.service",
+  ];
+
+  function migrateSetup(env = oldEnv()) {
+    const ctx = setup();
+    const oldDir = join(ctx.opt, "oldtool-beta");
+    mkdirSync(join(oldDir, "backups"), { recursive: true });
+    writeFileSync(join(oldDir, ".env"), env, { mode: 0o600 });
+    // The old release's compose.yaml: this one under the old name.
+    writeFileSync(
+      join(oldDir, "compose.yaml"),
+      readFileSync(COMPOSE, "utf8")
+        .replaceAll("MENARA_", "OLDTOOL_")
+        .replaceAll("menara", "oldtool")
+    );
+    const units = join(ctx.sysroot, "etc/systemd/system");
+    mkdirSync(join(units, "multi-user.target.wants"), { recursive: true });
+    for (const ext of ["path", "service"]) {
+      writeFileSync(join(units, `oldtool-updater@.${ext}`), "");
+    }
+    for (const unit of UNITS) {
+      symlinkSync(
+        join(units, unit.replace("@oldtool-beta", "@")),
+        join(units, "multi-user.target.wants", unit)
+      );
+    }
+    return { ctx, oldDir, dir: join(ctx.opt, "menara-beta") };
+  }
+
+  const migrate = (
+    { ctx, oldDir, dir }: ReturnType<typeof migrateSetup>,
+    env: Record<string, string> = {},
+    extra: string[] = []
+  ) =>
+    install(
+      ctx,
+      [
+        "--dry-run",
+        "--version",
+        "v1.4.0-beta.1",
+        "--dir",
+        dir,
+        "--migrate-from",
+        oldDir,
+        "--legacy-name",
+        "oldtool",
+        ...extra,
+      ],
+      { STUB_VOLUMES: OLD_VOLUMES, ...env }
+    );
+
+  // install.sh's own functions, run alone (as the way_back test does).
+  function shFunctions(names: string[], consts: string[] = []) {
+    const text = readFileSync(SCRIPT, "utf8");
+    const lines = consts.map(
+      (c) => text.split("\n").find((l) => l.startsWith(`${c}=`)) ?? ""
+    );
+    const fns = names.map((n) => {
+      const start = text.indexOf(`\n${n}() {`);
+      expect(start, n).toBeGreaterThan(0);
+      return text.slice(start, text.indexOf("\n}\n", start) + 3);
+    });
+    return [...lines, ...fns].join("\n");
+  }
+
+  it("translates the env keys", () => {
+    const { ctx, oldDir } = migrateSetup();
+    const r = spawnSync(
+      "sh",
+      [
+        "-c",
+        `${shFunctions(["migrated_env"], ["IMAGE_KEYS"])}\nmigrated_env "$1" oldtool oldtool-beta postgres acme_ops`,
+        "sh",
+        join(oldDir, ".env"),
+      ],
+      { encoding: "utf8", env: { PATH: ctx.hostBin } }
+    );
+    expect(r.stderr).toBe("");
+    // Keys renamed, values as they were (EMAIL_FROM keeps the old name),
+    // install.sh's own keys and the old volume overrides left out.
+    expect(r.stdout).toBe(
+      [
+        "BETTER_AUTH_URL=https://beta.example.test",
+        "POSTGRES_USER=postgres",
+        "POSTGRES_DB=acme_ops",
+        `POSTGRES_PASSWORD=${S.POSTGRES_PASSWORD}`,
+        `DATABASE_URL=postgres://postgres:${S.POSTGRES_PASSWORD}@postgres:5432/acme_ops`,
+        `BETTER_AUTH_SECRET=${S.BETTER_AUTH_SECRET}`,
+        `SECRETS_KEY=${S.SECRETS_KEY}`,
+        `GARAGE_RPC_SECRET=${S.GARAGE_RPC_SECRET}`,
+        `GARAGE_ADMIN_TOKEN=${S.GARAGE_ADMIN_TOKEN}`,
+        "S3_ACCESS_KEY=GK0123456789abcdef01234567",
+        `S3_SECRET_KEY=${S.S3_SECRET_KEY}`,
+        `IMGPROXY_KEY=${S.IMGPROXY_KEY}`,
+        `IMGPROXY_SALT=${S.IMGPROXY_SALT}`,
+        "EMAIL_FROM=oldtool@example.test",
+        "MENARA_TERMINAL_IDLE_MINUTES=30",
+        "MENARA_LEGACY_NAME=oldtool",
+        "MENARA_LEGACY_INSTANCE=oldtool-beta",
+        "",
+      ].join("\n")
+    );
+  });
+
+  it("writes the new .env's keys in a dry run, never a value", () => {
+    const m = migrateSetup();
+    const r = migrate(m);
+    expect(r.status, r.all).toBe(0);
+    const keys = r.stdout.split("\n").find((l) => l.startsWith("keys: "));
+    expect(keys).toBe(
+      "keys: COMPOSE_PROJECT_NAME MENARA_DIR MENARA_VERSION MENARA_IMAGE POSTGRES_IMAGE VALKEY_IMAGE GARAGE_IMAGE IMGPROXY_IMAGE CADDY_IMAGE MENARA_HTTP_PORT BETTER_AUTH_URL POSTGRES_USER POSTGRES_DB POSTGRES_PASSWORD DATABASE_URL BETTER_AUTH_SECRET SECRETS_KEY GARAGE_RPC_SECRET GARAGE_ADMIN_TOKEN S3_ACCESS_KEY S3_SECRET_KEY IMGPROXY_KEY IMGPROXY_SALT EMAIL_FROM MENARA_TERMINAL_IDLE_MINUTES MENARA_LEGACY_NAME MENARA_LEGACY_INSTANCE "
+    );
+    // The old stack's port stays.
+    expect(r.stdout).toContain("Caddy on 127.0.0.1:8090;");
+    for (const value of Object.values(S)) expect(r.all).not.toContain(value);
+  });
+
+  it("renames a database named like the legacy name", () => {
+    // POSTGRES_DB unset: the old compose default (the legacy name) applied.
+    const env = oldEnv({ user: "oldtool", db: null });
+    const m = migrateSetup(env);
+    const r = spawnSync(
+      "sh",
+      [
+        "-c",
+        `${shFunctions(["migrated_env"], ["IMAGE_KEYS"])}\nmigrated_env "$1" oldtool oldtool-beta oldtool oldtool | grep -E '^(POSTGRES_USER|POSTGRES_DB|DATABASE_URL)='`,
+        "sh",
+        join(m.oldDir, ".env"),
+      ],
+      { encoding: "utf8", env: { PATH: m.ctx.hostBin } }
+    );
+    expect(r.stdout).toBe(
+      [
+        "POSTGRES_USER=menara",
+        `DATABASE_URL=postgres://menara:${S.POSTGRES_PASSWORD}@postgres:5432/menara`,
+        "POSTGRES_DB=menara",
+        "",
+      ].join("\n")
+    );
+
+    const run = migrate(m);
+    expect(run.status, run.all).toBe(0);
+    const compose = `docker compose -f ${m.dir}/compose.yaml`;
+    inOrder(run.stdout, [
+      "==> Migrate",
+      "+ docker volume create",
+      `${compose} up -d --wait --wait-timeout 300 postgres`,
+      // A temporary superuser renames the role the session cannot rename.
+      'sh oldtool ALTER DATABASE "oldtool" RENAME TO "menara";\nCREATE ROLE "menara_rename" SUPERUSER LOGIN;',
+      'sh menara_rename ALTER ROLE "oldtool" RENAME TO "menara";\n\\getenv pw POSTGRES_PASSWORD\nALTER ROLE "menara" PASSWORD :\'pw\';',
+      'sh menara DROP ROLE "menara_rename";',
+      "==> Start",
+      `${compose} up -d --wait`,
+    ]);
+    expect(run.stdout).toContain("renames database oldtool to menara");
+    expect(run.stdout).toContain("renames role oldtool to menara");
+    expect(run.all).not.toContain(S.POSTGRES_PASSWORD);
+  });
+
+  it("leaves a database named otherwise as it is", () => {
+    const r = migrate(migrateSetup());
+    expect(r.status, r.all).toBe(0);
+    expect(r.stdout).not.toContain("ALTER ");
+    expect(r.stdout).not.toContain("renames");
+  });
+
+  it("copies every volume including volume overrides", () => {
+    const m = migrateSetup();
+    const r = migrate(m);
+    expect(r.status, r.all).toBe(0);
+    const app = image(IMAGE_NAMES.app, "1.4.0-beta.1");
+    const old = `docker compose -f ${m.oldDir}/compose.yaml`;
+    const copies = [
+      ["oldtool_postgres_data", "postgres"],
+      ["oldtool-beta_valkey", "valkey"],
+      ["oldtool-beta_garage_meta", "garage_meta"],
+      ["oldtool-beta_garage_data", "garage_data"],
+      ["shared_caddy_data", "caddy_data"],
+      ["oldtool-beta_caddy_config", "caddy_config"],
+      ["oldtool-beta_assistant_cache", "assistant_cache"],
+    ].flatMap(([from, suffix]) => [
+      `+ docker volume create --label com.docker.compose.project=menara-beta --label com.docker.compose.volume=${suffix} menara-beta_${suffix}`,
+      `+ docker run --rm --network none --user 0 --entrypoint sh -v ${from}:/from:ro -v menara-beta_${suffix}:/to ${app} -c cp -a /from/. /to/`,
+    ]);
+    inOrder(r.stdout, [
+      "==> Install dir",
+      "==> .env",
+      "==> Updater",
+      "+ systemctl enable --now menara-updater@menara-beta.path",
+      "==> Migrate",
+      `docker compose -f ${m.dir}/compose.yaml pull`,
+      `+ ${old} stop app`,
+      `+ systemctl disable --now ${UNITS.join(" ")}`,
+      `+ ${old} down`,
+      ...copies,
+      `+ cp -a ${m.oldDir}/backups/. ${m.dir}/backups/`,
+      "==> Start",
+      `docker compose -f ${m.dir}/compose.yaml up -d --wait`,
+    ]);
+    // The disk check measured every old volume, read-only.
+    const calls = readFileSync(m.ctx.log, "utf8");
+    expect(calls).toContain("-v oldtool_postgres_data:/from/postgres:ro");
+    expect(calls).toContain("-v shared_caddy_data:/from/caddy_data:ro");
+    // Nothing old is removed.
+    expect(r.stdout).not.toMatch(/volume rm|rm -rf|image rm/);
+  });
+
+  it("refuses when the target exists", () => {
+    const m = migrateSetup();
+    mkdirSync(m.dir);
+    const dirExists = migrate(m);
+    expect(dirExists.status).toBe(1);
+    expect(dirExists.stderr).toContain(`${m.dir} already exists`);
+    rmSync(m.dir, { recursive: true });
+    const volumeExists = migrate(m, {
+      STUB_VOLUMES: `${OLD_VOLUMES} menara-beta_valkey`,
+    });
+    expect(volumeExists.status).toBe(1);
+    expect(volumeExists.stderr).toContain(
+      "volume menara-beta_valkey already exists"
+    );
+    expect(volumeExists.stdout).not.toContain("==> Install dir");
+  });
+
+  it("refuses while deploys run", () => {
+    const m = migrateSetup();
+    const r = migrate(m, { STUB_DEPLOYS: "2" });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain(
+      "deploys queued or running in the old instance: 2"
+    );
+    expect(r.stdout).not.toContain("==> Install dir");
+    // Asked of the old stack's own postgres.
+    expect(readFileSync(m.ctx.log, "utf8")).toContain(
+      `docker compose -f ${m.oldDir}/compose.yaml exec -T postgres`
+    );
+  });
+
+  it("refuses while the old queues hold jobs", () => {
+    const m = migrateSetup();
+    const r = migrate(m, { STUB_QUEUED: "3" });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain(
+      "jobs waiting or running in the old queues (oldtool-tasks oldtool-assistant): 3"
+    );
+    const calls = readFileSync(m.ctx.log, "utf8");
+    expect(calls).toContain("oldtool-tasks oldtool-assistant");
+    expect(r.stdout).not.toContain("==> Install dir");
+  });
+
+  it("refuses without free disk for the copies and a 10% margin", () => {
+    const m = migrateSetup();
+    const r = migrate(m, { STUB_SPACE: "10000 10500" });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("not enough free disk");
+    expect(r.stdout).not.toContain("==> Install dir");
+    const ok = migrate(m, { STUB_SPACE: "10000 11000" });
+    expect(ok.status, ok.all).toBe(0);
+  });
+
+  it.each([
+    ["the legacy name menara", ["--legacy-name", "menara"], /menara/],
+    ["a bad legacy name", ["--legacy-name", "Old_Tool"], /--legacy-name/],
+  ])("refuses %s", (_label, args, pattern) => {
+    const m = migrateSetup();
+    const r = migrate(m, {}, args);
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(pattern);
+    expect(r.stdout).not.toContain("==> Docker");
+  });
+
+  it("refuses an old dir without .env", () => {
+    const m = migrateSetup();
+    rmSync(join(m.oldDir, ".env"));
+    const r = migrate(m);
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain(`${m.oldDir}/.env`);
+  });
+
+  it("refuses --migrate-from without --legacy-name", () => {
+    const m = migrateSetup();
+    const r = install(m.ctx, [
+      "--dry-run",
+      "--dir",
+      m.dir,
+      "--migrate-from",
+      m.oldDir,
+    ]);
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("--legacy-name");
+  });
+
+  it("rolls back to the old stack", () => {
+    // on_exit after a failed real run: the functions alone, with logging
+    // docker and systemctl stubs.
+    const m = migrateSetup();
+    writeFileSync(
+      join(m.ctx.bin, "systemctl"),
+      `#!/bin/sh\nprintf 'systemctl %s\\n' "$*" >> "$STUB_LOG"\n`,
+      { mode: 0o755 }
+    );
+    const vars = {
+      dry_run: "0",
+      changed: "1",
+      work: "",
+      adopt: "",
+      restore: "",
+      preexisting: "",
+      cleanup: "",
+      dir: m.dir,
+      name: "menara-beta",
+      old_dir: m.oldDir,
+      migrate_from: m.oldDir,
+      old_stopped: "1",
+      old_units: ` ${UNITS.join(" ")}`,
+    };
+    const assign = Object.entries(vars)
+      .map(([k, v]) => `${k}='${v}'`)
+      .join("; ");
+    const r = spawnSync(
+      "sh",
+      [
+        "-c",
+        `${shFunctions(["run", "compose", "roll_back", "way_back", "on_exit"])}\n${assign}; mkdir -p '${m.dir}'; : > '${m.dir}/compose.yaml'; (exit 1); on_exit`,
+      ],
+      {
+        encoding: "utf8",
+        env: { PATH: `${m.ctx.bin}:${m.ctx.hostBin}`, STUB_LOG: m.ctx.log },
+      }
+    );
+    const calls = readFileSync(m.ctx.log, "utf8");
+    inOrder(calls, [
+      `docker compose -f ${m.dir}/compose.yaml down`,
+      "systemctl disable --now menara-updater@menara-beta.path menara-updater@menara-beta.service",
+      "systemctl enable --now oldtool-updater@oldtool-beta.path",
+      "systemctl enable oldtool-updater@oldtool-beta.service",
+      `docker compose -f ${m.oldDir}/compose.yaml up -d`,
+    ]);
+    // `enable --now` on the service would run the old updater at once.
+    expect(calls).not.toContain(
+      "enable --now oldtool-updater@oldtool-beta.service"
+    );
+    expect(calls).not.toMatch(/volume rm|down -v|rm -rf/);
+    expect(r.stderr).toContain("The old stack was started again");
+  });
+
+  it("does not stop the old stack again when it was never stopped", () => {
+    const m = migrateSetup();
+    const r = spawnSync(
+      "sh",
+      [
+        "-c",
+        `${shFunctions(["run", "compose", "roll_back"])}\ndry_run=0; dir='${m.dir}'; name=menara-beta; old_dir='${m.oldDir}'; old_stopped=0; old_units=''; roll_back`,
+      ],
+      {
+        encoding: "utf8",
+        env: { PATH: `${m.ctx.bin}:${m.ctx.hostBin}`, STUB_LOG: m.ctx.log },
+      }
+    );
+    expect(r.status).toBe(0);
+    expect(readFileSync(m.ctx.log, "utf8")).not.toContain(
+      `${m.oldDir}/compose.yaml up`
+    );
+  });
+});
+
+describe("install.sh --cleanup-legacy --dry-run", () => {
+  const OLD_ENV_CLEANUP = [
+    "COMPOSE_PROJECT_NAME=oldtool-beta",
+    "OLDTOOL_VOLUME_POSTGRES=oldtool_postgres_data",
+    "OLDTOOL_VOLUME_CADDY_DATA=shared_caddy_data",
+    "",
+  ].join("\n");
+
+  function cleanupSetup() {
+    const ctx = setup();
+    const oldDir = join(ctx.opt, "oldtool-beta");
+    mkdirSync(oldDir);
+    writeFileSync(join(oldDir, ".env"), OLD_ENV_CLEANUP, { mode: 0o600 });
+    writeFileSync(join(oldDir, "compose.yaml"), "services: {}\n");
+    const units = join(ctx.sysroot, "etc/systemd/system");
+    mkdirSync(join(units, "multi-user.target.wants"), { recursive: true });
+    for (const ext of ["path", "service"]) {
+      writeFileSync(join(units, `oldtool-updater@.${ext}`), "");
+    }
+    return { ctx, oldDir, units };
+  }
+
+  const ENV = {
+    STUB_VOLUMES:
+      "oldtool_postgres_data oldtool-beta_valkey oldtool-beta_garage_data shared_caddy_data menara-beta_postgres menara-beta_valkey",
+    STUB_IMAGES: [
+      "ghcr.io/romikusumabakti/oldtool <none> sha256:aaaa",
+      "ghcr.io/romikusumabakti/oldtool 0.7.9 sha256:bbbb",
+      "ghcr.io/romikusumabakti/menara <none> sha256:cccc",
+      "docker.io/library/postgres <none> sha256:dddd",
+      "registry.example.test/oldtoolkit <none> sha256:eeee",
+    ].join("\n"),
+  };
+
+  const cleanup = (
+    { ctx, oldDir }: ReturnType<typeof cleanupSetup>,
+    env: Record<string, string> = {},
+    extra: string[] = []
+  ) =>
+    install(
+      ctx,
+      [
+        "--dry-run",
+        "--cleanup-legacy",
+        oldDir,
+        "--legacy-name",
+        "oldtool",
+        ...extra,
+      ],
+      { ...ENV, ...env }
+    );
+
+  it("cleanup removes only legacy-named objects", () => {
+    const c = cleanupSetup();
+    const r = cleanup(c, {}, ["--yes"]);
+    expect(r.status, r.all).toBe(0);
+    inOrder(r.stdout, [
+      `+ docker compose -f ${c.oldDir}/compose.yaml down`,
+      "+ docker volume rm oldtool_postgres_data",
+      "+ docker volume rm oldtool-beta_valkey",
+      "+ docker volume rm oldtool-beta_garage_data",
+      "+ docker image rm sha256:aaaa",
+      "+ docker image rm ghcr.io/romikusumabakti/oldtool:0.7.9",
+      "+ systemctl disable --now oldtool-updater@oldtool-beta.path oldtool-updater@oldtool-beta.service",
+      `+ rm -f ${c.units.replace(c.ctx.sysroot, "")}/oldtool-updater@.path ${c.units.replace(c.ctx.sysroot, "")}/oldtool-updater@.service`,
+      "+ systemctl daemon-reload",
+      `+ rm -rf ${c.oldDir}`,
+    ]);
+    // Not named after the legacy product: kept, and said so.
+    expect(r.stdout).toContain("keeps volume shared_caddy_data");
+    expect(r.stdout).not.toMatch(
+      /rm .*(menara|shared_caddy_data|cccc|dddd|eeee|postgres <)/
+    );
+    expect(r.stdout).not.toContain("menara-beta_");
+  });
+
+  it("keeps the unit templates while another old instance uses them", () => {
+    const c = cleanupSetup();
+    symlinkSync(
+      join(c.units, "oldtool-updater@.path"),
+      join(c.units, "multi-user.target.wants", "oldtool-updater@oldtool.path")
+    );
+    const r = cleanup(c, {}, ["--yes"]);
+    expect(r.status, r.all).toBe(0);
+    expect(r.stdout).toContain(
+      "+ systemctl disable --now oldtool-updater@oldtool-beta.path"
+    );
+    expect(r.stdout).not.toContain("oldtool-updater@.path ");
+  });
+
+  it("refuses cleanup while the old stack runs", () => {
+    const c = cleanupSetup();
+    const r = cleanup(c, { STUB_OLD_RUNNING: "1" }, ["--yes"]);
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("the old stack oldtool-beta is running");
+    expect(r.stdout).not.toContain("+ ");
+    expect(readFileSync(c.ctx.log, "utf8")).toContain(
+      "docker ps -q --filter label=com.docker.compose.project=oldtool-beta"
+    );
+  });
+
+  it("asks before removing anything in a real run", () => {
+    const c = cleanupSetup();
+    const r = cleanup(c);
+    expect(r.status, r.all).toBe(0);
+    expect(r.stdout).toContain(
+      "a real run asks you to type yes (or pass --yes)"
+    );
+  });
+
+  it("refuses the legacy name menara", () => {
+    const c = cleanupSetup();
+    const r = install(c.ctx, [
+      "--dry-run",
+      "--cleanup-legacy",
+      c.oldDir,
+      "--legacy-name",
+      "menara",
+    ]);
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("--legacy-name");
   });
 });
 
@@ -1435,6 +2003,23 @@ describe("lint", () => {
       .split(" ")
       .map((pair) => pair.split(":")[1]);
     expect([...manifest.IMAGE_KEYS]).toEqual(shKeys);
+  });
+
+  it("install.sh checks the queues lib/queue.ts and lib/assistant/queue.ts name", () => {
+    const install = readFileSync(SCRIPT, "utf8");
+    const suffixes = install
+      .split("\n")
+      .find((l) => l.startsWith("LEGACY_QUEUES="))
+      ?.replace(/^LEGACY_QUEUES='|'$/g, "")
+      .split(" ");
+    const queue = (file: string, name: string) =>
+      readFileSync(join(REPO, file), "utf8").match(
+        new RegExp(`export const ${name} = "([^"]+)"`)
+      )?.[1];
+    expect(suffixes?.map((s) => `menara-${s}`)).toEqual([
+      queue("lib/queue.ts", "TASKS_QUEUE"),
+      queue("lib/assistant/queue.ts", "ASSISTANT_QUEUE"),
+    ]);
   });
 
   it.each(["release.yml", "ci.yml"])(

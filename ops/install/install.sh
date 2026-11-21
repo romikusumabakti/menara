@@ -9,6 +9,8 @@
 #                 [--adopt <old .env>]
 #                 [--restore <backup folder | local:<instance>/<name>/ | s3://<key>/>
 #                  --secrets-key-file <file> --hostname <host> [--s3-env-file <file>]]
+#                 [--migrate-from <old dir> --legacy-name <name>]
+#   sh install.sh --cleanup-legacy <old dir> --legacy-name <name> [--yes] [--dry-run]
 #
 # One instance per dir, /opt/<name>: <name> is its compose project and its
 # updater unit, menara-updater@<name>.path. In order: Docker (from Docker's
@@ -29,6 +31,14 @@
 #           --s3-env-file (0600: MENARA_RESTORE_S3_ENDPOINT, _REGION,
 #           _BUCKET, _ACCESS_KEY_ID, _SECRET_ACCESS_KEY, _FORCE_PATH_STYLE).
 #           The SECRETS_KEY it was taken with is read from --secrets-key-file.
+# --migrate-from moves an install of this product under its previous name
+#           (--legacy-name, e.g. keys <NAME>_*) into --dir: refuses while its
+#           deploys or queues are busy, stops it, copies its volumes and
+#           backups/, writes .env with the keys renamed, starts. On failure
+#           the old stack is started again; nothing old is changed.
+# --cleanup-legacy removes a migrated install's old dir, updater units,
+#           volumes and images (only objects named after <name>), after you
+#           type yes (or --yes), never while the old stack runs.
 # --dry-run checks and prints every action without changing anything.
 #
 # Secrets are never printed or passed as arguments: only key names are shown.
@@ -62,6 +72,33 @@ ADOPT_REQUIRED='POSTGRES_PASSWORD DATABASE_URL BETTER_AUTH_SECRET SECRETS_KEY'
 ADOPT_DEFAULT_PORT=80
 # compose.yaml's volumes (<name>_<suffix> outside adopt mode).
 INSTANCE_VOLUMES='postgres valkey garage_meta garage_data caddy_data caddy_config assistant_cache'
+# --migrate-from: the BullMQ queues, menara-<suffix> in lib/queue.ts
+# (TASKS_QUEUE) and lib/assistant/queue.ts (ASSISTANT_QUEUE); the old
+# install's are <legacy name>-<suffix>.
+LEGACY_QUEUES='tasks assistant'
+LEGACY_NAME_RE='[a-z][a-z0-9-]{0,62}'
+VOLUME_RE='[A-Za-z0-9][A-Za-z0-9_.-]{0,127}'
+# Jobs not yet done in the queues named as arguments, in the valkey
+# container: waiting, running, paused, prioritized, waiting for children,
+# and delayed ones except a job scheduler's next run (repeat:<id>:<ms>),
+# which the new workers schedule again at boot.
+# shellcheck disable=SC2016
+QUEUE_JOBS='n=0
+for q in "$@"; do
+  for k in active wait paused; do n=$((n + $(valkey-cli LLEN "bull:$q:$k"))); done
+  for k in prioritized waiting-children; do n=$((n + $(valkey-cli ZCARD "bull:$q:$k"))); done
+  n=$((n + $(valkey-cli ZRANGE "bull:$q:delayed" 0 -1 | grep -vc "^repeat:")))
+done
+echo "$n"'
+# KiB used under /from (every old volume mounted there) and KiB free on the
+# volumes' filesystem, where the copies go.
+# shellcheck disable=SC2016
+VOLUME_SPACE='printf "%s %s\n" "$(du -sk /from | cut -f1)" "$(df -Pk /from/postgres | awk "NR == 2 { print \$4 }")"'
+# psql in the postgres container as role $1, the SQL $2 on its stdin (so
+# psql variables work and a secret is never an argument), over the local
+# socket on the maintenance database.
+# shellcheck disable=SC2016
+PSQL_AS='printf "%s\n" "$2" | psql -X -q -v ON_ERROR_STOP=1 -U "$1" -d postgres'
 # compose.yaml uses configs.content, added in Compose 2.23.1.
 MIN_COMPOSE=2.23.1
 # Where to get Docker Engine and its Compose plugin for each distribution.
@@ -75,7 +112,7 @@ NL='
 '
 
 usage() {
-  sed -n '2,30s/^# \{0,1\}//p' "$0" 2>/dev/null || true
+  sed -n '2,44s/^# \{0,1\}//p' "$0" 2>/dev/null || true
   exit "${1:-1}"
 }
 
@@ -234,7 +271,18 @@ selinux_enforcing() {
 # when every volume of this instance is one this run created.
 way_back() {
   printf '\ninstall.sh failed after changing the host. ' >&2
-  if [ -n "$adopt" ]; then
+  if [ -n "$cleanup" ]; then
+    printf '%s\n' "The cleanup stopped part way: run install.sh --cleanup-legacy again to remove the rest (the old dir goes last)." >&2
+  elif [ -n "$migrate_from" ]; then
+    if [ "$old_stopped" = 1 ]; then
+      printf '%s\n' "The old stack was started again from $migrate_from." >&2
+    else
+      printf '%s\n' "The old stack in $migrate_from was never stopped." >&2
+    fi
+    printf '%s\n' "Its dir, .env, updater units and volumes were never changed. This run's $dir and ${name}_* volumes are kept to look at; to try again, remove them first:" \
+      "  docker compose -f $dir/compose.yaml down        (without -v), then docker volume rm the ${name}_* volumes" \
+      "  rm -rf $dir, then run install.sh --migrate-from again." >&2
+  elif [ -n "$adopt" ]; then
     printf '%s\n' "The old stack's volumes were reused in place, never copied or removed. To go back:" \
       "  docker compose -f $dir/compose.yaml down        (without -v: keeps the volumes)" \
       "  then start the old stack from its own dir again (docker compose up -d there)." \
@@ -252,11 +300,248 @@ way_back() {
   fi
 }
 
+# --migrate-from failed: stop the new stack, give the old one back its
+# updater units and start it again. Nothing old was changed, so that is all.
+# shellcheck disable=SC2317,SC2329 # invoked by on_exit
+roll_back() {
+  printf '\n==> Rolling back to the old stack\n'
+  if [ -f "$dir/compose.yaml" ]; then compose down || :; fi
+  run systemctl disable --now "menara-updater@$name.path" "menara-updater@$name.service" || :
+  [ "$old_stopped" = 1 ] || return 0
+  for unit in $old_units; do
+    case $unit in
+      *.path) run systemctl enable --now "$unit" || : ;;
+      # Never --now: that would run the old updater at once.
+      *) run systemctl enable "$unit" || : ;;
+    esac
+  done
+  run docker compose -f "$old_dir/compose.yaml" up -d || :
+}
+
 # shellcheck disable=SC2317,SC2329 # invoked by the EXIT trap (SC2317 before 0.11)
 on_exit() {
   status=$?
-  if [ "$status" -ne 0 ] && [ "$changed" = 1 ]; then way_back; fi
+  if [ "$status" -ne 0 ] && [ "$changed" = 1 ]; then
+    if [ -n "$migrate_from" ]; then roll_back; fi
+    way_back
+  fi
   if [ -n "$work" ]; then rm -rf "$work"; fi
+}
+
+# The name holds the legacy name as a whole word (no letter or digit next
+# to it), like lib/legacy.ts legacyPattern.
+legacy_named() { printf '%s\n' "$1" | grep -Eqi "(^|[^a-z0-9])$legacy([^a-z0-9]|$)"; }
+
+# The old install in $old_dir: its .env, compose project, updater units
+# (enabled ones in old_units) and volumes (old_volumes, <suffix>:<volume>,
+# from <UPPER>_VOLUME_* else <project>_<suffix>).
+read_old() {
+  old_env=$old_dir/.env
+  if [ ! -f "$old_env" ] || [ ! -r "$old_env" ]; then
+    die "$old_env not found: the old install's .env says where its data is"
+  fi
+  [ -f "$old_dir/compose.yaml" ] || die "$old_dir/compose.yaml not found"
+  old_upper=$(printf '%s' "$legacy" | tr 'a-z-' 'A-Z_')
+  old_instance=${old_dir##*/}
+  old_project=$(env_value COMPOSE_PROJECT_NAME "$old_env")
+  old_project=${old_project:-$old_instance}
+  matches "$old_project" "$NAME_RE" || die "COMPOSE_PROJECT_NAME in $old_env is not a usable name"
+  old_volumes=
+  for suffix in $INSTANCE_VOLUMES; do
+    v=$(env_value "${old_upper}_VOLUME_$(printf '%s' "$suffix" | tr '[:lower:]' '[:upper:]')" "$old_env")
+    v=${v:-${old_project}_$suffix}
+    matches "$v" "$VOLUME_RE" || die "the old $suffix volume name in $old_env is not usable"
+    old_volumes="$old_volumes $suffix:$v"
+  done
+  old_units=
+  for unit in "$legacy-updater@$old_instance.path" "$legacy-updater@$old_instance.service"; do
+    if [ -L "$sysroot$UNIT_DIR/multi-user.target.wants/$unit" ]; then old_units="$old_units $unit"; fi
+  done
+}
+
+# A setting of the old install: its .env, else its compose.yaml's default.
+old_setting() { # <key>
+  v=$(env_value "$1" "$old_env")
+  if [ -z "$v" ]; then
+    v=$(sed -n "s/^ *$1: \${$1:-\([^}]*\)}.*/\1/p" "$old_dir/compose.yaml" | head -n 1)
+  fi
+  printf '%s' "$v"
+}
+
+# The new .env's lines from the old one (after the lines install.sh writes
+# itself): every KEY=value as is, <UPPER>_* keys renamed to MENARA_*, values
+# unchanged, except a database or role named like the legacy name, renamed
+# to menara (POSTGRES_USER, POSTGRES_DB and DATABASE_URL); both written out
+# when the old install relied on its compose defaults. Not copied: the keys
+# install.sh writes, and the old volume overrides (the copies get this
+# instance's names).
+migrated_env() { # <old .env> <legacy name> <old project> <old POSTGRES_USER> <old POSTGRES_DB>
+  prefix=$(printf '%s' "$2" | tr 'a-z-' 'A-Z_')_
+  own='COMPOSE_PROJECT_NAME|MENARA_DIR|MENARA_VERSION|MENARA_HTTP_PORT|MENARA_VOLUME_[A-Z0-9_]+|MENARA_LEGACY_[A-Z_]+'
+  for pair in $IMAGE_KEYS; do own="$own|${pair%%:*}"; done
+  user=$4
+  db=$5
+  renames=
+  if [ "$user" = "$2" ]; then
+    user=menara
+    renames="s|^POSTGRES_USER=.*|POSTGRES_USER=menara|; s|^\(DATABASE_URL=[\"']\{0,1\}[a-z][a-z0-9+.-]*://\)$2\([:@]\)|\1menara\2|;"
+  fi
+  if [ "$db" = "$2" ]; then
+    db=menara
+    renames="$renames s|^POSTGRES_DB=.*|POSTGRES_DB=menara|; s|^\(DATABASE_URL=.*@[^/@]*/\)$2\([\"'?]\)|\1menara\2|; s|^\(DATABASE_URL=.*@[^/@]*/\)$2\$|\1menara|;"
+  fi
+  sed -n "s/^$prefix\([A-Za-z0-9_]*=\)/MENARA_\1/; /^[A-Za-z_][A-Za-z0-9_]*=/p" "$1" |
+    { grep -Ev "^($own)=" || :; } | sed "$renames"
+  grep -q '^POSTGRES_USER=' "$1" || printf 'POSTGRES_USER=%s\n' "$user"
+  grep -q '^POSTGRES_DB=' "$1" || printf 'POSTGRES_DB=%s\n' "$db"
+  printf 'MENARA_LEGACY_NAME=%s\nMENARA_LEGACY_INSTANCE=%s\n' "$2" "$3"
+}
+
+# The old instance is idle: no deploy queued or running, no job waiting or
+# running in its queues (asked of its own postgres and valkey).
+old_idle() {
+  # shellcheck disable=SC2016 # expands in the container
+  n=$(docker compose -f "$old_dir/compose.yaml" exec -T postgres sh -c \
+    'psql -X -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT count(*) FROM deployments WHERE status IN ('\''queued'\'', '\''running'\'')"' \
+    2>>"$log_file" </dev/null) || n=
+  matches "$n" '[0-9]+' || die "cannot count the old instance's deploys: its stack must be running (docker compose up -d in $old_dir)"
+  [ "$n" = 0 ] || die "deploys queued or running in the old instance: $n. Wait until they finish, then run install.sh again"
+  set --
+  for q in $LEGACY_QUEUES; do set -- "$@" "$legacy-$q"; done
+  n=$(docker compose -f "$old_dir/compose.yaml" exec -T valkey sh -c "$QUEUE_JOBS" sh "$@" 2>>"$log_file" </dev/null) || n=
+  matches "$n" '[0-9]+' || die "cannot count the jobs in the old queues: its stack must be running (docker compose up -d in $old_dir)"
+  [ "$n" = 0 ] || die "jobs waiting or running in the old queues ($*): $n. Wait until they finish, then run install.sh again"
+}
+
+# Every check before --migrate-from changes anything.
+migrate_preflight() {
+  read_old
+  for key in $ADOPT_REQUIRED; do
+    [ -n "$(env_value "$key" "$old_env")" ] || die "--migrate-from: $key is missing in $old_env"
+  done
+  old_image=$(env_value "${old_upper}_IMAGE" "$old_env")
+  matches "$old_image" "$IMAGE_RE" ||
+    die "--migrate-from: no ${old_upper}_IMAGE pinned by digest in $old_env (is --legacy-name right?)"
+  old_user=$(old_setting POSTGRES_USER)
+  old_db=$(old_setting POSTGRES_DB)
+  if [ -z "$old_user" ] || [ -z "$old_db" ]; then
+    die "--migrate-from: cannot tell the old POSTGRES_USER and POSTGRES_DB; set both in $old_env"
+  fi
+  old_port=$(env_value "${old_upper}_HTTP_PORT" "$old_env")
+  old_port=${old_port:-8080}
+  matches "$old_port" '[0-9]{1,5}' || die "--migrate-from: ${old_upper}_HTTP_PORT in $old_env is not a port"
+  if [ -n "$http_port" ] && [ "$http_port" != "$old_port" ]; then
+    say "warning: the old stack served on 127.0.0.1:$old_port; with --http-port $http_port the tunnel or proxy must be repointed"
+  fi
+  http_port=${http_port:-$old_port}
+  [ "$have_docker" = 1 ] || die "--migrate-from: Docker is not installed, so there is no stack to migrate"
+  if [ -e "$old_dir/updates/request.json" ] || grep -qs '"state":"running"' "$old_dir/updates/status.json"; then
+    die "--migrate-from: the old install has an update requested or running ($old_dir/updates): let it finish first"
+  fi
+  for suffix in $INSTANCE_VOLUMES; do
+    if volume_exists "${name}_$suffix"; then
+      die "volume ${name}_$suffix already exists: --migrate-from copies into new volumes only"
+    fi
+  done
+  copies=
+  set --
+  for pair in $old_volumes; do
+    if volume_exists "${pair#*:}"; then
+      copies="$copies $pair"
+      set -- "$@" -v "${pair#*:}:/from/${pair%%:*}:ro"
+    elif [ "${pair%%:*}" = postgres ]; then
+      die "--migrate-from: volume ${pair#*:} (the old database) not found"
+    else
+      say "no old volume ${pair#*:}: ${name}_${pair%%:*} starts empty"
+    fi
+  done
+  old_idle
+  # Read-only, with the old app image already on this host.
+  space=$(docker run --rm --pull never --network none --user 0 --entrypoint sh "$@" "$old_image" \
+    -c "$VOLUME_SPACE" 2>>"$log_file" </dev/null) || space=
+  matches "$space" '[0-9]+ [0-9]+' || die "--migrate-from: cannot measure the old volumes (docker run of ${old_upper}_IMAGE)"
+  used=${space%% *}
+  free=${space#* }
+  need=$((used + used / 10))
+  if [ "$free" -lt "$need" ]; then
+    die "not enough free disk for the volume copies: they need $need KiB (the old volumes and 10%), $free KiB are free"
+  fi
+}
+
+# psql as <role> on the new postgres (see PSQL_AS).
+pg_as() { compose exec -T postgres sh -c "$PSQL_AS" sh "$1" "$2"; }
+
+# --cleanup-legacy: removes what is named after the legacy name, once.
+cleanup_legacy() {
+  read_old
+  command -v docker >/dev/null 2>&1 || die "--cleanup-legacy: Docker is not installed"
+  if [ -n "$(docker ps -q --filter "label=com.docker.compose.project=$old_project" </dev/null)" ]; then
+    die "--cleanup-legacy: the old stack $old_project is running; it is removed only once stopped (docker compose down in $old_dir) and the migrated install works"
+  fi
+  step "Legacy objects of $old_project"
+  volumes=
+  for pair in $old_volumes; do
+    v=${pair#*:}
+    volume_exists "$v" || continue
+    if legacy_named "$v"; then
+      volumes="$volumes $v"
+      say "volume $v"
+    else
+      say "keeps volume $v: not named after $legacy"
+    fi
+  done
+  images=$(docker image ls --format '{{.Repository}} {{.Tag}} {{.ID}}' </dev/null |
+    while read -r repo tag id; do
+      legacy_named "$repo" || continue
+      if [ "$tag" = "<none>" ]; then printf '%s\n' "$id"; else printf '%s\n' "$repo:$tag"; fi
+    done | awk '!seen[$0]++')
+  for ref in $images; do say "image $ref"; done
+  units=
+  templates=
+  if [ -e "$sysroot$UNIT_DIR/$legacy-updater@.path" ] || [ -e "$sysroot$UNIT_DIR/$legacy-updater@.service" ]; then
+    units="$legacy-updater@$old_instance.path $legacy-updater@$old_instance.service"
+    say "units $units"
+    if [ -n "$(find "$sysroot$UNIT_DIR" -path "*.wants/$legacy-updater@*" ! -name "$legacy-updater@$old_instance.*" 2>/dev/null)" ]; then
+      say "keeps the unit templates $legacy-updater@.*: another old instance uses them"
+    else
+      templates="$UNIT_DIR/$legacy-updater@.path $UNIT_DIR/$legacy-updater@.service"
+      say "unit templates $templates"
+    fi
+  fi
+  remove_dir=0
+  if legacy_named "$old_instance"; then
+    remove_dir=1
+    say "dir $old_dir"
+  else
+    say "keeps $old_dir: not named after $legacy (remove it by hand)"
+  fi
+  if [ "$dry_run" = 1 ]; then
+    [ "$yes" = 1 ] || say "dry run: a real run asks you to type yes (or pass --yes) before removing these."
+  elif [ "$yes" = 0 ]; then
+    printf 'Remove these? The migrated install is not touched. Type yes: '
+    answer=
+    { read -r answer </dev/tty; } 2>/dev/null || die "no terminal to ask on: pass --yes"
+    [ "$answer" = yes ] || die "nothing removed (the answer was not yes)"
+  fi
+  # The stopped containers and the network; the volumes go one by one.
+  run docker compose -f "$old_dir/compose.yaml" down
+  for v in $volumes; do
+    if [ "$dry_run" = 0 ] && [ -n "$(docker ps -aq --filter "volume=$v" </dev/null)" ]; then
+      die "volume $v is still used by a container outside the old stack: not removed"
+    fi
+    run docker volume rm "$v"
+  done
+  for ref in $images; do run docker image rm "$ref"; done
+  # shellcheck disable=SC2086 # unit names, no spaces
+  if [ -n "$units" ]; then run systemctl disable --now $units; fi
+  if [ -n "$templates" ]; then
+    # shellcheck disable=SC2086
+    run rm -f $templates
+    run systemctl daemon-reload
+  fi
+  if [ "$remove_dir" = 1 ]; then run rm -rf "$old_dir"; fi
+  say ""
+  if [ "$dry_run" = 1 ]; then say "dry run: nothing was changed."; else say "The legacy objects of $old_project are removed."; fi
 }
 
 # Reads the MENARA_RESTORE_S3_* lines of --s3-env-file into the environment
@@ -314,12 +599,19 @@ main() {
   restore=
   key_file=
   s3_env_file=
+  migrate_from=
+  cleanup=
+  legacy=
+  yes=0
+  old_dir=
+  old_units=
+  old_stopped=0
   dry_run=0
   changed=0
   work=
   while [ $# -gt 0 ]; do
     case $1 in
-      --version | --channel | --dir | --hostname | --http-port | --adopt | --restore | --secrets-key-file | --s3-env-file)
+      --version | --channel | --dir | --hostname | --http-port | --adopt | --restore | --secrets-key-file | --s3-env-file | --migrate-from | --cleanup-legacy | --legacy-name)
         [ $# -ge 2 ] || die "$1 needs a value"
         case $1 in
           --version) version=$2 ;;
@@ -331,10 +623,14 @@ main() {
           --restore) restore=$2 ;;
           --secrets-key-file) key_file=$2 ;;
           --s3-env-file) s3_env_file=$2 ;;
+          --migrate-from) migrate_from=$2 ;;
+          --cleanup-legacy) cleanup=$2 ;;
+          --legacy-name) legacy=$2 ;;
         esac
         shift 2
         ;;
       --dry-run) dry_run=1; shift ;;
+      --yes) yes=1; shift ;;
       -h | --help) usage 0 ;;
       *) die "unknown argument: $1 (see --help)" ;;
     esac
@@ -372,6 +668,27 @@ main() {
   if [ -n "$restore" ] && [ -z "$hostname" ]; then
     die "--restore needs --hostname: the restored passkeys and sessions are bound to it"
   fi
+  if [ -n "$migrate_from" ] || [ -n "$cleanup" ]; then
+    [ -z "$migrate_from" ] || [ -z "$cleanup" ] || die "--migrate-from and --cleanup-legacy cannot be combined"
+    [ -z "$adopt$restore" ] || die "--migrate-from and --cleanup-legacy cannot be combined with --adopt or --restore"
+    [ -n "$legacy" ] || die "--migrate-from and --cleanup-legacy need --legacy-name <the product's previous name>"
+    if ! matches "$legacy" "$LEGACY_NAME_RE" || [ "$legacy" = menara ]; then
+      die "--legacy-name must be the product's previous name in lower case ([a-z][a-z0-9-]*), and not menara"
+    fi
+    old_dir=${migrate_from:-$cleanup}
+    old_dir=${old_dir%/}
+    case $old_dir in
+      *..*) die "the old dir must be an absolute path without .." ;;
+      /?*) ;;
+      *) die "the old dir must be an absolute path" ;;
+    esac
+    matches "${old_dir##*/}" "$NAME_RE" || die "the old dir's name is not usable: $old_dir"
+    [ -z "$hostname" ] || [ -z "$migrate_from" ] ||
+      die "--migrate-from keeps the old BETTER_AUTH_URL (passkeys are bound to it): drop --hostname"
+  else
+    [ -z "$legacy" ] || die "--legacy-name is only for --migrate-from and --cleanup-legacy"
+  fi
+  [ "$yes" = 0 ] || [ -n "$cleanup" ] || die "--yes is only for --cleanup-legacy"
 
   # The updater units watch /opt/%i, so an instance lives in /opt/<name>. The
   # tests point the root elsewhere, and read the host checks' files below
@@ -382,12 +699,18 @@ main() {
   if [ "$dry_run" = 1 ] && [ -n "${MENARA_INSTALL_SYSROOT:-}" ]; then sysroot=${MENARA_INSTALL_SYSROOT%/}; fi
   dir=${dir%/}
   name=${dir#"$root"/}
-  if [ "$dir" != "$root/$name" ] || ! matches "$name" "$NAME_RE"; then
+  # --cleanup-legacy works on the old dir only.
+  if [ -z "$cleanup" ] && { [ "$dir" != "$root/$name" ] || ! matches "$name" "$NAME_RE"; }; then
     die "--dir must be $root/<name>, <name> in lower case letters, digits, - and _ (the updater units watch /opt/<name>)"
   fi
   env_file=$dir/.env
 
-  if [ -e "$env_file" ] && [ -z "$adopt" ]; then
+  if [ -n "$migrate_from" ]; then
+    [ ! -e "$dir" ] || die "$dir already exists: --migrate-from installs into a new dir"
+    [ "$dir" != "$old_dir" ] || die "--migrate-from: the old dir cannot be --dir"
+    if legacy_named "$name"; then die "--dir: $name is named after the legacy name; pick a new name"; fi
+  fi
+  if [ -e "$env_file" ] && [ -z "$adopt" ] && [ -z "$cleanup" ]; then
     die "$env_file already exists: this dir is installed (updates come from Menara; --adopt takes over a stack)"
   fi
 
@@ -426,6 +749,11 @@ main() {
   : >"$log_file"
   trap on_exit EXIT
   trap 'exit 1' INT TERM HUP
+
+  if [ -n "$cleanup" ]; then
+    cleanup_legacy
+    return 0
+  fi
 
   # --- restore source --------------------------------------------------------
 
@@ -542,6 +870,8 @@ main() {
       say "warning: the old stack served on 127.0.0.1:$old_port; with --http-port $http_port the tunnel or proxy must be repointed"
     fi
     http_port=${http_port:-$old_port}
+  elif [ -n "$migrate_from" ]; then
+    migrate_preflight
   elif [ "$have_docker" = 1 ]; then
     # A restore too: it must never replace data it did not install.
     if volume_exists "${name}_postgres"; then
@@ -629,6 +959,9 @@ EOF
       copied="$copied $key"
     done
     say "copied from $adopt:$copied"
+  elif [ -n "$migrate_from" ]; then
+    migrated_env "$old_env" "$legacy" "$old_project" "$old_user" "$old_db" >>"$new_env"
+    say "copied from $old_env, ${old_upper}_* keys renamed to MENARA_*"
   fi
 
   # Generated when not copied. Hex where a value goes into a URL or must be
@@ -697,6 +1030,49 @@ EOF
     compose up -d --wait --wait-timeout "$WAIT_TIMEOUT" postgres
     # Checks that the schema equals the baseline's, then records it as applied.
     compose run --rm migrate menara migrate --adopt
+  elif [ -n "$migrate_from" ]; then
+    step "Migrate"
+    # The new images first: the old stack is down for the copies only.
+    compose pull
+    old_stopped=1
+    # The app (it runs the workers) first, then a last look: nothing may
+    # have started since the preflight.
+    run docker compose -f "$old_dir/compose.yaml" stop app
+    if [ "$dry_run" = 0 ]; then old_idle; fi
+    # shellcheck disable=SC2086 # unit names, no spaces
+    if [ -n "$old_units" ]; then run systemctl disable --now $old_units; fi
+    # down, not stop: restart: always would bring stopped containers back at
+    # the next boot. The volumes stay.
+    run docker compose -f "$old_dir/compose.yaml" down
+    app_image=$(env_value MENARA_IMAGE "$pins")
+    for pair in $copies; do
+      suffix=${pair%%:*}
+      # Labelled as compose labels its own, so it adopts them silently.
+      run docker volume create --label "com.docker.compose.project=$name" \
+        --label "com.docker.compose.volume=$suffix" "${name}_$suffix"
+      run docker run --rm --network none --user 0 --entrypoint sh \
+        -v "${pair#*:}:/from:ro" -v "${name}_$suffix:/to" "$app_image" -c 'cp -a /from/. /to/'
+    done
+    if [ -d "$old_dir/backups" ]; then run cp -a "$old_dir/backups/." "$dir/backups/"; fi
+    if [ "$old_db" = "$legacy" ] || [ "$old_user" = "$legacy" ]; then
+      compose up -d --wait --wait-timeout "$WAIT_TIMEOUT" postgres
+      sql=
+      if [ "$old_db" = "$legacy" ]; then
+        say "renames database $legacy to menara (POSTGRES_DB, DATABASE_URL)"
+        sql="ALTER DATABASE \"$legacy\" RENAME TO \"menara\";"
+      fi
+      if [ "$old_user" = "$legacy" ]; then
+        say "renames role $legacy to menara (POSTGRES_USER, DATABASE_URL)"
+        # A session cannot rename its own role: a temporary superuser does.
+        sql="${sql:+$sql$NL}CREATE ROLE \"menara_rename\" SUPERUSER LOGIN;"
+      fi
+      pg_as "$old_user" "$sql"
+      if [ "$old_user" = "$legacy" ]; then
+        # The rename clears an MD5 password: set it again from .env.
+        pg_as menara_rename "ALTER ROLE \"$legacy\" RENAME TO \"menara\";$NL\\getenv pw POSTGRES_PASSWORD${NL}ALTER ROLE \"menara\" PASSWORD :'pw';"
+        pg_as menara 'DROP ROLE "menara_rename";'
+      fi
+    fi
   elif [ -n "$restore" ]; then
     step "Restore"
     compose pull
@@ -723,9 +1099,9 @@ EOF
   # --- 6. Start --------------------------------------------------------------
 
   step "Start"
-  if [ -z "$adopt" ] && [ -z "$restore" ]; then compose pull; fi
+  if [ -z "$adopt" ] && [ -z "$restore" ] && [ -z "$migrate_from" ]; then compose pull; fi
   compose up -d --wait --wait-timeout "$WAIT_TIMEOUT"
-  if [ "$channel" = beta ] && [ -z "$adopt" ] && [ -z "$restore" ]; then
+  if [ "$channel" = beta ] && [ -z "$adopt" ] && [ -z "$restore" ] && [ -z "$migrate_from" ]; then
     # A beta instance follows the beta channel and updates itself. The
     # variables expand inside the postgres container.
     # shellcheck disable=SC2016
@@ -745,7 +1121,10 @@ EOF
   if [ "$dry_run" = 1 ]; then say "dry run: nothing was changed. After a real run:"; fi
   say "menara $version is running at $url (Caddy on 127.0.0.1:$port; point the tunnel or proxy there)."
   say "Caddy serves plain HTTP: put a TLS tunnel or proxy in front, and never publish 127.0.0.1:$port directly, or passwords and session cookies travel in cleartext."
-  if [ -z "$adopt" ] && [ -z "$restore" ]; then
+  if [ -n "$migrate_from" ]; then
+    say "Migrated from $old_dir: that stack is down, its dir, .env, units and volumes are kept as they were."
+    say "Next: docker compose -f $dir/compose.yaml exec app menara remark (a dry run; then --apply). Once all works: install.sh --cleanup-legacy $old_dir --legacy-name $legacy."
+  elif [ -z "$adopt" ] && [ -z "$restore" ]; then
     say "Create the first admin at $url/setup."
   fi
   say "Save SECRETS_KEY from $env_file somewhere offline (a password manager): it is never in a backup, and a restore needs it."

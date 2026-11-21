@@ -496,7 +496,13 @@ Runbook notes:
   runs: it moves the backup and archive objects.
 - Run `remark --step targets` only after every install that shares those
   targets has been migrated, because it renames files in the shared deploy
-  directories.
+  directories and removes the old name's deploy lock
+  (`.<name>-deploy.lock` in a deploy dir, `<web root>.<name>-deploy.lock`
+  beside a web root). Until then a migrated install's deploys also wait on
+  that lock, but only where it already exists; they never create it.
+- If both the old and the Menara copy of a kept file exist (for example
+  `.<name>-prev` and `.menara-prev`), `remark` leaves both and fails the
+  item: remove the legacy copy by hand once the target is healthy.
 
 ### 3. Check nothing is left: `menara sweep`
 

@@ -290,9 +290,90 @@ describe("remark targets", () => {
       (i) => i.from === join(d, ".env.oldtool-prev")
     );
     if (!item) throw new Error("no item");
-    await expect(step.apply(ctx(), item)).rejects.toThrow(/not overwriting/);
+    await expect(step.apply(ctx(), item)).rejects.toThrow(
+      /not overwriting it; remove the legacy copy by hand once the target is healthy/
+    );
     expect(read(join(d, ".env.menara-prev"))).toBe("NEWER=1\n");
     expect(existsSync(join(d, ".env.oldtool-prev"))).toBe(true);
+  });
+
+  it("gives the next step when both artifact prev copies exist", async () => {
+    seedLegacy();
+    mkdirSync(join(jarDir(), ".menara-prev"), { recursive: true });
+    const item = (await step.plan(ctx())).find(
+      (i) => i.from === join(jarDir(), ".oldtool-prev")
+    );
+    if (!item) throw new Error("no item");
+    await expect(step.apply(ctx(), item)).rejects.toThrow(
+      /remove the legacy copy by hand once the target is healthy/
+    );
+    expect(existsSync(join(jarDir(), ".oldtool-prev", "app.jar"))).toBe(true);
+  });
+
+  it("plans removing the previous name's deploy locks", async () => {
+    seedMenara();
+    const d = composeDir();
+    write(join(d, ".oldtool-deploy.lock"), "");
+    write(join(jarDir(), ".oldtool-deploy.lock"), "");
+    write(`${webRoot()}.oldtool-deploy.lock`, "");
+    expect(await step.plan(ctx())).toEqual([
+      {
+        step: "targets",
+        target: `deploy-targets/${T_COMPOSE}`,
+        from: join(d, ".oldtool-deploy.lock"),
+        to: step.REMOVED,
+      },
+      {
+        step: "targets",
+        target: `deploy-targets/${T_JAR}`,
+        from: join(jarDir(), ".oldtool-deploy.lock"),
+        to: step.REMOVED,
+      },
+      {
+        step: "targets",
+        target: `deploy-targets/${T_STATIC}`,
+        from: `${webRoot()}.oldtool-deploy.lock`,
+        to: step.REMOVED,
+      },
+    ]);
+    expect(existsSync(join(d, ".oldtool-deploy.lock"))).toBe(true);
+  });
+
+  it("removes a legacy lock while holding both locks, and again is a no-op", async () => {
+    seedMenara();
+    const d = composeDir();
+    const lock = join(d, ".oldtool-deploy.lock");
+    write(lock, "");
+    const items = await step.plan(ctx());
+    expect(items).toHaveLength(1);
+    const [item] = items;
+    if (!item) throw new Error("no item");
+    state.commands = [];
+    await step.apply(ctx(), item);
+    expect(existsSync(lock)).toBe(false);
+    const command = state.commands.at(-1)?.command ?? "";
+    expect(command.indexOf("flock -w 60 9")).toBeGreaterThanOrEqual(0);
+    expect(command.indexOf("flock -w 60 6")).toBeGreaterThan(
+      command.indexOf("flock -w 60 9")
+    );
+    expect(command.indexOf("rm -f --")).toBeGreaterThan(
+      command.indexOf("flock -w 60 6")
+    );
+    await step.apply(ctx(), item);
+    expect(await step.plan(ctx())).toEqual([]);
+  });
+
+  it("refuses a removal item for a path that is not a legacy lock", async () => {
+    seedMenara();
+    await expect(
+      step.apply(ctx(), {
+        step: "targets",
+        target: `deploy-targets/${T_COMPOSE}`,
+        from: join(composeDir(), ".env"),
+        to: step.REMOVED,
+      })
+    ).rejects.toThrow(/not this target's old-named files/);
+    expect(existsSync(join(composeDir(), ".env"))).toBe(true);
   });
 
   it("leaves COMPOSE_FILE alone while the overlay still has its old name", async () => {

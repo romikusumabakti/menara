@@ -1,5 +1,6 @@
 import { deployTargets, servers } from "@/lib/db/schema";
 import {
+  existingLockLines,
   legacyComposeFiles,
   legacyPrevPath,
   lockLines,
@@ -20,6 +21,8 @@ import { COMPOSE_OVERLAY_FILE } from "@/lib/variables/compose-overlay";
 //   them) are moved to the Menara name, never over an existing file. The
 //   deploy scripts do the same on contact; this covers targets not deployed
 //   since the migration.
+// - The previous name's deploy lock is removed (deploys take it only while it
+//   exists, so once it is gone nothing creates it again).
 // - In a compose dir, the generated header line of `.env`, the overlay and
 //   their kept copies (`# Managed by <Legacy> — …`, `# Written by <Legacy>; …`)
 //   gets the Menara name, and a `COMPOSE_FILE` line naming the old overlay
@@ -53,6 +56,19 @@ type Target = {
     auth: "password" | "key";
   };
 };
+
+/** The `to` of an item that removes its `from` path. */
+export const REMOVED = "(removed)";
+
+/** The target's deploy lock base: inside a deploy dir, beside a web root. */
+function lockBase(t: Target): string {
+  return t.kind === "static" ? `${t.dir}.` : `${t.dir}/.`;
+}
+
+/** The previous name's deploy lock of the target (absolute). */
+function legacyLock(l: Legacy, t: Target): string {
+  return `${lockBase(t)}${l.name}-deploy.lock`;
+}
 
 /** `[old, new]` absolute paths of the target's old-named files. */
 function renames(l: Legacy, t: Target): [string, string][] {
@@ -137,8 +153,8 @@ function run(t: Target, command: string, readOnly: boolean): Promise<string> {
 /** Lists the old-named files that exist and, for compose, the header lines. */
 function probeScript(l: Legacy, t: Target): string {
   const lines = [
-    ...renames(l, t).map(
-      ([o]) => `if [ -e ${shq(o)} ]; then printf 'E\\t%s\\n' ${shq(o)}; fi`
+    ...[...renames(l, t).map(([o]) => o), legacyLock(l, t)].map(
+      (o) => `if [ -e ${shq(o)} ]; then printf 'E\\t%s\\n' ${shq(o)}; fi`
     ),
   ];
   if (t.kind === "compose") {
@@ -204,6 +220,15 @@ export async function plan(ctx: RemarkContext): Promise<RemarkItem[]> {
         items.push({ step: "targets", target: renameTarget(t), from, to });
       }
     }
+    const lock = legacyLock(l, t);
+    if (present.has(lock)) {
+      items.push({
+        step: "targets",
+        target: renameTarget(t),
+        from: lock,
+        to: REMOVED,
+      });
+    }
     items.push(...lineItems);
   }
   return items;
@@ -211,15 +236,11 @@ export async function plan(ctx: RemarkContext): Promise<RemarkItem[]> {
 
 /** The target's deploy lock, and the old name's while one is there. */
 function lockScript(l: Legacy, t: Target): string[] {
-  const base = t.kind === "static" ? `${t.dir}.` : `${t.dir}/.`;
-  const legacyLock = `${base}${l.name}-deploy.lock`;
   return [
     "set -eu",
-    ...lockLines(9, `${base}menara-deploy.lock`, LOCK_WAIT_SECONDS),
+    ...lockLines(9, `${lockBase(t)}menara-deploy.lock`, LOCK_WAIT_SECONDS),
     // Taken only when it exists: remark must not leave a new old-named file.
-    `if [ -e ${shq(legacyLock)} ]; then`,
-    ...lockLines(6, legacyLock, LOCK_WAIT_SECONDS),
-    "fi",
+    ...existingLockLines(6, legacyLock(l, t), LOCK_WAIT_SECONDS),
   ];
 }
 
@@ -227,11 +248,35 @@ function outcome(output: string): string {
   return output.trim().split("\n").at(-1) ?? "";
 }
 
+/**
+ * Removes the previous name's lock while holding it (after Menara's), so a
+ * deploy of an install still on the old name never runs meanwhile.
+ */
+async function applyRemoveLock(
+  l: Legacy,
+  t: Target,
+  item: RemarkItem
+): Promise<void> {
+  if (item.from !== legacyLock(l, t)) {
+    throw new Error("the item's paths are not this target's old-named files");
+  }
+  // Already gone is done: deploys no longer create it.
+  await run(
+    t,
+    [...lockScript(l, t), `rm -f -- ${shq(item.from)}`].join("\n"),
+    false
+  );
+}
+
 async function applyRename(
   l: Legacy,
   t: Target,
   item: RemarkItem
 ): Promise<void> {
+  if (item.to === REMOVED) {
+    await applyRemoveLock(l, t, item);
+    return;
+  }
   if (!renames(l, t).some(([o, n]) => o === item.from && n === item.to)) {
     throw new Error("the item's paths are not this target's old-named files");
   }
@@ -251,7 +296,9 @@ async function applyRename(
     )
   );
   if (result === "both") {
-    throw new Error(`${item.to} exists too; not overwriting it`);
+    throw new Error(
+      `${item.to} exists too; not overwriting it; remove the legacy copy by hand once the target is healthy`
+    );
   }
   if (result === "gone") throw new Error(`${item.from} is gone`);
 }

@@ -482,7 +482,9 @@ export async function getAccessApp(
  * update for an app (its PUT replaces the whole definition), so the app is
  * read and written back as it is with only the name changed: read-only
  * fields (id, aud, timestamps) left out, and its policies as references with
- * their precedence (the GET expands them).
+ * their precedence (the GET expands them). An app read without policies is
+ * refused (throws, nothing written): writing it back would drop its access
+ * rules.
  */
 export async function renameAccessApp(
   creds: CloudflareCreds,
@@ -500,12 +502,21 @@ export async function renameAccessApp(
     policies,
     ...rest
   } = current;
-  const body: Record<string, unknown> = { ...rest, name };
-  if (Array.isArray(policies)) {
-    body.policies = (policies as { id: string; precedence?: number }[]).map(
-      (p) => ({ id: p.id, precedence: p.precedence })
+  // A PUT without policies would leave the app with none: refuse rather
+  // than write back an app whose access rules we could not read.
+  if (!Array.isArray(policies) || policies.length === 0) {
+    throw new Error(
+      "the Access app came back with no policies; not writing it back"
     );
   }
+  const body: Record<string, unknown> = {
+    ...rest,
+    name,
+    policies: (policies as { id: string; precedence?: number }[]).map((p) => ({
+      id: p.id,
+      precedence: p.precedence,
+    })),
+  };
   return request<AccessApp>(creds.apiToken, path, {
     method: "PUT",
     body: JSON.stringify(body),

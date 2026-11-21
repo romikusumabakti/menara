@@ -29,6 +29,9 @@ import {
 } from "@/lib/db/schema";
 import { decryptSecret } from "@/lib/secrets";
 
+/** What `head` tells of an object. */
+export type ObjectHead = { size: number; etag: string; contentType?: string };
+
 export interface ObjectStore {
   /** Every object under `prefix`, paginated to the end. */
   list(prefix: string): Promise<{ key: string; size: number }[]>;
@@ -40,16 +43,12 @@ export interface ObjectStore {
   upload(key: string, filePath: string): Promise<void>;
   delete(keys: string[]): Promise<void>;
   /** An object's size and ETag, or null when there is none. S3 stores only. */
-  head?(key: string): Promise<{ size: number; etag: string } | null>;
+  head?(key: string): Promise<ObjectHead | null>;
   /**
    * Copies an object to another key of the same bucket, server side, only
    * while it is still the object `head` saw (`etag`). S3 stores only.
    */
-  copy?(
-    from: string,
-    to: string,
-    source: { size: number; etag: string }
-  ): Promise<void>;
+  copy?(from: string, to: string, source: ObjectHead): Promise<void>;
 }
 
 // 16 MiB parts: up to ~160 GiB within S3's 10 000-part limit.
@@ -131,11 +130,8 @@ export function prefixedStore(
     delete: (keys) => inner.delete(keys.map((key) => `${prefix}${key}`)),
     ...(head && { head: (key: string) => head(`${prefix}${key}`) }),
     ...(copy && {
-      copy: (
-        from: string,
-        to: string,
-        source: { size: number; etag: string }
-      ) => copy(`${prefix}${from}`, `${prefix}${to}`, source),
+      copy: (from: string, to: string, source: ObjectHead) =>
+        copy(`${prefix}${from}`, `${prefix}${to}`, source),
     }),
   };
 }
@@ -158,7 +154,7 @@ export async function copyObject(
   Bucket: string,
   from: string,
   to: string,
-  source: { size: number; etag: string },
+  source: ObjectHead,
   limits = { singleMax: COPY_SINGLE_MAX, partSize: COPY_PART_SIZE }
 ): Promise<void> {
   const CopySource = copySource(Bucket, from);
@@ -170,7 +166,13 @@ export async function copyObject(
     return;
   }
   const { UploadId } = await client.send(
-    new CreateMultipartUploadCommand({ Bucket, Key: to })
+    // CopyObject keeps the source's metadata; a multipart upload starts
+    // with none, so it gets the source's content type.
+    new CreateMultipartUploadCommand({
+      Bucket,
+      Key: to,
+      ContentType: source.contentType,
+    })
   );
   try {
     const Parts: { PartNumber: number; ETag?: string }[] = [];
@@ -266,7 +268,11 @@ export function s3ObjectStore(client: S3Client, Bucket: string): ObjectStore {
     async head(Key) {
       try {
         const res = await client.send(new HeadObjectCommand({ Bucket, Key }));
-        return { size: res.ContentLength ?? 0, etag: res.ETag ?? "" };
+        return {
+          size: res.ContentLength ?? 0,
+          etag: res.ETag ?? "",
+          contentType: res.ContentType,
+        };
       } catch (error) {
         if (isNotFound(error)) return null;
         throw error;

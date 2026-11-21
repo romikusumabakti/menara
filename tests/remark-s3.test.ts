@@ -440,9 +440,12 @@ describe("copyObject", () => {
       "bkt",
       "src",
       "dst",
-      { size: 25, etag: '"m-3"' },
+      { size: 25, etag: '"m-3"', contentType: "application/gzip" },
       { singleMax: 10, partSize: 10 }
     );
+    // CopyObject keeps the source's metadata; a multipart copy is told it.
+    const created = s3.seen.find((r) => r.query.uploads !== undefined);
+    expect(created?.headers["content-type"]).toBe("application/gzip");
     const parts = s3.seen.filter((r) => r.query.partNumber);
     expect(parts.map((r) => r.headers["x-amz-copy-source-range"])).toEqual([
       "bytes=0-9",

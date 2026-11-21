@@ -141,8 +141,13 @@ function seedLegacy() {
     type: "self_hosted",
     allowed_idps: ["idp-1"],
     auto_redirect_to_identity: true,
+    session_duration: "24h",
+    self_hosted_domains: ["kestrel.example.net"],
+    destinations: [{ type: "public", uri: "kestrel.example.net" }],
+    tags: ["kestrel"],
     policies: [
       { id: "pol-1", precedence: 1, name: "Staff", decision: "allow" },
+      { id: "pol-2", precedence: 2, name: "Bots", decision: "bypass" },
     ],
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
@@ -292,19 +297,55 @@ describe("remark cloudflare", () => {
 
   it("writes an Access app back whole with only its name changed", async () => {
     seedLegacy();
+    const fetched = structuredClone(cf.apps.get("app1"));
     const [item] = await step.plan(ctx());
     if (!item) throw new Error("no item");
     await step.apply(ctx(), item);
     const put = writes().find((c) => c.method === "PUT");
     expect(put?.path).toBe(`/accounts/${ACCOUNT}/access/apps/app1`);
+    const {
+      id: _id,
+      aud: _aud,
+      created_at: _c,
+      updated_at: _u,
+      policies: _p,
+      ...kept
+    } = fetched as Record<string, unknown>;
+    // Every field as fetched, the name aside; policies as the references
+    // the PUT takes, in order, with their precedence.
     expect(put?.body).toEqual({
+      ...kept,
       name: `menara:${ENV1}`,
-      domain: "kestrel.example.net",
-      type: "self_hosted",
-      allowed_idps: ["idp-1"],
-      auto_redirect_to_identity: true,
-      policies: [{ id: "pol-1", precedence: 1 }],
+      policies: [
+        { id: "pol-1", precedence: 1 },
+        { id: "pol-2", precedence: 2 },
+      ],
     });
+    expect(Object.keys(put?.body as object).sort()).toEqual(
+      [
+        "allowed_idps",
+        "auto_redirect_to_identity",
+        "destinations",
+        "domain",
+        "name",
+        "policies",
+        "self_hosted_domains",
+        "session_duration",
+        "tags",
+        "type",
+      ].sort()
+    );
+  });
+
+  it("refuses to write back an Access app without policies", async () => {
+    seedLegacy();
+    const [item] = await step.plan(ctx());
+    if (!item) throw new Error("no item");
+    const app = cf.apps.get("app1") as Record<string, unknown>;
+    delete app.policies;
+    await expect(step.apply(ctx(), item)).rejects.toThrow(/no policies/);
+    expect(writes()).toEqual([]);
+    expect(cf.apps.get("app1")?.name).toBe(`oldtool:${ENV1}`);
   });
 
   it("refuses an object renamed by someone else since the plan", async () => {

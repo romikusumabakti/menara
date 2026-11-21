@@ -46,7 +46,7 @@ function seed(legacy: boolean) {
     instance_settings: [
       {
         id: 1,
-        brandName: legacy ? "Oldtool Panel" : "Kestrel Panel",
+        brandName: legacy ? "Oldtool Cloud" : "Kestrel Cloud",
         brandCompany: "Oldtool Works",
         brandUpdatedAt: null,
         assistantOrgContext: legacy ? CONTEXT : "Our team deploys kestrel.",
@@ -78,8 +78,8 @@ describe("remark instance-db", () => {
       {
         step: "instance-db",
         target: "instance_settings/brand_name",
-        from: "Oldtool Panel",
-        to: "Menara Panel",
+        from: "Oldtool Cloud",
+        to: "Menara Cloud",
       },
       {
         step: "instance-db",
@@ -88,13 +88,13 @@ describe("remark instance-db", () => {
         to: CONTEXT_NEW,
       },
     ]);
-    expect(settings().brandName).toBe("Oldtool Panel");
+    expect(settings().brandName).toBe("Oldtool Cloud");
   });
 
   it("apply converts it", async () => {
     seed(true);
     for (const item of await step.plan(ctx())) await step.apply(ctx(), item);
-    expect(settings().brandName).toBe("Menara Panel");
+    expect(settings().brandName).toBe("Menara Cloud");
     expect(settings().brandUpdatedAt).toBeInstanceOf(Date);
     expect(settings().assistantOrgContext).toBe(CONTEXT_NEW);
     // Not on the allow-list: the company name and a storage prefix.
@@ -111,7 +111,7 @@ describe("remark instance-db", () => {
     expect(await step.plan(ctx())).toEqual([]);
     // A stale item is a no-op.
     for (const item of items) await step.apply(ctx(), item);
-    expect(settings().brandName).toBe("Menara Panel");
+    expect(settings().brandName).toBe("Menara Cloud");
   });
 
   it("shortens a long text to an excerpt around the first trace", async () => {

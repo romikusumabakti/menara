@@ -162,7 +162,7 @@ function seed(withLegacy: boolean) {
     {
       id: "c5",
       author: BOT,
-      body: cloudBody(attribution("Bo Osprey", `${via} Panel`)),
+      body: cloudBody(attribution("Bo Osprey", `${via} Cloud`)),
     },
   ]);
   state.hidden = new Set(["c5"]);
@@ -223,7 +223,7 @@ describe("remark jira", () => {
       {
         step: "jira",
         target: target(P1_ID, "10001", "c5"),
-        from: "Written by Bo Osprey via Oldtool Panel",
+        from: "Written by Bo Osprey via Oldtool Cloud",
         to: "Written by Bo Osprey via Kestrel",
       },
       {
@@ -283,9 +283,9 @@ describe("remark jira", () => {
 
   it("names Menara while the brand itself still carries the legacy name", async () => {
     seed(true);
-    state.brand = "Oldtool Panel";
+    state.brand = "Oldtool Cloud";
     const [item] = await step.plan(ctx());
-    expect(item?.to).toBe("Written by Ann Heron via Menara Panel");
+    expect(item?.to).toBe("Written by Ann Heron via Menara Cloud");
   });
 });
 

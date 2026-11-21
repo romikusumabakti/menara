@@ -17,7 +17,7 @@ import {
 import * as woodpecker from "@/lib/remark/woodpecker";
 
 /** Every step's module; a new step is one line here. */
-const REGISTRY: Record<RemarkStep, RemarkStepModule> = {
+export const REMARK_MODULES: Record<RemarkStep, RemarkStepModule> = {
   ssh,
   "db-markers": dbMarkers,
   "assistant-logins": assistantLogins,
@@ -63,7 +63,7 @@ export async function runRemark(
   const reports: RemarkStepReport[] = [];
   for (const step of REMARK_STEPS) {
     if (wanted && !wanted.has(step)) continue;
-    const module = REGISTRY[step];
+    const module = REMARK_MODULES[step];
     const report: RemarkStepReport = { step, items: [], errors: [] };
     reports.push(report);
     const ctx: RemarkContext = {

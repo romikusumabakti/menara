@@ -10,6 +10,7 @@ import { runMigrate } from "./cli/migrate";
 import { runRemarkCommand } from "./cli/remark";
 import { runRestoreCommand } from "./cli/restore";
 import { runSeed } from "./cli/seed";
+import { runSweepCommand } from "./cli/sweep";
 
 const USAGE = `Usage: bun dist/cli.js <command> [options]   (in the image: menara <command>)
 
@@ -26,6 +27,9 @@ Commands:
                       Convert traces of the previous product name, or delete
                       legacy CI secrets no branch uses (dry run by default;
                       needs MENARA_LEGACY_NAME)
+  sweep [--json]      Read-only: list every trace of the previous name still
+                      left on connected systems and in the database
+                      (exit 1 when any; needs MENARA_LEGACY_NAME)
 
 Run a command with --help for its options.`;
 
@@ -36,6 +40,7 @@ const commands: Record<string, (args: string[]) => Promise<number>> = {
   seed: runSeed,
   knowledge: runKnowledge,
   remark: runRemarkCommand,
+  sweep: runSweepCommand,
 };
 
 applyLegacyEnvAndWarn(process.env);

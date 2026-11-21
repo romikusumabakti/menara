@@ -823,6 +823,32 @@ describe("dropDatabase", () => {
     );
   });
 
+  it("drops a database and roles marked with the legacy marker", async () => {
+    vi.stubEnv("MENARA_LEGACY_NAME", "oldtool");
+    try {
+      writeFileSync(join(FAKE, "probe"), "marked|1\n");
+      await dropDatabase(ctx(), dbParams);
+      const list = `('menara:${ENV_ID}', 'oldtool:${ENV_ID}')`;
+      // The probe travels inside shq: each ' is '\''.
+      const probe = state.calls.find((c) => c.stdin === undefined);
+      expect(probe?.command).toContain(
+        `shobj_description(datdba, 'pg_authid') IN ${list}`.replaceAll(
+          "'",
+          "'\\''"
+        )
+      );
+      const drop = state.calls.find((c) => c.stdin !== undefined);
+      expect(drop?.stdin).toContain(
+        `shobj_description(datdba, 'pg_authid') IN ${list} \\gexec`
+      );
+      expect(drop?.stdin).toContain(
+        `shobj_description(oid, ''pg_authid'') IN ${list.replaceAll("'", "''")} LOOP`
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("is idempotent: a second call sends no drop", async () => {
     writeFileSync(join(FAKE, "probe"), "marked|1\n");
     await dropDatabase(ctx(), dbParams);

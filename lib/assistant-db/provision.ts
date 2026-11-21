@@ -10,7 +10,10 @@ import {
   sqlQuoteString,
 } from "@/lib/jobs/commands";
 import { privilegedWithStdin } from "@/lib/privileged";
-import { provisionedRoleMarker } from "@/lib/provisioning/database";
+import {
+  pgIsNotMarked,
+  provisionedRoleMarker,
+} from "@/lib/provisioning/database";
 import {
   buildDbShellCommand,
   type DatabaseType,
@@ -197,7 +200,7 @@ export function pgEnableAssistantDbSql(input: {
     // it carries the marker (a leftover nobody tracks any more).
     ...(input.adopt
       ? [
-          `  ELSIF shobj_description(role_oid, 'pg_authid') IS DISTINCT FROM ${markerLit} THEN`,
+          `  ELSIF ${pgIsNotMarked("shobj_description(role_oid, 'pg_authid')", input.environmentId)} THEN`,
           `    RAISE EXCEPTION 'role % was not created by Menara for this environment', ${roleLit};`,
         ]
       : [
@@ -279,13 +282,12 @@ export function pgDisableAssistantDbSql(input: {
     throw new Error("environmentId must be a uuid");
   }
   const roleLit = pgQuoteLiteral(input.role);
-  const markerLit = pgQuoteLiteral(provisionedRoleMarker(input.environmentId));
   const drop = [
     "DECLARE role_oid oid;",
     "BEGIN",
     `  SELECT oid INTO role_oid FROM pg_roles WHERE rolname = ${roleLit};`,
     "  IF role_oid IS NULL THEN RETURN; END IF;",
-    `  IF shobj_description(role_oid, 'pg_authid') IS DISTINCT FROM ${markerLit} THEN`,
+    `  IF ${pgIsNotMarked("shobj_description(role_oid, 'pg_authid')", input.environmentId)} THEN`,
     `    RAISE EXCEPTION 'role % was not created by Menara for this environment', ${roleLit};`,
     "  END IF;",
     `  EXECUTE format('DROP OWNED BY %I', ${roleLit});`,

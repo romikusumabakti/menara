@@ -1,6 +1,7 @@
 import { createHash, createHmac, pbkdf2Sync, randomBytes } from "node:crypto";
 import type { Server } from "@/lib/db/schema";
 import { pgQuoteId, pgQuoteLiteral } from "@/lib/jobs/commands";
+import { legacy } from "@/lib/legacy";
 import { shq } from "@/lib/sh";
 import { executeRemoteCommand, redactSecrets } from "@/lib/ssh";
 import { sshTarget } from "@/lib/ssh-connect";
@@ -44,6 +45,43 @@ export function provisionedRoleMarker(environmentId: string): string {
   return `menara:${environmentId}`;
 }
 
+/**
+ * The comments that mark a role as the environment's: Menara's, and on a
+ * migrated install (MENARA_LEGACY_NAME set) exactly `<legacy>:<environmentId>`
+ * too. Only for checks; roles are always created with provisionedRoleMarker.
+ */
+export function provisionedRoleMarkers(environmentId: string): string[] {
+  const l = legacy();
+  const own = provisionedRoleMarker(environmentId);
+  return l ? [own, `${l.name}:${environmentId}`] : [own];
+}
+
+/**
+ * SQL: whether the comment `expr` (null when none) is one of the
+ * environment's markers. With one marker this is the plain
+ * `IS NOT DISTINCT FROM` of before; with the legacy one too, an IN list
+ * (markers are never null, so a null comment is never in it).
+ */
+export function pgIsMarked(expr: string, environmentId: string): string {
+  const [one, ...more] =
+    provisionedRoleMarkers(environmentId).map(pgQuoteLiteral);
+  return more.length === 0
+    ? `${expr} IS NOT DISTINCT FROM ${one}`
+    : `${expr} IN (${[one, ...more].join(", ")})`;
+}
+
+/**
+ * SQL: whether the comment `expr` is not one of the environment's markers; a
+ * null comment counts as not (COALESCE, so NOT IN never yields null).
+ */
+export function pgIsNotMarked(expr: string, environmentId: string): string {
+  const [one, ...more] =
+    provisionedRoleMarkers(environmentId).map(pgQuoteLiteral);
+  return more.length === 0
+    ? `${expr} IS DISTINCT FROM ${one}`
+    : `COALESCE(${expr}, '') NOT IN (${[one, ...more].join(", ")})`;
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
@@ -62,7 +100,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  *   it (pg_shdepend), or carrying settings outside it (pg_db_role_setting);
  * - an existing role whose comment isn't exactly this environment's marker
  *   (a hand-made role, even one that owns just this database: the typical
- *   app role an operator made by hand).
+ *   app role an operator made by hand); on a migrated install the legacy
+ *   marker counts too (provisionedRoleMarkers).
  *
  * So the only existing role it reuses is one Menara created for this
  * environment that owns this exact database and nothing else (a rerun), or
@@ -108,7 +147,7 @@ export function pgProvisionDatabaseSql(input: {
     `  IF current_owner IS NOT NULL AND current_owner <> ${roleLit} THEN`,
     `    RAISE EXCEPTION 'database % exists with owner %', ${dbLit}, current_owner;`,
     "  END IF;",
-    `  IF db_oid IS NOT NULL AND shobj_description(owner_oid, 'pg_authid') IS DISTINCT FROM ${markerLit} THEN`,
+    `  IF db_oid IS NOT NULL AND ${pgIsNotMarked("shobj_description(owner_oid, 'pg_authid')", input.environmentId)} THEN`,
     `    RAISE EXCEPTION 'database % was not created by Menara for this environment', ${dbLit};`,
     "  END IF;",
     `  SELECT oid INTO role_oid FROM pg_roles WHERE rolname = ${roleLit};`,
@@ -128,7 +167,7 @@ export function pgProvisionDatabaseSql(input: {
     "    OR EXISTS (SELECT 1 FROM pg_db_role_setting WHERE setrole = role_oid AND setdatabase IS DISTINCT FROM db_oid) THEN",
     `    RAISE EXCEPTION 'role % is in use outside database %', ${roleLit}, ${dbLit};`,
     "  END IF;",
-    `  IF shobj_description(role_oid, 'pg_authid') IS DISTINCT FROM ${markerLit} THEN`,
+    `  IF ${pgIsNotMarked("shobj_description(role_oid, 'pg_authid')", input.environmentId)} THEN`,
     `    RAISE EXCEPTION 'role % was not created by Menara for this environment', ${roleLit};`,
     "  END IF;",
     "END",

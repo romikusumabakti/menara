@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { createHash, createHmac, pbkdf2Sync } from "node:crypto";
 import {
   afterAll,
+  afterEach,
   beforeAll,
   beforeEach,
   describe,
@@ -44,6 +45,7 @@ const {
   allowedDatabaseName,
   pgProvisionDatabaseSql,
   provisionedRoleMarker,
+  provisionedRoleMarkers,
   provisionSharedDatabase,
   redactSecrets,
   scramSha256Verifier,
@@ -180,6 +182,50 @@ describe("pgProvisionDatabaseSql", () => {
         environmentId: "x'; DROP ROLE postgres; --",
       })
     ).toThrow(/uuid/);
+  });
+});
+
+describe("legacy role markers", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+  const provision = () =>
+    pgProvisionDatabaseSql({
+      database: "kestrel_qa",
+      role: "kestrel_app",
+      verifier: "SCRAM-SHA-256$4096:c2FsdA==$a:b",
+      environmentId: ENV_ID,
+    });
+
+  it("only the menara marker without legacy config", () => {
+    expect(provisionedRoleMarkers(ENV_ID)).toEqual([`menara:${ENV_ID}`]);
+    const sql = provision();
+    expect(sql).not.toContain("oldtool");
+    expect(sql).toContain(
+      `shobj_description(role_oid, ''pg_authid'') IS DISTINCT FROM ''menara:${ENV_ID}''`
+    );
+  });
+
+  it("provisioning accepts a role commented with the legacy marker", () => {
+    vi.stubEnv("MENARA_LEGACY_NAME", "oldtool");
+    expect(provisionedRoleMarkers(ENV_ID)).toEqual([
+      `menara:${ENV_ID}`,
+      `oldtool:${ENV_ID}`,
+    ]);
+    const sql = provision();
+    const list = `(''menara:${ENV_ID}'', ''oldtool:${ENV_ID}'')`;
+    // A null comment is not a marker: COALESCE keeps NOT IN from going null.
+    expect(sql).toContain(
+      `COALESCE(shobj_description(role_oid, ''pg_authid''), '''') NOT IN ${list}`
+    );
+    expect(sql).toContain(
+      `COALESCE(shobj_description(owner_oid, ''pg_authid''), '''') NOT IN ${list}`
+    );
+    // The role it creates still carries only the menara marker.
+    expect(provisionedRoleMarker(ENV_ID)).toBe(`menara:${ENV_ID}`);
+    expect(sql).toContain(
+      `format(''COMMENT ON ROLE %I IS %L'', ''kestrel_app'', ''menara:${ENV_ID}'')`
+    );
   });
 });
 

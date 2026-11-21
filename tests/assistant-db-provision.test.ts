@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // The Assistant's read-only database login (Stage 9 spec F.2): the generated
 // SQL per engine (quoting, escaping, least privilege), the commands that run
@@ -336,6 +336,49 @@ describe("pgDisableAssistantDbSql", () => {
     expect(sql).toContain("DROP ROLE %I");
     expect(sql.indexOf("DROP OWNED")).toBeLessThan(sql.indexOf("DROP ROLE"));
     expect(sql).toContain(`menara:${ENV_ID}`);
+  });
+});
+
+describe("legacy role markers", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+  const list = `(''menara:${ENV_ID}'', ''oldtool:${ENV_ID}'')`;
+
+  it("adopts and drops a role commented with the legacy marker", () => {
+    vi.stubEnv("MENARA_LEGACY_NAME", "oldtool");
+    const enable = pgEnableAssistantDbSql({
+      database: "kestrel_qa",
+      role: "menara_ro_kestrel_qa",
+      environmentId: ENV_ID,
+      appRoles: [],
+      adopt: true,
+    });
+    expect(enable).toContain(
+      `ELSIF COALESCE(shobj_description(role_oid, ''pg_authid''), '''') NOT IN ${list} THEN`
+    );
+    // Writes keep the menara marker.
+    expect(enable).toContain(
+      `format(''COMMENT ON ROLE %I IS %L'', ''menara_ro_kestrel_qa'', ''menara:${ENV_ID}'')`
+    );
+    const drop = pgDisableAssistantDbSql({
+      role: "menara_ro_kestrel_qa",
+      environmentId: ENV_ID,
+    });
+    expect(drop).toContain(
+      `IF COALESCE(shobj_description(role_oid, ''pg_authid''), '''') NOT IN ${list} THEN`
+    );
+  });
+
+  it("only the menara marker without legacy config", () => {
+    const drop = pgDisableAssistantDbSql({
+      role: "menara_ro_kestrel_qa",
+      environmentId: ENV_ID,
+    });
+    expect(drop).not.toContain("oldtool");
+    expect(drop).toContain(
+      `IF shobj_description(role_oid, ''pg_authid'') IS DISTINCT FROM ''menara:${ENV_ID}'' THEN`
+    );
   });
 });
 

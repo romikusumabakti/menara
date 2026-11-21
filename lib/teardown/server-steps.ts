@@ -1,7 +1,7 @@
 import { loadServerCredentials } from "@/lib/environments";
 import { pgQuoteLiteral } from "@/lib/jobs/commands";
 import { privilegedViaStdin } from "@/lib/privileged";
-import { provisionedRoleMarker } from "@/lib/provisioning/database";
+import { pgIsMarked } from "@/lib/provisioning/database";
 import { loadDatabaseHost } from "@/lib/provisioning/repository";
 import { decryptNullable } from "@/lib/secrets";
 import { shq } from "@/lib/sh";
@@ -533,9 +533,11 @@ export async function dropDatabase(
 
   const database = service.dbName;
   const dbLit = pgQuoteLiteral(database);
-  const markerLit = pgQuoteLiteral(provisionedRoleMarker(ctx.environmentId));
-  const ownedByUs = `shobj_description(datdba, 'pg_authid') IS NOT DISTINCT FROM ${markerLit}`;
-  const markedRoles = `SELECT rolname FROM pg_roles WHERE shobj_description(oid, 'pg_authid') IS NOT DISTINCT FROM ${markerLit}`;
+  const ownedByUs = pgIsMarked(
+    "shobj_description(datdba, 'pg_authid')",
+    ctx.environmentId
+  );
+  const markedRoles = `SELECT rolname FROM pg_roles WHERE ${pgIsMarked("shobj_description(oid, 'pg_authid')", ctx.environmentId)}`;
   const probe = [
     "SELECT",
     `CASE WHEN NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = ${dbLit}) THEN 'absent'`,

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // The Cloudflare provisioning steps against an in-memory Cloudflare account.
 // withIngressRoute and the error classes are the real ones; the HTTP calls and
@@ -568,6 +568,72 @@ describe("dns_record", () => {
     cf.apps = [];
     await dnsRecord(ctx(), params);
     expect(cf.writes).toEqual(["create_dns"]);
+  });
+});
+
+describe("legacy ownership tags", () => {
+  const appParams = {
+    zoneId: "zone-row-1",
+    remoteTunnelId: "rt-1",
+    hostname: HOST_A,
+    policyId: "pol-1",
+  };
+  const dnsParams = {
+    zoneId: "zone-row-1",
+    hostname: HOST_A,
+    remoteTunnelId: "rt-1",
+  };
+  const legacyApp = () => ({
+    id: "app-legacy",
+    name: `oldtool:${ENV_A}`,
+    domain: HOST_A,
+    policies: [{ id: "pol-1" }],
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("cloudflare treats a legacy-tagged app as ours", async () => {
+    vi.stubEnv("MENARA_LEGACY_NAME", "oldtool");
+    cf.apps = [legacyApp()];
+    cf.records = [{ ...ours(), comment: `oldtool:${ENV_A}` }];
+    await accessApp(ctx(), appParams);
+    await dnsRecord(ctx(), dnsParams);
+    expect(cf.writes).toEqual([]);
+    expect(db.domains[ENV_A]).toEqual({
+      accessAppId: "app-legacy",
+      dnsRecordId: "rec-ours",
+    });
+  });
+
+  it("still tags what it creates with menara", async () => {
+    vi.stubEnv("MENARA_LEGACY_NAME", "oldtool");
+    await accessApp(ctx(), appParams);
+    await dnsRecord(ctx(), dnsParams);
+    expect(cf.apps.map((a) => a.name)).toEqual([`menara:${ENV_A}`]);
+    expect(cf.records.map((r) => r.comment)).toEqual([`menara:${ENV_A}`]);
+  });
+
+  it("does not take another environment's legacy tag", async () => {
+    vi.stubEnv("MENARA_LEGACY_NAME", "oldtool");
+    cf.apps = [{ ...legacyApp(), name: `oldtool:${ENV_B}` }];
+    await expect(accessApp(ctx(), appParams)).rejects.toThrow(
+      `Access app oldtool:${ENV_B} already covers ${HOST_A}`
+    );
+    expect(cf.writes).toEqual([]);
+  });
+
+  it("without legacy config a legacy tag is someone else's", async () => {
+    cf.apps = [legacyApp()];
+    await expect(accessApp(ctx(), appParams)).rejects.toThrow(
+      `Access app oldtool:${ENV_A} already covers ${HOST_A}`
+    );
+    cf.apps = [];
+    cf.records = [{ ...ours(), comment: `oldtool:${ENV_A}` }];
+    await expect(accessApp(ctx(), appParams)).rejects.toThrow(
+      `already exists for ${HOST_A}`
+    );
+    expect(cf.writes).toEqual([]);
   });
 });
 

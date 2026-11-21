@@ -7,7 +7,8 @@
 // Access app or DNS record Menara did not create for this environment) fails
 // the step before anything is written, naming the clash. Menara tags what it
 // creates with `menara:<environmentId>` (app name, record comment) and owns
-// only what carries that tag.
+// only what carries that tag (or, on a migrated install, the same tag under
+// the previous product name: cloudflareTags).
 //
 // The hostname's DNS record is checked before the first write of a binding:
 // the Access app step and the route step both fail, writing nothing, unless the
@@ -35,6 +36,7 @@ import {
   setDomainAccessAppId,
   setDomainDnsRecordId,
 } from "@/lib/domains/repository";
+import { legacy } from "@/lib/legacy";
 import type { ProvisioningStepSpec } from "@/lib/provisioning/plan";
 import { withAdvisoryXactLock } from "@/lib/provisioning/repository";
 import { loadCloudflareAccount } from "@/server/services/cloudflare-account";
@@ -54,6 +56,20 @@ type Params<K extends ProvisioningStepSpec["kind"]> = Extract<
 >["params"];
 
 const menaraTag = (environmentId: string) => `menara:${environmentId}`;
+
+/**
+ * The tags that mark an Access app or DNS record as the environment's: the
+ * menara tag, and on a migrated install (MENARA_LEGACY_NAME set) exactly
+ * `<legacy>:<environmentId>` too. Only for checks; writes use menaraTag.
+ */
+export function cloudflareTags(environmentId: string): string[] {
+  const l = legacy();
+  const own = menaraTag(environmentId);
+  return l ? [own, `${l.name}:${environmentId}`] : [own];
+}
+
+const isOwnTag = (tag: string | null | undefined, environmentId: string) =>
+  tag != null && cloudflareTags(environmentId).includes(tag);
 
 async function loadAccount(ctx: CloudflareStepContext) {
   const account = await loadCloudflareAccount();
@@ -81,7 +97,7 @@ function isOwnRecord(
     record.content.toLowerCase() ===
       `${tunnelId}.cfargotunnel.com`.toLowerCase() &&
     record.proxied === true &&
-    record.comment === menaraTag(environmentId)
+    isOwnTag(record.comment, environmentId)
   );
 }
 
@@ -181,7 +197,7 @@ export async function accessApp(
   );
   const name = menaraTag(ctx.environmentId);
   const existing = await findAccessAppByDomain(creds, params.hostname);
-  if (existing && existing.name !== name) {
+  if (existing && !isOwnTag(existing.name, ctx.environmentId)) {
     throw new StepFailed(
       `Access app ${existing.name} already covers ${params.hostname}`
     );
@@ -199,7 +215,7 @@ export async function accessApp(
     }));
   await setDomainAccessAppId(ctx.environmentId, app.id);
   return existing
-    ? `Access app ${name} for ${params.hostname} already exists`
+    ? `Access app ${existing.name} for ${params.hostname} already exists`
     : `Access app ${name} created for ${params.hostname}`;
 }
 
@@ -219,7 +235,7 @@ async function requireAccessApp(
   }
   if (!binding.accessPolicyId) return;
   const app = await findAccessAppByDomain(creds, hostname);
-  if (!app || app.name !== menaraTag(ctx.environmentId)) {
+  if (!app || !isOwnTag(app.name, ctx.environmentId)) {
     throw new StepFailed(
       app
         ? `Access app ${app.name} covers ${hostname} instead of Menara's`

@@ -63,6 +63,7 @@ esac
 # Read-only queries of install.sh --migrate-from.
 case "$*" in
   *" exec -T postgres "*deployments*) echo "\${STUB_DEPLOYS:-0}" ;;
+  *" exec -T postgres "*auto_update*) echo "\${STUB_AUTO_UPDATE-f}" ;;
   *" exec -T valkey "*) echo "\${STUB_QUEUED:-0}" ;;
   "run --rm --pull never "*) echo "\${STUB_SPACE:-2000 1000000}" ;;
 esac
@@ -1003,9 +1004,10 @@ describe("install.sh --migrate-from --dry-run", () => {
       "==> Updater",
       "+ systemctl enable --now menara-updater@menara-beta.path",
       "==> Migrate",
+      `+ systemctl disable --now ${UNITS[0]}`,
+      `+ systemctl disable ${UNITS[1]}`,
       `docker compose -f ${m.dir}/compose.yaml pull`,
       `+ ${old} stop app`,
-      `+ systemctl disable --now ${UNITS.join(" ")}`,
       `+ ${old} down`,
       ...copies,
       `+ cp -a ${m.oldDir}/backups/. ${m.dir}/backups/`,
@@ -1127,6 +1129,7 @@ describe("install.sh --migrate-from --dry-run", () => {
       old_dir: m.oldDir,
       migrate_from: m.oldDir,
       old_stopped: "1",
+      old_units_off: "1",
       old_units: ` ${UNITS.join(" ")}`,
     };
     const assign = Object.entries(vars)
@@ -1159,13 +1162,19 @@ describe("install.sh --migrate-from --dry-run", () => {
     expect(r.stderr).toContain("The old stack was started again");
   });
 
-  it("does not stop the old stack again when it was never stopped", () => {
+  it("re-enables the old updater, and starts the old stack only when this run stopped it", () => {
+    // Failed after the updater was disabled, before the old stack stopped.
     const m = migrateSetup();
+    writeFileSync(
+      join(m.ctx.bin, "systemctl"),
+      `#!/bin/sh\nprintf 'systemctl %s\\n' "$*" >> "$STUB_LOG"\n`,
+      { mode: 0o755 }
+    );
     const r = spawnSync(
       "sh",
       [
         "-c",
-        `${shFunctions(["run", "compose", "roll_back"])}\ndry_run=0; dir='${m.dir}'; name=menara-beta; old_dir='${m.oldDir}'; old_stopped=0; old_units=''; roll_back`,
+        `${shFunctions(["run", "compose", "roll_back"])}\ndry_run=0; dir='${m.dir}'; name=menara-beta; old_dir='${m.oldDir}'; old_stopped=0; old_units_off=1; old_units=' ${UNITS.join(" ")}'; roll_back`,
       ],
       {
         encoding: "utf8",
@@ -1173,8 +1182,90 @@ describe("install.sh --migrate-from --dry-run", () => {
       }
     );
     expect(r.status).toBe(0);
-    expect(readFileSync(m.ctx.log, "utf8")).not.toContain(
-      `${m.oldDir}/compose.yaml up`
+    const calls = readFileSync(m.ctx.log, "utf8");
+    inOrder(calls, [
+      "systemctl enable --now oldtool-updater@oldtool-beta.path",
+      "systemctl enable oldtool-updater@oldtool-beta.service",
+    ]);
+    expect(calls).not.toContain(`${m.oldDir}/compose.yaml up`);
+  });
+
+  it("disables the old updater before pulling", () => {
+    const m = migrateSetup();
+    const r = migrate(m);
+    expect(r.status, r.all).toBe(0);
+    inOrder(r.stdout, [
+      "==> Migrate",
+      // --now on the .path only: a running update is never cut short.
+      "+ systemctl disable --now oldtool-updater@oldtool-beta.path",
+      "+ systemctl disable oldtool-updater@oldtool-beta.service",
+      `+ docker compose -f ${m.dir}/compose.yaml pull`,
+      `+ docker compose -f ${m.oldDir}/compose.yaml stop app`,
+    ]);
+    expect(r.stdout).not.toContain(
+      "disable --now oldtool-updater@oldtool-beta.service"
+    );
+  });
+
+  it("refuses when an update request appears after preflight", () => {
+    // The old updater's service turns active once the run is past its
+    // preflight and the check after disabling the updater (3rd question).
+    const m = migrateSetup();
+    const count = join(m.ctx.root, "is-active.count");
+    writeFileSync(
+      join(m.ctx.bin, "systemctl"),
+      `#!/bin/sh\n[ "$1" = is-active ] || exit 0\nn=$(($(cat "${count}" 2>/dev/null || echo 0) + 1))\necho "$n" > "${count}"\n[ "$n" -ge 3 ]\n`,
+      { mode: 0o755 }
+    );
+    const r = migrate(m);
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain(
+      "the old install has an update requested or running"
+    );
+    inOrder(r.stdout, ["==> Migrate", "stop app"]);
+    expect(r.stdout).not.toContain(" down");
+
+    // A request file or a running status refuses as well.
+    const idle = (setupFiles: () => void) => {
+      setupFiles();
+      return spawnSync(
+        "sh",
+        [
+          "-c",
+          `${shFunctions(["die", "old_updater_idle"])}\nold_dir='${m.oldDir}'; legacy=oldtool; old_instance=oldtool-beta; old_updater_idle`,
+        ],
+        { encoding: "utf8", env: { PATH: m.ctx.hostBin } }
+      );
+    };
+    const updates = join(m.oldDir, "updates");
+    mkdirSync(updates);
+    expect(idle(() => {}).status).toBe(0);
+    const requested = idle(() =>
+      writeFileSync(join(updates, "request.json"), "{}")
+    );
+    expect(requested.status).toBe(1);
+    expect(requested.stderr).toContain("update requested or running");
+    rmSync(join(updates, "request.json"));
+    const running = idle(() =>
+      writeFileSync(
+        join(updates, "status.json"),
+        '{"state":"running","code":null,"version":"0.7.9"}'
+      )
+    );
+    expect(running.status).toBe(1);
+  });
+
+  it.each([
+    ["on", "t", "auto-update is on in the old instance"],
+    ["unreadable", "", "cannot read the old instance's auto-update setting"],
+  ])("refuses when auto-update is %s", (_label, value, message) => {
+    const m = migrateSetup();
+    const r = migrate(m, { STUB_AUTO_UPDATE: value });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain(message);
+    expect(r.stdout).not.toContain("==> Install dir");
+    expect(readFileSync(m.ctx.log, "utf8")).toContain(
+      "SELECT auto_update FROM instance_settings WHERE id = 1"
     );
   });
 });

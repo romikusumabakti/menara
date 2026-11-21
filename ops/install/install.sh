@@ -300,21 +300,24 @@ way_back() {
   fi
 }
 
-# --migrate-from failed: stop the new stack, give the old one back its
-# updater units and start it again. Nothing old was changed, so that is all.
+# --migrate-from failed: stop the new stack, give the old one back the
+# updater units this run disabled and start it again if this run stopped
+# it. Nothing old was changed, so that is all.
 # shellcheck disable=SC2317,SC2329 # invoked by on_exit
 roll_back() {
   printf '\n==> Rolling back to the old stack\n'
   if [ -f "$dir/compose.yaml" ]; then compose down || :; fi
   run systemctl disable --now "menara-updater@$name.path" "menara-updater@$name.service" || :
+  if [ "$old_units_off" = 1 ]; then
+    for unit in $old_units; do
+      case $unit in
+        *.path) run systemctl enable --now "$unit" || : ;;
+        # Never --now: that would run the old updater at once.
+        *) run systemctl enable "$unit" || : ;;
+      esac
+    done
+  fi
   [ "$old_stopped" = 1 ] || return 0
-  for unit in $old_units; do
-    case $unit in
-      *.path) run systemctl enable --now "$unit" || : ;;
-      # Never --now: that would run the old updater at once.
-      *) run systemctl enable "$unit" || : ;;
-    esac
-  done
   run docker compose -f "$old_dir/compose.yaml" up -d || :
 }
 
@@ -413,6 +416,30 @@ old_idle() {
   [ "$n" = 0 ] || die "jobs waiting or running in the old queues ($*): $n. Wait until they finish, then run install.sh again"
 }
 
+# The old updater is idle: no update requested, none running (its status
+# file, and its service when systemd can be asked).
+old_updater_idle() {
+  if [ -e "$old_dir/updates/request.json" ] || grep -qs '"state":"running"' "$old_dir/updates/status.json" ||
+    { command -v systemctl >/dev/null 2>&1 &&
+      systemctl is-active -q "$legacy-updater@$old_instance.service" </dev/null; }; then
+    die "--migrate-from: the old install has an update requested or running ($old_dir/updates): let it finish first"
+  fi
+}
+
+# Auto-update is off in the old instance (instance_settings, asked of its
+# own postgres); anything but a clear "off" refuses.
+old_auto_update_off() {
+  # shellcheck disable=SC2016 # expands in the container
+  v=$(docker compose -f "$old_dir/compose.yaml" exec -T postgres sh -c \
+    'psql -X -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT auto_update FROM instance_settings WHERE id = 1"' \
+    2>>"$log_file" </dev/null) || v=
+  case $v in
+    f) ;;
+    t) die "--migrate-from: auto-update is on in the old instance: turn it off there (Admin, Updates), then run install.sh again" ;;
+    *) die "--migrate-from: cannot read the old instance's auto-update setting: its stack must be running (docker compose up -d in $old_dir)" ;;
+  esac
+}
+
 # Every check before --migrate-from changes anything.
 migrate_preflight() {
   read_old
@@ -435,9 +462,7 @@ migrate_preflight() {
   fi
   http_port=${http_port:-$old_port}
   [ "$have_docker" = 1 ] || die "--migrate-from: Docker is not installed, so there is no stack to migrate"
-  if [ -e "$old_dir/updates/request.json" ] || grep -qs '"state":"running"' "$old_dir/updates/status.json"; then
-    die "--migrate-from: the old install has an update requested or running ($old_dir/updates): let it finish first"
-  fi
+  old_updater_idle
   for suffix in $INSTANCE_VOLUMES; do
     if volume_exists "${name}_$suffix"; then
       die "volume ${name}_$suffix already exists: --migrate-from copies into new volumes only"
@@ -455,6 +480,7 @@ migrate_preflight() {
       say "no old volume ${pair#*:}: ${name}_${pair%%:*} starts empty"
     fi
   done
+  old_auto_update_off
   old_idle
   # Read-only, with the old app image already on this host.
   space=$(docker run --rm --pull never --network none --user 0 --entrypoint sh "$@" "$old_image" \
@@ -605,6 +631,7 @@ main() {
   yes=0
   old_dir=
   old_units=
+  old_units_off=0
   old_stopped=0
   dry_run=0
   changed=0
@@ -1032,15 +1059,25 @@ EOF
     compose run --rm migrate menara migrate --adopt
   elif [ -n "$migrate_from" ]; then
     step "Migrate"
+    # The old updater off first, so no update starts in the old stack while
+    # this run pulls and copies (the rollback enables it again). The service
+    # is never stopped here: a running update makes this run refuse.
+    old_units_off=1
+    for unit in $old_units; do
+      case $unit in
+        *.path) run systemctl disable --now "$unit" ;;
+        *) run systemctl disable "$unit" ;;
+      esac
+    done
+    old_updater_idle
     # The new images first: the old stack is down for the copies only.
     compose pull
     old_stopped=1
     # The app (it runs the workers) first, then a last look: nothing may
     # have started since the preflight.
     run docker compose -f "$old_dir/compose.yaml" stop app
+    old_updater_idle
     if [ "$dry_run" = 0 ]; then old_idle; fi
-    # shellcheck disable=SC2086 # unit names, no spaces
-    if [ -n "$old_units" ]; then run systemctl disable --now $old_units; fi
     # down, not stop: restart: always would bring stopped containers back at
     # the next boot. The volumes stay.
     run docker compose -f "$old_dir/compose.yaml" down

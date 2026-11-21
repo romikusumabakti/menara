@@ -476,10 +476,10 @@ installer names and run the command again.
 ### 2. Convert what the old name left behind: `menara remark`
 
 ```sh
-docker compose exec app bun dist/cli.js remark                    # dry run
-docker compose exec app bun dist/cli.js remark --apply
-docker compose exec app bun dist/cli.js remark --step ssh --step s3 --apply
-docker compose exec app bun dist/cli.js remark --finish --apply
+docker compose -f /opt/<name>/compose.yaml exec app menara remark                # dry run
+docker compose -f /opt/<name>/compose.yaml exec app menara remark --apply
+docker compose -f /opt/<name>/compose.yaml exec app menara remark --step ssh --step s3 --apply
+docker compose -f /opt/<name>/compose.yaml exec app menara remark --finish --apply
 ```
 
 Run it in the migrated instance (it needs `MENARA_LEGACY_NAME`; exit 2
@@ -496,8 +496,11 @@ the others still ran.
 
 Runbook notes:
 
-- Do not back up or restore the instance while `remark --step s3 --apply`
-  runs: it moves the backup and archive objects.
+- `remark --step s3 --apply` moves the backup and archive objects under the
+  instance backup lock: a backup that starts meanwhile is skipped as already
+  running, and while a backup runs each s3 item fails with "an instance
+  backup is running" (run it again afterwards). A restore does not take that
+  lock, so do not restore while it runs.
 - Run `remark --step targets` only after every install that shares those
   targets has been migrated, because it renames files in the shared deploy
   directories and removes the old name's deploy lock
@@ -511,8 +514,8 @@ Runbook notes:
 ### 3. Check nothing is left: `menara sweep`
 
 ```sh
-docker compose exec app bun dist/cli.js sweep
-docker compose exec app bun dist/cli.js sweep --json
+docker compose -f /opt/<name>/compose.yaml exec app menara sweep
+docker compose -f /opt/<name>/compose.yaml exec app menara sweep --json
 ```
 
 Read-only. It lists every remaining trace of the previous name: what `remark`

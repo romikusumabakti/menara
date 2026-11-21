@@ -537,3 +537,27 @@ describe("menaraSecretName", () => {
     expect(menaraSecretName("oldtool_notifyx", l)).toBeNull();
   });
 });
+
+describe("notifySecretHint", () => {
+  it("names the legacy secret too while legacy config is set", async () => {
+    const { notifySecretHint } = await import(
+      "@/lib/ci/register-artifact-component"
+    );
+    const l = {
+      name: "oldtool",
+      upper: "OLDTOOL",
+      title: "Oldtool",
+      instance: null,
+    };
+    expect(notifySecretHint("menara_notify_api", null)).toBe(
+      "Shown once. Put it in the Woodpecker repo secret menara_notify_api."
+    );
+    expect(notifySecretHint("menara_notify_api", l)).toBe(
+      "Shown once. Put it in the Woodpecker repo secret menara_notify_api, and in oldtool_notify_api too while branches still read it (until remark --finish deletes it)."
+    );
+    // A custom name has no previous-name counterpart.
+    expect(notifySecretHint("build_hook", l)).toBe(
+      "Shown once. Put it in the Woodpecker repo secret build_hook."
+    );
+  });
+});

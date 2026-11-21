@@ -112,8 +112,8 @@ const HOST_STUBS = {
   "dpkg-query": "#!/bin/sh\nexit 1\n",
   // Sizes for the --migrate-from disk check: KiB in the old backups/ and KiB
   // free on the new install dir's filesystem.
-  du: '#!/bin/sh\nprintf \'%s\\t%s\\n\' "${STUB_BACKUPS_KIB:-0}" "$2"\n',
-  df: '#!/bin/sh\nprintf \'Filesystem 1024-blocks Used Available Capacity Mounted on\\n/dev/x 1 1 %s 1%% %s\\n\' "${STUB_DIR_FREE:-1000000}" "$2"\n',
+  du: `#!/bin/sh\nprintf '%s\\t%s\\n' "\${STUB_BACKUPS_KIB:-0}" "$2"\n`,
+  df: `#!/bin/sh\nprintf 'Filesystem 1024-blocks Used Available Capacity Mounted on\\n/dev/x 1 1 %s 1%% %s\\n' "\${STUB_DIR_FREE:-1000000}" "$2"\n`,
 };
 
 const IMAGE_NAMES = {

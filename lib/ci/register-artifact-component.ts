@@ -73,6 +73,18 @@ export function legacySecretName(name: string, l: Legacy): string | null {
   return null;
 }
 
+/**
+ * What to do with a notify secret shown once by the CLI. On a migrated
+ * install branches not yet recommitted still read the previous-name secret,
+ * so it is named too: it needs the same value until `remark --finish`.
+ */
+export function notifySecretHint(name: string, l: Legacy | null): string {
+  const old = l ? legacySecretName(name, l) : null;
+  return old
+    ? `Shown once. Put it in the Woodpecker repo secret ${name}, and in ${old} too while branches still read it (until remark --finish deletes it).`
+    : `Shown once. Put it in the Woodpecker repo secret ${name}.`;
+}
+
 /** A refused or failed registration; the message is safe to print. */
 export class ArtifactRegistrationError extends Error {
   constructor(message: string) {

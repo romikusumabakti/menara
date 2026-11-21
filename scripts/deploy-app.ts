@@ -13,6 +13,7 @@ import type { z } from "zod";
 import { db } from "@/lib/db";
 import { appComponents, ciConnections } from "@/lib/db/schema";
 import { bundleImageSchema, componentKeySchema } from "@/lib/deploy/validation";
+import { legacy } from "@/lib/legacy";
 import { isUniqueViolation } from "@/lib/people/names";
 import { encryptSecret } from "@/lib/secrets";
 import { describeDbError } from "@/lib/secrets-migration";
@@ -200,7 +201,7 @@ if (command === "create") {
   const ciConnectionId = await resolveCiConnectionId(values.ci);
   const repoFullName = values.repo as string;
   const { linkedCiRepos } = await import("@/lib/apps");
-  const { notifySecretNameFor } = await import(
+  const { notifySecretHint, notifySecretNameFor } = await import(
     "@/lib/ci/register-artifact-component"
   );
   // A repository that already builds a service keeps its menara_notify:
@@ -227,9 +228,7 @@ if (command === "create") {
     process.exit(1);
   }
   console.log(secret);
-  console.error(
-    `Shown once. Put it in the Woodpecker repo secret ${notifySecretName}.`
-  );
+  console.error(notifySecretHint(notifySecretName, legacy()));
 } else {
   let rows: { notifySecretName: string }[] = [];
   try {
@@ -246,9 +245,10 @@ if (command === "create") {
     console.error(`Unknown component: ${componentKey}`);
     process.exit(1);
   }
-  console.log(secret);
-  console.error(
-    `Shown once. Put it in the Woodpecker repo secret ${row.notifySecretName}.`
+  const { notifySecretHint } = await import(
+    "@/lib/ci/register-artifact-component"
   );
+  console.log(secret);
+  console.error(notifySecretHint(row.notifySecretName, legacy()));
 }
 process.exit(0);

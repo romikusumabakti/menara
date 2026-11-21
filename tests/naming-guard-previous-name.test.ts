@@ -109,7 +109,10 @@ describe("previous-name guard", () => {
     const listed = Bun.spawnSync(["git", "ls-files", "-z"], { cwd: root });
     if (listed.exitCode !== 0) throw new Error(listed.stderr.toString());
     const files = listed.stdout.toString().split("\0").filter(Boolean);
+    // An empty or truncated list would pass vacuously.
+    expect(files.length).toBeGreaterThan(100);
     const offenders: string[] = [];
+    let scanned = 0;
     const started = performance.now();
     for (const file of files) {
       let bytes: Uint8Array;
@@ -118,8 +121,10 @@ describe("previous-name guard", () => {
       } catch {
         continue; // deleted in the working tree, or a submodule
       }
+      scanned++;
       if (scan(bytes, LEGACY).length > 0) offenders.push(file);
     }
+    expect(scanned).toBeGreaterThan(100);
     console.info(
       `previous-name guard: ${files.length} files in ${Math.round(performance.now() - started)} ms`
     );

@@ -41,6 +41,10 @@ const ACTIVE_STATUSES = new Set(["pending", "running"]);
 // Woodpecker caps a page at 50; an active pipeline is among the latest few.
 const ACTIVE_PIPELINES_PAGE = 20;
 
+// Woodpecker caps a page at 50; a repo holds a handful of secrets.
+const SECRET_PAGE = 50;
+const SECRET_PAGES = 20;
+
 const PIPELINE_PATH =
   /^\/repos\/([1-9][0-9]{0,15})\/pipeline\/([1-9][0-9]{0,15})$/;
 
@@ -196,6 +200,28 @@ export function createWoodpeckerProvider(
     else await request("POST", base, { name, value, events });
   }
 
+  async function listRepoSecrets(ciRepoId: string): Promise<string[]> {
+    const base = `/api/repos/${encodeURIComponent(ciRepoId)}/secrets`;
+    const names: string[] = [];
+    for (let page = 1; page <= SECRET_PAGES; page++) {
+      const query = new URLSearchParams({
+        page: String(page),
+        perPage: String(SECRET_PAGE),
+      });
+      const res = await request("GET", `${base}?${query}`);
+      const secrets = (await res.json()) as unknown;
+      if (!Array.isArray(secrets)) return names;
+      for (const secret of secrets as { name?: unknown }[]) {
+        if (typeof secret?.name === "string") names.push(secret.name);
+      }
+      if (secrets.length < SECRET_PAGE) return names;
+    }
+    throw new CiProviderError(
+      `Woodpecker GET ${base} has more than ${SECRET_PAGE * SECRET_PAGES} secrets`,
+      0
+    );
+  }
+
   async function deleteRepoSecret(
     ciRepoId: string,
     name: string
@@ -288,6 +314,7 @@ export function createWoodpeckerProvider(
     activateRepo,
     updateRepoSettings,
     upsertRepoSecret,
+    listRepoSecrets,
     deleteRepoSecret,
     getPipeline,
     triggerPipeline,

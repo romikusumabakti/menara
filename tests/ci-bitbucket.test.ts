@@ -5,6 +5,7 @@ import {
   downloadArchive,
   FILE_TOO_LARGE,
   getBranchHead,
+  listBranches,
   listRepoDir,
   readRepoFile,
   readRepoFileOrLarge,
@@ -317,6 +318,40 @@ describe("bitbucket readRepoFile", () => {
     await expect(
       readRepoFile(AUTH, REPO, "main", "../x", m.impl)
     ).rejects.toThrow();
+  });
+});
+
+describe("bitbucket listBranches", () => {
+  it("follows next links on the API host only", async () => {
+    const next =
+      "https://api.bitbucket.org/2.0/repositories/acme/widgets/refs/branches?pagelen=100&page=2";
+    const pages = [
+      Response.json({ values: [{ name: "main" }], next }),
+      Response.json({
+        values: [{ name: "release/2026-11" }],
+        next: "https://evil.example.test/steal",
+      }),
+    ];
+    const calls: string[] = [];
+    const impl = vi.fn(async (input: RequestInfo | URL) => {
+      calls.push(String(input));
+      return pages.shift() as Response;
+    }) as unknown as typeof fetch;
+    expect(await listBranches(AUTH, REPO, impl)).toEqual([
+      "main",
+      "release/2026-11",
+    ]);
+    expect(calls).toEqual([
+      "https://api.bitbucket.org/2.0/repositories/acme/widgets/refs/branches?pagelen=100",
+      next,
+    ]);
+  });
+
+  it("throws on 404 rather than reporting no branches", async () => {
+    const m = mockFetch(new Response("{}", { status: 404 }));
+    await expect(listBranches(AUTH, REPO, m.impl)).rejects.toBeInstanceOf(
+      CiProviderError
+    );
   });
 });
 

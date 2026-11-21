@@ -22,9 +22,10 @@ Commands:
                       Fictional demo data and one test account per role (beta)
   knowledge import <folder> --as <email> [--dry-run] [--update-visibility]
                       Import a folder of Markdown files into the knowledge base
-  remark [--apply] [--step <step>]...
-                      Convert traces of the previous product name (dry run
-                      by default; needs MENARA_LEGACY_NAME)
+  remark [--apply] [--step <step>]... | remark --finish [--apply]
+                      Convert traces of the previous product name, or delete
+                      legacy CI secrets no branch uses (dry run by default;
+                      needs MENARA_LEGACY_NAME)
 
 Run a command with --help for its options.`;
 

@@ -184,6 +184,24 @@ describe("woodpecker provider", () => {
     expect(calls[0]?.url).toBe(`${BASE}/api/repos/5/secrets/oldtool_notify`);
   });
 
+  it("listRepoSecrets pages through the secret names", async () => {
+    const page = Array.from({ length: 50 }, (_, i) => ({
+      name: `build_${i}`,
+      value: "",
+    }));
+    const { calls, provider } = mockFetch([
+      json(page),
+      json([{ name: "oldtool_notify" }]),
+    ]);
+    const names = await provider.listRepoSecrets("5");
+    expect(names).toHaveLength(51);
+    expect(names.at(-1)).toBe("oldtool_notify");
+    expect(calls.map((c) => c.url)).toEqual([
+      `${BASE}/api/repos/5/secrets?page=1&perPage=50`,
+      `${BASE}/api/repos/5/secrets?page=2&perPage=50`,
+    ]);
+  });
+
   it("POSTs a secret that is missing", async () => {
     const { calls, provider } = mockFetch([
       new Response("not found", { status: 404 }),

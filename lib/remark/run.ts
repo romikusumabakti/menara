@@ -1,6 +1,8 @@
 import * as assistantLogins from "@/lib/remark/assistant-logins";
 import * as cloudflare from "@/lib/remark/cloudflare";
 import * as dbMarkers from "@/lib/remark/db-markers";
+import * as instanceDb from "@/lib/remark/instance-db";
+import * as jira from "@/lib/remark/jira";
 import * as s3 from "@/lib/remark/s3";
 import * as ssh from "@/lib/remark/ssh";
 import * as targets from "@/lib/remark/targets";
@@ -12,23 +14,20 @@ import {
   type RemarkStep,
   type RemarkStepModule,
 } from "@/lib/remark/types";
+import * as woodpecker from "@/lib/remark/woodpecker";
 
-/**
- * The steps that exist so far. A new step is one line here; a step listed in
- * REMARK_STEPS but not here is reported as not available.
- */
-const REGISTRY: Partial<Record<RemarkStep, RemarkStepModule>> = {
+/** Every step's module; a new step is one line here. */
+const REGISTRY: Record<RemarkStep, RemarkStepModule> = {
   ssh,
   "db-markers": dbMarkers,
   "assistant-logins": assistantLogins,
   cloudflare,
   targets,
   s3,
+  woodpecker,
+  jira,
+  "instance-db": instanceDb,
 };
-
-export function stepModule(step: RemarkStep): RemarkStepModule | undefined {
-  return REGISTRY[step];
-}
 
 export type RemarkItemResult = RemarkItem & {
   /** planned: dry run; converted / failed: --apply. */
@@ -38,8 +37,6 @@ export type RemarkItemResult = RemarkItem & {
 
 export type RemarkStepReport = {
   step: RemarkStep;
-  /** False: the step is not built yet; nothing was planned. */
-  available: boolean;
   items: RemarkItemResult[];
   /** Targets the plan could not read, and a plan that failed as a whole. */
   errors: { target: string; message: string }[];
@@ -67,14 +64,8 @@ export async function runRemark(
   for (const step of REMARK_STEPS) {
     if (wanted && !wanted.has(step)) continue;
     const module = REGISTRY[step];
-    const report: RemarkStepReport = {
-      step,
-      available: module !== undefined,
-      items: [],
-      errors: [],
-    };
+    const report: RemarkStepReport = { step, items: [], errors: [] };
     reports.push(report);
-    if (!module) continue;
     const ctx: RemarkContext = {
       legacy: base.legacy,
       db: base.db,
@@ -124,10 +115,6 @@ export function formatRemarkReport(report: RemarkReport): string[] {
       : "menara remark (dry run: nothing was changed; --apply converts)",
   ];
   for (const step of report.steps) {
-    if (!step.available) {
-      lines.push(`${step.step}: not available yet`);
-      continue;
-    }
     lines.push(`${step.step}: ${step.items.length} item(s)`);
     for (const item of step.items) {
       const status = item.status === "planned" ? "" : ` [${item.status}]`;

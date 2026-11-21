@@ -323,6 +323,50 @@ export async function listRepoDir(
   return entries;
 }
 
+type BranchListing = { values?: { name?: unknown }[]; next?: string };
+
+const BRANCH_PAGE_LENGTH = 100;
+const MAX_BRANCH_PAGES = 50;
+
+/**
+ * Every branch of the repository, following the listing's `next` links (at
+ * most 5000 branches). Throws CiProviderError on any failure, a 404 included:
+ * a caller deciding from the list must not take a failed read for "none".
+ */
+export async function listBranches(
+  auth: BitbucketAuth,
+  repoFullName: string,
+  fetchImpl: typeof fetch = fetch
+): Promise<string[]> {
+  assertRepo(repoFullName);
+  const prefix = `${API}/${repoFullName}`;
+  let suffix = `/refs/branches?pagelen=${BRANCH_PAGE_LENGTH}`;
+  const names: string[] = [];
+  for (let page = 0; page < MAX_BRANCH_PAGES; page++) {
+    const res = await request(
+      auth,
+      "GET",
+      repoFullName,
+      suffix,
+      undefined,
+      fetchImpl
+    );
+    const listing = (await res.json()) as BranchListing;
+    for (const value of listing.values ?? []) {
+      if (typeof value.name === "string" && value.name !== "") {
+        names.push(value.name);
+      }
+    }
+    // The credentials only go to the Bitbucket API, whatever `next` says.
+    if (!listing.next?.startsWith(`${prefix}/`)) return names;
+    suffix = listing.next.slice(prefix.length);
+  }
+  throw new CiProviderError(
+    `Bitbucket GET ${repoFullName}/refs/branches has more than ${BRANCH_PAGE_LENGTH * MAX_BRANCH_PAGES} branches`,
+    0
+  );
+}
+
 /** The commit a branch points at now. Throws CiProviderError on any failure. */
 export async function getBranchHead(
   auth: BitbucketAuth,

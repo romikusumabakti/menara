@@ -32,7 +32,14 @@ vi.mock("@/lib/remark/assistant-logins", () => ({
 }));
 
 // Built, with nothing to convert here.
-for (const step of ["cloudflare", "targets", "s3"]) {
+for (const step of [
+  "cloudflare",
+  "targets",
+  "s3",
+  "woodpecker",
+  "jira",
+  "instance-db",
+]) {
   vi.doMock(`@/lib/remark/${step}`, () => ({
     plan: async () => [],
     apply: async () => {},
@@ -81,14 +88,13 @@ describe("runRemark", () => {
     expect(logins?.errors).toEqual([
       { target: "services/x", message: "unreachable" },
     ]);
-    // Steps not built yet are listed as such, never run.
-    expect(rest.map((s) => [s.step, s.available])).toEqual([
-      ["cloudflare", true],
-      ["targets", true],
-      ["s3", true],
-      ["woodpecker", false],
-      ["jira", false],
-      ["instance-db", false],
+    expect(rest.map((s) => [s.step, s.items, s.errors])).toEqual([
+      ["cloudflare", [], []],
+      ["targets", [], []],
+      ["s3", [], []],
+      ["woodpecker", [], []],
+      ["jira", [], []],
+      ["instance-db", [], []],
     ]);
     expect(report.failed).toBe(true);
     expect(formatRemarkReport(report)).toContain(

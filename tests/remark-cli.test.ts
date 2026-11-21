@@ -2,8 +2,40 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   calls: [] as { apply: boolean; steps?: readonly string[] }[],
+  finish: [] as { apply: boolean }[],
   failed: false,
 }));
+
+vi.mock("@/lib/db", () => ({ db: {} }));
+
+vi.mock("@/lib/remark/woodpecker", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/remark/woodpecker")>();
+  return {
+    ...actual,
+    finish: vi.fn(async (_ctx: unknown, opts: { apply: boolean }) => {
+      state.finish.push(opts);
+      return {
+        apply: opts.apply,
+        failed: state.failed,
+        errors: [],
+        entries: [
+          {
+            target: "ci/c1/repos/7",
+            repo: "acme/kestrel",
+            secret: "oldtool_notify",
+            status: opts.apply
+              ? state.failed
+                ? "failed"
+                : "deleted"
+              : "unused",
+            branches: [],
+          },
+        ],
+      };
+    }),
+  };
+});
 
 vi.mock("@/lib/remark/run", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/remark/run")>();
@@ -18,7 +50,6 @@ vi.mock("@/lib/remark/run", async (importOriginal) => {
           steps: [
             {
               step: "ssh",
-              available: true,
               errors: [],
               items: [
                 {
@@ -53,6 +84,7 @@ function capture() {
 
 beforeEach(() => {
   state.calls = [];
+  state.finish = [];
   state.failed = false;
   vi.stubEnv("MENARA_LEGACY_NAME", "oldtool");
   vi.stubEnv("MENARA_LEGACY_INSTANCE", "oldtool-beta");
@@ -97,19 +129,38 @@ describe("menara remark", () => {
     ]);
   });
 
-  it("refuses an unknown or not yet available step", async () => {
+  it("refuses an unknown step", async () => {
     const { err, io } = capture();
     expect(await runRemarkCommand(["--step", "nope"], io)).toBe(1);
-    expect(await runRemarkCommand(["--step", "jira"], io)).toBe(1);
     expect(state.calls).toEqual([]);
-    expect(err.join("\n")).toContain("jira is not available yet");
+    expect(err.join("\n")).toContain("Unknown step: nope");
   });
 
-  it("refuses --finish for now", async () => {
-    const { err, io } = capture();
-    expect(await runRemarkCommand(["--finish"], io)).toBe(1);
+  it("--finish is a dry run without --apply", async () => {
+    const { out, io } = capture();
+    expect(await runRemarkCommand(["--finish"], io)).toBe(0);
+    expect(state.finish).toEqual([{ apply: false }]);
     expect(state.calls).toEqual([]);
-    expect(err.join("\n")).toContain("--finish is not available yet");
+    expect(out.join("\n")).toContain("dry run");
+    expect(out.join("\n")).toContain(
+      "oldtool_notify: unused, would be deleted"
+    );
+  });
+
+  it("--finish --apply deletes, and exits 1 when a delete failed", async () => {
+    state.failed = true;
+    const { io } = capture();
+    expect(await runRemarkCommand(["--finish", "--apply"], io)).toBe(1);
+    expect(state.finish).toEqual([{ apply: true }]);
+  });
+
+  it("refuses --finish with --step", async () => {
+    const { err, io } = capture();
+    expect(
+      await runRemarkCommand(["--finish", "--step", "woodpecker"], io)
+    ).toBe(1);
+    expect(state.finish).toEqual([]);
+    expect(err.join("\n")).toContain("--finish takes no --step");
   });
 
   it("parses its arguments", () => {

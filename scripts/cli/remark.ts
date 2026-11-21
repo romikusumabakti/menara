@@ -1,6 +1,8 @@
 // `menara remark [--apply] [--step <s>…]`: converts what this instance wrote
-// under the product's previous name on the systems it owns (spec G4). A dry
-// run by default; needs MENARA_LEGACY_NAME (exit 2 without it).
+// under the product's previous name on the systems it owns (spec G4).
+// `menara remark --finish [--apply]`: deletes the legacy notify secrets no
+// branch's pipeline file names any more. A dry run by default; needs
+// MENARA_LEGACY_NAME (exit 2 without it).
 import { legacy } from "@/lib/legacy";
 import {
   isRemarkStep,
@@ -16,7 +18,10 @@ Lists, per step, every trace of the previous product name this instance owns
 becomes. Nothing is changed without --apply; a converted item is not listed
 again, so a rerun is safe. --step limits the run to the given steps:
   ${REMARK_STEPS.join(", ")}
---finish (removing legacy CI secrets) is not available yet.
+--finish runs after the woodpecker step instead of the steps: for each
+legacy notify secret left in a CI repository of this instance, it lists the
+branches whose pipeline files still name it and keeps it; a secret no branch
+names is deleted with --apply (listed only without it).
 Exit 0: done. Exit 1: an item or target failed (the others still ran), or
 invalid arguments. Exit 2: MENARA_LEGACY_NAME is not set.`;
 
@@ -70,20 +75,27 @@ export async function runRemarkCommand(
     return 2;
   }
   if (parsed.finish) {
-    io.err("remark --finish is not available yet");
-    return 1;
+    if (parsed.steps.length > 0) {
+      io.err(`remark --finish takes no --step\n\n${REMARK_USAGE}`);
+      return 1;
+    }
+    const [{ finish, formatFinishReport }, { db }] = await Promise.all([
+      import("@/lib/remark/woodpecker"),
+      import("@/lib/db"),
+    ]);
+    const report = await finish({ legacy: l, db }, { apply: parsed.apply });
+    for (const line of formatFinishReport(report)) io.out(line);
+    return report.failed ? 1 : 0;
   }
   // Loaded here so `--help` and the checks above need no database.
-  const [{ runRemark, stepModule, formatRemarkReport }, { db }] =
-    await Promise.all([import("@/lib/remark/run"), import("@/lib/db")]);
+  const [{ runRemark, formatRemarkReport }, { db }] = await Promise.all([
+    import("@/lib/remark/run"),
+    import("@/lib/db"),
+  ]);
   const steps: RemarkStep[] = [];
   for (const step of parsed.steps) {
     if (!isRemarkStep(step)) {
       io.err(`Unknown step: ${step}\n\n${REMARK_USAGE}`);
-      return 1;
-    }
-    if (!stepModule(step)) {
-      io.err(`Step ${step} is not available yet`);
       return 1;
     }
     steps.push(step);

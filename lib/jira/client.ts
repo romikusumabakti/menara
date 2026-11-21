@@ -467,6 +467,33 @@ export class JiraClient {
     });
   }
 
+  /** One comment of an issue, its body as Jira stores it now. */
+  async getComment(issueId: string, commentId: string): Promise<JiraComment> {
+    return this.request(
+      `/issue/${encodeURIComponent(issueId)}/comment/${encodeURIComponent(commentId)}`,
+      { schema: jiraCommentSchema }
+    );
+  }
+
+  /**
+   * Replace a comment's body (already in the flavor's rich-text shape). A
+   * repeat writes the same body, so it is retried like a read.
+   */
+  async updateComment(
+    issueId: string,
+    commentId: string,
+    body: unknown
+  ): Promise<void> {
+    await this.request(
+      `/issue/${encodeURIComponent(issueId)}/comment/${encodeURIComponent(commentId)}`,
+      {
+        method: "PUT",
+        body: { body },
+        schema: jiraCommentSchema.partial().loose(),
+      }
+    );
+  }
+
   /**
    * Create an issue; `fields` are already in the flavor's shapes. Retried on
    * 429 only: any other failure may follow a committed create, and a repeat

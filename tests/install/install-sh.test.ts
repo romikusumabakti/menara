@@ -1207,52 +1207,88 @@ describe("install.sh --migrate-from --dry-run", () => {
     );
   });
 
-  it("refuses when an update request appears after preflight", () => {
-    // The old updater's service turns active once the run is past its
-    // preflight and the check after disabling the updater (3rd question).
+  // The old updater's service as systemd reports it: a oneshot running
+  // update.sh is "activating" (is-active exits 3, as for inactive).
+  const systemctlStub = (bin: string, body: string) =>
+    writeFileSync(
+      join(bin, "systemctl"),
+      `#!/bin/sh\n[ "$1" = is-active ] || exit 0\n${body}\n`,
+      { mode: 0o755 }
+    );
+
+  it("refuses when the old updater turns activating after preflight", () => {
+    // Activating from the 3rd question on: past the preflight and the check
+    // after disabling the updater, so the check after `stop app` refuses.
     const m = migrateSetup();
     const count = join(m.ctx.root, "is-active.count");
-    writeFileSync(
-      join(m.ctx.bin, "systemctl"),
-      `#!/bin/sh\n[ "$1" = is-active ] || exit 0\nn=$(($(cat "${count}" 2>/dev/null || echo 0) + 1))\necho "$n" > "${count}"\n[ "$n" -ge 3 ]\n`,
-      { mode: 0o755 }
+    systemctlStub(
+      m.ctx.bin,
+      `n=$(($(cat "${count}" 2>/dev/null || echo 0) + 1))\necho "$n" > "${count}"\nif [ "$n" -ge 3 ]; then echo activating; exit 3; fi\necho inactive\nexit 3`
     );
     const r = migrate(m);
     expect(r.status).toBe(1);
     expect(r.stderr).toContain(
-      "the old install has an update requested or running"
+      "the old updater oldtool-updater@oldtool-beta.service is activating"
     );
     inOrder(r.stdout, ["==> Migrate", "stop app"]);
     expect(r.stdout).not.toContain(" down");
+  });
 
-    // A request file or a running status refuses as well.
-    const idle = (setupFiles: () => void) => {
-      setupFiles();
+  describe("old_updater_idle", () => {
+    function idle(m: ReturnType<typeof migrateSetup>) {
       return spawnSync(
         "sh",
         [
           "-c",
           `${shFunctions(["die", "old_updater_idle"])}\nold_dir='${m.oldDir}'; legacy=oldtool; old_instance=oldtool-beta; old_updater_idle`,
         ],
-        { encoding: "utf8", env: { PATH: m.ctx.hostBin } }
+        {
+          encoding: "utf8",
+          env: { PATH: `${m.ctx.bin}:${m.ctx.hostBin}` },
+        }
       );
-    };
-    const updates = join(m.oldDir, "updates");
-    mkdirSync(updates);
-    expect(idle(() => {}).status).toBe(0);
-    const requested = idle(() =>
-      writeFileSync(join(updates, "request.json"), "{}")
-    );
-    expect(requested.status).toBe(1);
-    expect(requested.stderr).toContain("update requested or running");
-    rmSync(join(updates, "request.json"));
-    const running = idle(() =>
+    }
+
+    it.each([
+      ["inactive", "echo inactive; exit 3", 0],
+      ["failed", "echo failed; exit 3", 0],
+      ["activating", "echo activating; exit 3", 1],
+      ["deactivating", "echo deactivating; exit 3", 1],
+      ["active", "echo active", 1],
+      ["unknown (no answer)", "exit 1", 1],
+    ])("answers for a %s updater service", (_state, body, status) => {
+      const m = migrateSetup();
+      systemctlStub(m.ctx.bin, body);
+      const r = idle(m);
+      expect(r.status, r.stderr).toBe(status);
+      if (status)
+        expect(r.stderr).toContain("oldtool-updater@oldtool-beta.service is");
+    });
+
+    it("refuses when an update request appears after preflight", () => {
+      // The .path unit is off by then, and PathChanged never fires for a
+      // file already there: the message says how to apply it.
+      const m = migrateSetup();
+      systemctlStub(m.ctx.bin, "echo inactive; exit 3");
+      const updates = join(m.oldDir, "updates");
+      mkdirSync(updates);
+      expect(idle(m).status).toBe(0);
+      writeFileSync(join(updates, "request.json"), "{}");
+      const requested = idle(m);
+      expect(requested.status).toBe(1);
+      expect(requested.stderr).toContain("an update requested");
+      expect(requested.stderr).toContain(
+        "systemctl start oldtool-updater@oldtool-beta.service"
+      );
+      rmSync(join(updates, "request.json"));
       writeFileSync(
         join(updates, "status.json"),
         '{"state":"running","code":null,"version":"0.7.9"}'
-      )
-    );
-    expect(running.status).toBe(1);
+      );
+      const running = idle(m);
+      expect(running.status).toBe(1);
+      expect(running.stderr).toContain("an update running");
+    });
   });
 
   it.each([

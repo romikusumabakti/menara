@@ -417,12 +417,25 @@ old_idle() {
 }
 
 # The old updater is idle: no update requested, none running (its status
-# file, and its service when systemd can be asked).
+# file, and its service when systemd can be asked). The service is oneshot:
+# while update.sh runs it is "activating", so only inactive or failed count
+# as idle.
 old_updater_idle() {
-  if [ -e "$old_dir/updates/request.json" ] || grep -qs '"state":"running"' "$old_dir/updates/status.json" ||
-    { command -v systemctl >/dev/null 2>&1 &&
-      systemctl is-active -q "$legacy-updater@$old_instance.service" </dev/null; }; then
-    die "--migrate-from: the old install has an update requested or running ($old_dir/updates): let it finish first"
+  service=$legacy-updater@$old_instance.service
+  if [ -e "$old_dir/updates/request.json" ]; then
+    # Its .path unit may be off already (PathChanged never fires for a file
+    # that is there): the service applies it when started by hand.
+    die "--migrate-from: the old install has an update requested ($old_dir/updates/request.json): apply it first (systemctl start $service), wait for it to finish, then run install.sh again"
+  fi
+  if grep -qs '"state":"running"' "$old_dir/updates/status.json"; then
+    die "--migrate-from: the old install has an update running ($old_dir/updates/status.json): let it finish first"
+  fi
+  if command -v systemctl >/dev/null 2>&1; then
+    state=$(systemctl is-active "$service" </dev/null 2>/dev/null) || :
+    case $state in
+      inactive | failed) ;;
+      *) die "--migrate-from: the old updater $service is ${state:-in an unknown state}: let it finish first" ;;
+    esac
   fi
 }
 

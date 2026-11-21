@@ -4,6 +4,7 @@ import { and, eq, ne, notExists } from "drizzle-orm";
 import { utils } from "ssh2";
 import { db, lockConnection, pgClient } from "@/lib/db";
 import { servers, sshKeys } from "@/lib/db/schema";
+import { type Legacy, legacy } from "@/lib/legacy";
 import { decryptSecret, encryptSecret } from "@/lib/secrets";
 import { parseableKeyPair } from "@/lib/ssh-keypair";
 
@@ -127,6 +128,31 @@ export function keyMarker(keyId: string): string {
 }
 
 /**
+ * The marker a key of this instance carried under the previous product name
+ * (`<legacy>:<legacy instance>:<keyId>`; the instance defaults to the legacy
+ * name, as the old code did), or null when that would not be a valid marker.
+ * Only ever read: every line written carries keyMarker.
+ */
+export function legacyKeyMarker(keyId: string, l: Legacy): string | null {
+  const marker = `${l.name}:${l.instance ?? l.name}:${keyId}`;
+  return /^[a-z][a-z0-9-]*:[A-Za-z0-9_.-]+:[A-Za-z0-9-]+$/.test(marker)
+    ? marker
+    : null;
+}
+
+/**
+ * The marker `marker` stands for: keyMarker(id) when it is exactly this
+ * instance's legacy marker for key `id`, else itself. So a line written under
+ * the previous name counts as the same key's line, and nothing wider does.
+ */
+function canonicalMarker(marker: string): string {
+  const l = legacy();
+  if (!l) return marker;
+  const keyId = marker.slice(marker.lastIndexOf(":") + 1);
+  return legacyKeyMarker(keyId, l) === marker ? keyMarker(keyId) : marker;
+}
+
+/**
  * The narrowest prefix from= may widen to: /8 for IPv4, /32 for IPv6 (as
  * normaliseSubnet). Anything wider, up to 0.0.0.0/0, is no restriction.
  */
@@ -207,11 +233,13 @@ export function installCommand(line: string): string {
   return `mkdir -p ~/.ssh && chmod 700 ~/.ssh && touch ${file} && chmod 600 ${file} && { grep -qxF -- '${line}' ${file} || printf '\\n%s\\n' '${line}' >> ${file}; }`;
 }
 
-/** Whether an authorized_keys line is ours: its last field is `marker`. */
+/**
+ * Whether an authorized_keys line is ours: its last field is `marker`, or the
+ * same key's legacy marker (legacyKeyMarker) on a migrated install.
+ */
 export function isOurs(line: string, marker: string): boolean {
-  const trimmed = line.trim();
-  if (trimmed.startsWith("#")) return false;
-  return trimmed.split(/\s+/).at(-1) === marker;
+  const own = markerOf(line);
+  return own !== null && canonicalMarker(own) === canonicalMarker(marker);
 }
 
 // Foreign lines are kept byte for byte (including a trailing \r); only the
@@ -259,7 +287,8 @@ function markerOf(line: string): string | null {
  * entered twice, by IP and by name: one file, and dropping that line would
  * lock the other row out). Another Menara deployment can share the instance
  * name (the default "menara"), so a marker counts as ours only for a key id
- * we hold.
+ * we hold. Lines still carrying a key's legacy marker are matched by
+ * dropOtherInstanceKeys, which reads them as that key's marker.
  */
 export async function ownKeyMarkers(server: {
   id: string;
@@ -288,7 +317,9 @@ export async function ownKeyMarkers(server: {
  * Drop the lines of our own keys (`ours`, from ownKeyMarkers) other than
  * `keep` (a retired or leaked key must not keep signing in), and return them
  * so a failed step can put them back. Lines of keys we do not hold (another
- * Menara's, foreign) are untouched.
+ * Menara's, foreign) are untouched. A line with a key's legacy marker counts
+ * as that key's (kept with it, dropped with it); `dropped` names the key by
+ * its keyMarker.
  */
 export function dropOtherInstanceKeys(
   existing: string,
@@ -296,11 +327,13 @@ export function dropOtherInstanceKeys(
   ours: readonly string[]
 ): { content: string; dropped: { marker: string; line: string }[] } {
   const dropped: { marker: string; line: string }[] = [];
+  const keepSet = new Set(keep.map(canonicalMarker));
+  const oursSet = new Set(ours.map(canonicalMarker));
   const lines = splitLines(existing).filter((l) => {
-    const marker = markerOf(l);
-    if (marker === null || keep.includes(marker) || !ours.includes(marker)) {
-      return true;
-    }
+    const own = markerOf(l);
+    if (own === null) return true;
+    const marker = canonicalMarker(own);
+    if (keepSet.has(marker) || !oursSet.has(marker)) return true;
     dropped.push({ marker, line: l.replace(/\r$/, "") });
     return false;
   });

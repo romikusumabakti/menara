@@ -59,12 +59,15 @@ vi.mock("@/lib/secrets", () => ({
 
 import {
   authorizedKeysLine,
+  dropOtherInstanceKeys,
   ensureCurrentKey,
   fromAddress,
   fromOfLine,
   generateInstanceKey,
+  isOurs,
   isValidFrom,
   keyMarker,
+  legacyKeyMarker,
   loadPrivateKey,
   mergeAuthorizedKeys,
   removeAuthorizedKey,
@@ -257,6 +260,118 @@ describe("keyMarker", () => {
     expect(keyMarker("abc")).toBe("menara:menara:abc");
     vi.stubEnv("COMPOSE_PROJECT_NAME", "bad name:x");
     expect(keyMarker("abc")).toBe("menara:menara:abc");
+  });
+});
+
+describe("legacy key markers", () => {
+  const ID = "0b7c9f4e-1d2a-4c3b-9e8f-7a6b5c4d3e2f";
+  const OTHER = "5f1e2d3c-4b5a-4968-8776-655443322110";
+  const line = (marker: string, key = "AAAA") =>
+    authorizedKeysLine(
+      `ssh-ed25519 ${key} x`,
+      "10.0.0.1",
+      `menara:x:${ID}`
+    ).replace(`menara:x:${ID}`, marker);
+  const LEGACY = `oldtool:oldtool-beta:${ID}`;
+
+  beforeEach(() => {
+    vi.stubEnv("COMPOSE_PROJECT_NAME", "acme");
+    vi.stubEnv("MENARA_LEGACY_NAME", "oldtool");
+    vi.stubEnv("MENARA_LEGACY_INSTANCE", "oldtool-beta");
+  });
+
+  it("legacyKeyMarker uses the legacy instance, else the legacy name", () => {
+    expect(
+      legacyKeyMarker(ID, {
+        name: "oldtool",
+        upper: "OLDTOOL",
+        title: "Oldtool",
+        instance: "oldtool-beta",
+      })
+    ).toBe(LEGACY);
+    expect(
+      legacyKeyMarker(ID, {
+        name: "oldtool",
+        upper: "OLDTOOL",
+        title: "Oldtool",
+        instance: null,
+      })
+    ).toBe(`oldtool:oldtool:${ID}`);
+    expect(
+      legacyKeyMarker(ID, {
+        name: "oldtool",
+        upper: "OLDTOOL",
+        title: "Oldtool",
+        instance: "bad name",
+      })
+    ).toBeNull();
+  });
+
+  it("recognises a legacy key line", () => {
+    const marker = keyMarker(ID);
+    const old = line(LEGACY, "OLD");
+    const fresh = line(marker, "NEW");
+    expect(isOurs(old, marker)).toBe(true);
+    const existing = `ssh-rsa A a\n${old}\nssh-rsa B b\n`;
+    // Merge replaces the legacy line in place; remove drops it.
+    expect(mergeAuthorizedKeys(existing, fresh, marker)).toBe(
+      `ssh-rsa A a\n${fresh}\nssh-rsa B b\n`
+    );
+    expect(removeAuthorizedKey(existing, marker)).toBe(
+      "ssh-rsa A a\nssh-rsa B b\n"
+    );
+    // Both forms of one key collapse to the one line written.
+    expect(
+      mergeAuthorizedKeys(`${old}\n${line(marker)}\n`, fresh, marker)
+    ).toBe(`${fresh}\n`);
+  });
+
+  it("writes only menara markers", () => {
+    expect(keyMarker(ID)).toBe(`menara:acme:${ID}`);
+    expect(() =>
+      authorizedKeysLine("ssh-ed25519 AAAA x", "10.0.0.1", LEGACY)
+    ).toThrow(/marker/);
+  });
+
+  it("accepts exactly the legacy marker, nothing wider", () => {
+    const marker = keyMarker(ID);
+    for (const near of [
+      `oldtool:oldtool:${ID}`, // another legacy instance
+      `oldtool:oldtool-beta:${OTHER}`, // another key
+      `oldtool:oldtool-beta:${ID}x`,
+      `OLDTOOL:oldtool-beta:${ID}`,
+      `xoldtool:oldtool-beta:${ID}`,
+      `oldtool:oldtool-beta:oldtool-beta:${ID}`,
+    ]) {
+      expect(isOurs(line(near), marker)).toBe(false);
+    }
+    expect(isOurs(`# ${LEGACY}`, marker)).toBe(false);
+  });
+
+  it("dropOtherInstanceKeys keeps this key's legacy line and drops a retired key's", () => {
+    const keep = keyMarker(ID);
+    const retired = keyMarker(OTHER);
+    const kept = line(LEGACY);
+    const stale = line(`oldtool:oldtool-beta:${OTHER}`);
+    const foreign = line(
+      `oldtool:oldtool-beta:9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d`
+    );
+    const { content, dropped } = dropOtherInstanceKeys(
+      `${kept}\n${stale}\n${foreign}\n`,
+      [keep],
+      [keep, retired]
+    );
+    expect(content).toBe(`${kept}\n${foreign}\n`);
+    expect(dropped).toEqual([{ marker: retired, line: stale }]);
+  });
+
+  it("with legacy unset, only menara markers are ours", () => {
+    vi.stubEnv("MENARA_LEGACY_NAME", "");
+    const marker = keyMarker(ID);
+    expect(isOurs(line(LEGACY), marker)).toBe(false);
+    const existing = `${line(LEGACY)}\n`;
+    expect(removeAuthorizedKey(existing, marker)).toBe(existing);
+    expect(dropOtherInstanceKeys(existing, [], [marker]).dropped).toEqual([]);
   });
 });
 

@@ -238,6 +238,24 @@ export function createWoodpeckerProvider(
     }
   }
 
+  async function getRepoConfigFile(ciRepoId: string): Promise<string> {
+    const path = `/api/repos/${encodeURIComponent(ciRepoId)}`;
+    const res = await request("GET", path);
+    const repo = (await res.json()) as { config_file?: unknown } | null;
+    const value = repo?.config_file;
+    if (
+      !repo ||
+      typeof repo !== "object" ||
+      (value != null && typeof value !== "string")
+    ) {
+      throw new CiProviderError(
+        `Woodpecker GET ${path} answered without a repository`,
+        502
+      );
+    }
+    return value ?? "";
+  }
+
   async function getPipeline(
     ciRepoId: string,
     number: number
@@ -316,6 +334,7 @@ export function createWoodpeckerProvider(
     upsertRepoSecret,
     listRepoSecrets,
     deleteRepoSecret,
+    getRepoConfigFile,
     getPipeline,
     triggerPipeline,
   };

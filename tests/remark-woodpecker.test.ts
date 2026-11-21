@@ -16,6 +16,9 @@ const state = vi.hoisted(() => ({
   failBranches: false,
   branches: new Map<string, Record<string, Record<string, string>>>(),
   forge: "bitbucket" as string,
+  /** Woodpecker's per-repo pipeline path (`config_file`); "" is the default. */
+  configFile: new Map<string, string>(),
+  failConfig: false,
 }));
 
 vi.mock("@/lib/secrets", async (orig) => ({
@@ -41,6 +44,13 @@ vi.mock("@/server/services/ci-connections", () => ({
     async deleteRepoSecret(repo: string, name: string) {
       state.ops.push(`delete ${repo} ${name}`);
       state.secrets.get(repo)?.delete(name);
+    },
+    async getRepoConfigFile(repo: string) {
+      if (state.failConfig) {
+        const { CiProviderError } = await import("@/lib/ci/types");
+        throw new CiProviderError("Woodpecker GET /api/repos/7 failed", 503);
+      }
+      return state.configFile.get(repo) ?? "";
     },
   }),
   getForgeCredentials: async () => ({
@@ -162,6 +172,8 @@ beforeEach(() => {
   state.failBranches = false;
   state.branches = new Map();
   state.forge = "bitbucket";
+  state.configFile = new Map();
+  state.failConfig = false;
   tables = { app_components: seedOthersRows() };
 });
 
@@ -397,6 +409,77 @@ describe("remark --finish", () => {
         "oldtool_notify",
         "kept",
         "the branches could not be read (the branch list is incomplete)",
+      ],
+    ]);
+    expect(state.ops).toEqual([]);
+  });
+
+  it("reads a custom pipeline path on every branch", async () => {
+    await converted();
+    state.configFile.set("7", ".ci/build.yaml");
+    state.configFile.set("9", "pipelines/");
+    state.branches.set("acme/kestrel", {
+      main: { ".ci/build.yaml": "from_secret: oldtool_notify" },
+      dev: { ".ci/build.yaml": "from_secret: menara_notify" },
+    });
+    state.branches.set("acme/osprey", {
+      main: { "pipelines/deploy.yml": "from_secret: oldtool_notify" },
+    });
+    const report = await step.finish(ctx(), { apply: true });
+    expect(
+      report.entries.map((e) => [e.repo, e.secret, e.status, e.branches])
+    ).toEqual([
+      ["acme/kestrel", "oldtool_notify", "kept", ["main"]],
+      ["acme/kestrel", "oldtool_notify_kestrel_web", "deleted", []],
+      ["acme/osprey", "oldtool_notify", "kept", ["main"]],
+    ]);
+    expect(state.ops).toEqual(["delete 7 oldtool_notify_kestrel_web"]);
+  });
+
+  it("keeps every secret when the custom pipeline path cannot be read", async () => {
+    await converted();
+    state.configFile.set("7", ".ci/build.yaml");
+    state.branches.set("acme/kestrel", {
+      main: { ".ci/build.yaml": "from_secret: menara_notify" },
+      "release/2026-11": { ".woodpecker.yaml": "steps: {}" },
+    });
+    state.branches.set("acme/osprey", { main: {} });
+    const report = await step.finish(ctx(), { apply: true });
+    const kestrel = report.entries.filter((e) => e.repo === "acme/kestrel");
+    expect(kestrel.map((e) => [e.status, e.reason, e.branches])).toEqual([
+      [
+        "kept",
+        "custom pipeline path .ci/build.yaml could not be read",
+        ["release/2026-11"],
+      ],
+      [
+        "kept",
+        "custom pipeline path .ci/build.yaml could not be read",
+        ["release/2026-11"],
+      ],
+    ]);
+    // The default-path repo is unaffected.
+    expect(state.ops).toEqual(["delete 9 oldtool_notify"]);
+  });
+
+  it("keeps every secret when the pipeline path cannot be looked up", async () => {
+    await converted();
+    state.failConfig = true;
+    state.branches.set("acme/kestrel", { main: {} });
+    state.branches.set("acme/osprey", { main: {} });
+    const report = await step.finish(ctx(), { apply: true });
+    expect(report.entries.map((e) => [e.status, e.reason])).toEqual([
+      [
+        "kept",
+        "custom pipeline path could not be checked (Woodpecker GET /api/repos/7 failed)",
+      ],
+      [
+        "kept",
+        "custom pipeline path could not be checked (Woodpecker GET /api/repos/7 failed)",
+      ],
+      [
+        "kept",
+        "custom pipeline path could not be checked (Woodpecker GET /api/repos/7 failed)",
       ],
     ]);
     expect(state.ops).toEqual([]);

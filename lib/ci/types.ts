@@ -52,6 +52,11 @@ export interface CiProvider {
   listRepoSecrets(ciRepoId: string): Promise<string[]>;
   /** Removes a repo secret; one that does not exist is not an error. */
   deleteRepoSecret(ciRepoId: string, name: string): Promise<void>;
+  /**
+   * The repo's custom pipeline path (Woodpecker `config_file`: a file, or a
+   * folder ending in `/`); "" when it uses the default lookup.
+   */
+  getRepoConfigFile(ciRepoId: string): Promise<string>;
   /** All null when the pipeline does not exist (404). */
   getPipeline(ciRepoId: string, number: number): Promise<PipelineActors>;
   /** Starts a pipeline of the branch; resolves with its number. */

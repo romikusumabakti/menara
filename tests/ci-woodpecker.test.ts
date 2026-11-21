@@ -202,6 +202,29 @@ describe("woodpecker provider", () => {
     ]);
   });
 
+  it("getRepoConfigFile reads the repo's pipeline path", async () => {
+    const { calls, provider } = mockFetch([
+      json({ id: 5, config_file: ".ci/build.yaml" }),
+      json({ id: 5, config_file: "" }),
+      json({ id: 5 }),
+    ]);
+    expect(await provider.getRepoConfigFile("5")).toBe(".ci/build.yaml");
+    expect(await provider.getRepoConfigFile("5")).toBe("");
+    expect(await provider.getRepoConfigFile("5")).toBe("");
+    expect(calls[0]?.method).toBe("GET");
+    expect(calls[0]?.url).toBe(`${BASE}/api/repos/5`);
+  });
+
+  it("getRepoConfigFile refuses an answer without a repo", async () => {
+    const { provider } = mockFetch([json(null), json({ config_file: 7 })]);
+    await expect(provider.getRepoConfigFile("5")).rejects.toThrow(
+      CiProviderError
+    );
+    await expect(provider.getRepoConfigFile("5")).rejects.toThrow(
+      CiProviderError
+    );
+  });
+
   it("POSTs a secret that is missing", async () => {
     const { calls, provider } = mockFetch([
       new Response("not found", { status: 404 }),

@@ -487,7 +487,9 @@ not listed again. `--step <step>` limits the run to the named steps (`ssh`,
 `db-markers`, `assistant-logins`, `cloudflare`, `targets`, `s3`, `woodpecker`,
 `jira`, `instance-db`). `--finish` runs after the `woodpecker` step: it
 deletes the legacy CI secrets that no branch's pipeline file names any more,
-and lists the branches that still do. Exit 1 means an item or target failed;
+and lists the branches that still do. It reads the default pipeline files and,
+when the Woodpecker repo sets a custom pipeline path, that path on every
+branch; a branch where the custom path cannot be read keeps the secrets. Exit 1 means an item or target failed;
 the others still ran.
 
 Runbook notes:

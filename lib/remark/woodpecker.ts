@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import {
   type BitbucketAuth,
-  FILE_TOO_LARGE,
+  type FILE_TOO_LARGE,
   listBranches,
   listRepoDir,
   readRepoFileOrLarge,
@@ -135,13 +135,26 @@ export async function apply(
 // --- remark --finish ---
 
 /**
- * The places Woodpecker reads a pipeline from: `.woodpecker/*.yaml|yml`
+ * The places Woodpecker reads a pipeline from by default: `.woodpecker/*.yaml|yml`
  * (when the folder exists it is used alone), else `.woodpecker.yaml`, else
- * `.woodpecker.yml`. All are read, so a secret a custom pipeline uses is
- * never taken for unused.
+ * `.woodpecker.yml`. All are read, and a repo's custom path (`config_file`)
+ * too, so a secret a pipeline uses is never taken for unused.
  */
 const PIPELINE_FILES = [".woodpecker.yaml", ".woodpecker.yml"];
 const PIPELINE_DIR = ".woodpecker";
+const DEFAULT_PATHS = new Set([
+  ...PIPELINE_FILES,
+  PIPELINE_DIR,
+  `${PIPELINE_DIR}/`,
+]);
+
+/** A branch whose custom pipeline path could not be read: fails closed. */
+const CUSTOM_UNREADABLE = Symbol("custom pipeline path unreadable");
+
+const yamlFiles = (entries: { path: string; type: "file" | "dir" }[]) =>
+  entries
+    .filter((e) => e.type === "file" && /\.ya?ml$/.test(e.path))
+    .map((e) => e.path);
 
 export type FinishEntry = {
   /** `ci/<connection>/repos/<ciRepoId>`. */
@@ -168,22 +181,63 @@ const tokenPattern = (name: string) =>
     `(?<![A-Za-z0-9_])${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9_])`
   );
 
+type PipelineContent =
+  | string
+  | typeof FILE_TOO_LARGE
+  | typeof CUSTOM_UNREADABLE;
+
+/**
+ * The custom pipeline path's contents on one branch: a folder (ending in `/`)
+ * gives its YAML files, else the file. Missing, empty or failing to read is
+ * CUSTOM_UNREADABLE, so the secrets stay.
+ */
+async function customPipelineFiles(
+  auth: BitbucketAuth,
+  repo: string,
+  branch: string,
+  configFile: string
+): Promise<PipelineContent[]> {
+  try {
+    if (configFile.endsWith("/")) {
+      const paths = yamlFiles(
+        await listRepoDir(auth, repo, branch, configFile.replace(/\/+$/, ""))
+      );
+      const out: PipelineContent[] = [];
+      for (const path of paths) {
+        out.push(
+          (await readRepoFileOrLarge(auth, repo, branch, path)) ??
+            CUSTOM_UNREADABLE
+        );
+      }
+      return out.length > 0 ? out : [CUSTOM_UNREADABLE];
+    }
+    return [
+      (await readRepoFileOrLarge(auth, repo, branch, configFile)) ??
+        CUSTOM_UNREADABLE,
+    ];
+  } catch {
+    return [CUSTOM_UNREADABLE];
+  }
+}
+
 /** The pipeline file contents of one branch; FILE_TOO_LARGE fails closed. */
 async function pipelineFiles(
   auth: BitbucketAuth,
   repo: string,
-  branch: string
-): Promise<(string | typeof FILE_TOO_LARGE)[]> {
+  branch: string,
+  configFile: string
+): Promise<PipelineContent[]> {
   const paths = [
     ...PIPELINE_FILES,
-    ...(await listRepoDir(auth, repo, branch, PIPELINE_DIR))
-      .filter((e) => e.type === "file" && /\.ya?ml$/.test(e.path))
-      .map((e) => e.path),
+    ...yamlFiles(await listRepoDir(auth, repo, branch, PIPELINE_DIR)),
   ];
-  const out: (string | typeof FILE_TOO_LARGE)[] = [];
+  const out: PipelineContent[] = [];
   for (const path of paths) {
     const content = await readRepoFileOrLarge(auth, repo, branch, path);
     if (content !== null) out.push(content);
+  }
+  if (configFile !== "" && !DEFAULT_PATHS.has(configFile)) {
+    out.push(...(await customPipelineFiles(auth, repo, branch, configFile)));
   }
   return out;
 }
@@ -261,19 +315,40 @@ export async function finish(
       forgeProblem = `the forge credentials could not be read (${messageOf(error)})`;
     }
 
-    // Each branch's pipeline files, read once for every secret of the repo.
-    let files: Map<string, (string | typeof FILE_TOO_LARGE)[]> | null = null;
+    // A repo with a custom pipeline path is read there too; when the path
+    // cannot be looked up, nothing is taken for unused.
+    let configFile: string | null = null;
     if (auth) {
+      try {
+        configFile = (
+          await provider.getRepoConfigFile(managed.ciRepoId)
+        ).trim();
+      } catch (error) {
+        forgeProblem = `custom pipeline path could not be checked (${messageOf(error)})`;
+      }
+    }
+
+    // Each branch's pipeline files, read once for every secret of the repo.
+    let files: Map<string, PipelineContent[]> | null = null;
+    if (auth && configFile !== null) {
       try {
         files = new Map();
         for (const branch of await listBranches(auth, managed.repo)) {
-          files.set(branch, await pipelineFiles(auth, managed.repo, branch));
+          files.set(
+            branch,
+            await pipelineFiles(auth, managed.repo, branch, configFile)
+          );
         }
       } catch (error) {
         files = null;
         forgeProblem = `the branches could not be read (${messageOf(error)})`;
       }
     }
+    const customUnreadable = files
+      ? [...files.entries()]
+          .filter(([, contents]) => contents.includes(CUSTOM_UNREADABLE))
+          .map(([branch]) => branch)
+      : [];
 
     for (const secret of legacyNames) {
       const users = unconverted(secret);
@@ -288,10 +363,18 @@ export async function finish(
         keep(secret, forgeProblem ?? "the branches could not be read");
         continue;
       }
+      if (customUnreadable.length > 0) {
+        keep(
+          secret,
+          `custom pipeline path ${configFile} could not be read`,
+          customUnreadable
+        );
+        continue;
+      }
       const pattern = tokenPattern(secret);
       const branches = [...files.entries()]
         .filter(([, contents]) =>
-          contents.some((c) => c === FILE_TOO_LARGE || pattern.test(c))
+          contents.some((c) => typeof c !== "string" || pattern.test(c))
         )
         .map(([branch]) => branch);
       if (branches.length > 0) {

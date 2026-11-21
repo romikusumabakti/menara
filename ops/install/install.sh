@@ -81,13 +81,14 @@ VOLUME_RE='[A-Za-z0-9][A-Za-z0-9_.-]{0,127}'
 # Jobs not yet done in the queues named as arguments, in the valkey
 # container: waiting, running, paused, prioritized, waiting for children,
 # and delayed ones except a job scheduler's next run (repeat:<id>:<ms>),
-# which the new workers schedule again at boot.
+# which the new workers schedule again at boot. valkey-cli prints an empty
+# line for an empty set when not on a tty, so only non-empty lines count.
 # shellcheck disable=SC2016
 QUEUE_JOBS='n=0
 for q in "$@"; do
   for k in active wait paused; do n=$((n + $(valkey-cli LLEN "bull:$q:$k"))); done
   for k in prioritized waiting-children; do n=$((n + $(valkey-cli ZCARD "bull:$q:$k"))); done
-  n=$((n + $(valkey-cli ZRANGE "bull:$q:delayed" 0 -1 | grep -vc "^repeat:")))
+  n=$((n + $(valkey-cli ZRANGE "bull:$q:delayed" 0 -1 | grep -v "^repeat:" | grep -c .)))
 done
 echo "$n"'
 # KiB used under /from (every old volume mounted there) and KiB free on the

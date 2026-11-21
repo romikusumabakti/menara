@@ -2236,3 +2236,73 @@ describe("lint", () => {
     expect(list("Attest the release assets", "subject-path")).toEqual(uploaded);
   });
 });
+
+// QUEUE_JOBS runs inside the old valkey container; the --dry-run tests stub
+// its result. Here the script itself runs against a stub valkey-cli whose
+// output mimics the real one when not on a tty: an empty ZRANGE prints a
+// single empty line.
+describe("install.sh QUEUE_JOBS", () => {
+  const script = (() => {
+    const match = /^QUEUE_JOBS='([\s\S]*?)'$/m.exec(
+      readFileSync(SCRIPT, "utf8")
+    );
+    if (!match?.[1]) throw new Error("QUEUE_JOBS not found in install.sh");
+    return match[1];
+  })();
+
+  function count(
+    delayed: Record<string, string>,
+    lists: Record<string, string> = {}
+  ): string {
+    const bin = mkdtempSync(join(tmpdir(), "queue-jobs-"));
+    try {
+      const cases = [
+        ...Object.entries(delayed).map(
+          ([q, out]) =>
+            `  "ZRANGE bull:${q}:delayed 0 -1") printf '%s' '${out}' ;;`
+        ),
+        ...Object.entries(lists).map(
+          ([key, n]) => `  "LLEN ${key}"|"ZCARD ${key}") echo ${n} ;;`
+        ),
+      ].join("\n");
+      writeFileSync(
+        join(bin, "valkey-cli"),
+        `#!/bin/sh\ncase "$*" in\n${cases}\n  ZRANGE*) printf '\\n' ;;\n  *) echo 0 ;;\nesac\n`
+      );
+      chmodSync(join(bin, "valkey-cli"), 0o755);
+      const r = spawnSync(
+        "sh",
+        ["-c", script, "sh", "oldtool-tasks", "oldtool-assistant"],
+        {
+          env: { PATH: `${bin}:/usr/bin:/bin` },
+          encoding: "utf8",
+        }
+      );
+      return r.stdout.trim();
+    } finally {
+      rmSync(bin, { recursive: true, force: true });
+    }
+  }
+
+  it("counts nothing for empty queues whose delayed set prints an empty line", () => {
+    expect(count({})).toBe("0");
+  });
+
+  it("ignores a job scheduler's next runs", () => {
+    expect(
+      count({
+        "oldtool-tasks":
+          "repeat:deploy-lock-sweep:1795289473660\nrepeat:instance-backup:1795375800000\n",
+      })
+    ).toBe("0");
+  });
+
+  it("counts real delayed, waiting and active jobs", () => {
+    expect(
+      count(
+        { "oldtool-tasks": "repeat:deploy-lock-sweep:1\n42\n" },
+        { "bull:oldtool-assistant:wait": "2", "bull:oldtool-tasks:active": "1" }
+      )
+    ).toBe("4");
+  });
+});

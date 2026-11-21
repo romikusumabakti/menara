@@ -3,6 +3,7 @@
 // First: better-auth's passkey plugin (loaded by `seed`) pulls in tsyringe,
 // which needs the polyfill before anything else, as in server/index.ts.
 import "reflect-metadata";
+import { applyLegacyEnvAndWarn } from "@/lib/legacy";
 import { runBackup } from "./cli/backup";
 import { runKnowledge } from "./cli/knowledge";
 import { runMigrate } from "./cli/migrate";
@@ -30,6 +31,8 @@ const commands: Record<string, (args: string[]) => Promise<number>> = {
   seed: runSeed,
   knowledge: runKnowledge,
 };
+
+applyLegacyEnvAndWarn(process.env);
 
 const [command, ...args] = process.argv.slice(2);
 

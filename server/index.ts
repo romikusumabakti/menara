@@ -6,6 +6,7 @@
 import "reflect-metadata";
 import { validateEnv } from "@/lib/env";
 import { primeBranding } from "@/lib/instance-branding";
+import { applyLegacyEnvAndWarn } from "@/lib/legacy";
 
 // The server process. Two jobs besides serving requests:
 //
@@ -16,6 +17,7 @@ import { primeBranding } from "@/lib/instance-branding";
 //  2. Boot the in-process BullMQ worker that drains the background-task queue,
 //     so the single app container both serves requests and processes jobs (no
 //     separate worker service).
+applyLegacyEnvAndWarn(process.env);
 validateEnv();
 // Seed the stored branding from env once and load it before the app is
 // imported: better-auth initialises while server/app loads and must see the

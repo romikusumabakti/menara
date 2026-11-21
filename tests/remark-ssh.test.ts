@@ -24,10 +24,21 @@ const state = vi.hoisted(() => ({
   proofs: [] as { server: string; keyId: string; content: string }[],
   locks: new Set<string>(),
   unreachable: new Set<string>(),
+  connects: [] as { server: string; readOnly: boolean }[],
+  // The write (1-based, per test) that fails, as a broken connection would.
+  failWrite: 0,
 }));
 
 vi.mock("@/lib/ssh", () => ({
-  openSsh: async (target: { serverId: string }) => {
+  openSsh: async (
+    target: { serverId: string },
+    _tuning: unknown,
+    options: { readOnly?: boolean } = {}
+  ) => {
+    state.connects.push({
+      server: target.serverId,
+      readOnly: options.readOnly === true,
+    });
     if (state.unreachable.has(target.serverId)) {
       throw new Error("connect ECONNREFUSED");
     }
@@ -40,6 +51,10 @@ vi.mock("@/server/services/server-keys", () => ({
   readAuthorizedKeys: async (ssh: { server: string }) =>
     state.files.get(ssh.server) ?? "",
   writeAuthorizedKeys: async (ssh: { server: string }, content: string) => {
+    if (state.writes.length + 1 === state.failWrite) {
+      state.writes.push({ server: ssh.server, content: "<failed>" });
+      throw new Error("write authorized_keys failed");
+    }
     state.files.set(ssh.server, content);
     state.writes.push({ server: ssh.server, content });
   },
@@ -106,6 +121,8 @@ beforeEach(() => {
   state.prove = () => true;
   state.locks = new Set();
   state.unreachable = new Set();
+  state.connects = [];
+  state.failWrite = 0;
   errors = [];
   tables = {
     ssh_keys: [
@@ -207,6 +224,43 @@ describe("remark ssh", () => {
     state.locks.add(S1);
     await expect(ssh.apply(ctx(), item)).rejects.toThrow(/key operation/);
     expect(state.writes).toEqual([]);
+  });
+
+  it("plans over connections that write nothing to Menara's database", async () => {
+    state.files.set(S1, `${BODY} ${LEGACY_MARKER}\n`);
+    state.files.set(S2, "");
+    const [item] = await ssh.plan(ctx());
+    expect(state.connects).toEqual([
+      { server: S1, readOnly: true },
+      { server: S2, readOnly: true },
+    ]);
+    if (!item) throw new Error("no item");
+    state.connects = [];
+    await ssh.apply(ctx(), item);
+    expect(state.connects).toEqual([{ server: S1, readOnly: false }]);
+  });
+
+  it("says both lines remain when removing the new line fails", async () => {
+    state.files.set(S1, `${BODY} ${LEGACY_MARKER}\n`);
+    state.prove = () => false;
+    const [item] = await ssh.plan(ctx());
+    if (!item) throw new Error("no item");
+    state.failWrite = 2;
+    await expect(ssh.apply(ctx(), item)).rejects.toThrow(
+      `server kestrel-app (${S1}): key login failed after adding the new line, and removing it failed: both lines remain`
+    );
+    expect(state.locks.size).toBe(0);
+  });
+
+  it("says only the new line remains when the legacy line cannot be put back", async () => {
+    state.files.set(S1, `${BODY} ${LEGACY_MARKER}\n`);
+    state.prove = (_s, content) => content.includes(LEGACY_MARKER);
+    const [item] = await ssh.plan(ctx());
+    if (!item) throw new Error("no item");
+    state.failWrite = 3;
+    await expect(ssh.apply(ctx(), item)).rejects.toThrow(
+      `server kestrel-app (${S1}): key login failed with the new line alone, and the legacy line could not be restored: only the new line remains`
+    );
   });
 
   it("is idempotent", async () => {

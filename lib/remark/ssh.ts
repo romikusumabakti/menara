@@ -87,10 +87,11 @@ export async function plan(ctx: RemarkContext): Promise<RemarkItem[]> {
     const target = targetOf(server.id);
     let content: string;
     try {
+      // A dry run writes nothing, not even to Menara's own database.
       const ssh = await openSsh(
         sshTarget({ ...server, password: null }),
         SSH_TUNING,
-        AS
+        { ...AS, readOnly: true }
       );
       try {
         content = await readAuthorizedKeys(ssh);
@@ -131,7 +132,13 @@ export async function apply(
     const target = sshTarget({ ...server, password: null });
     const ssh = await openSsh(target, SSH_TUNING, AS);
     try {
-      await convert(ssh, target, keyId, item);
+      await convert(
+        ssh,
+        target,
+        keyId,
+        item,
+        `server ${server.name} (${server.id})`
+      );
     } finally {
       ssh.dispose();
     }
@@ -146,7 +153,8 @@ async function convert(
   ssh: Session,
   target: ReturnType<typeof sshTarget>,
   keyId: string,
-  item: RemarkItem
+  item: RemarkItem,
+  where: string
 ): Promise<void> {
   const proven = async () => (await proveKeyLogin(target, keyId, AS)) === null;
   const content = await readAuthorizedKeys(ssh);
@@ -165,10 +173,16 @@ async function convert(
   }
   if (!(await proven())) {
     if (added) {
-      await writeAuthorizedKeys(
-        ssh,
-        withoutMarker(await readAuthorizedKeys(ssh), item.to)
-      );
+      try {
+        await writeAuthorizedKeys(
+          ssh,
+          withoutMarker(await readAuthorizedKeys(ssh), item.to)
+        );
+      } catch {
+        throw new Error(
+          `${where}: key login failed after adding the new line, and removing it failed: both lines remain`
+        );
+      }
     }
     throw new Error(
       "key login failed after adding the new line; the legacy line is kept"
@@ -179,10 +193,16 @@ async function convert(
     withoutMarker(await readAuthorizedKeys(ssh), item.from)
   );
   if (!(await proven())) {
-    await writeAuthorizedKeys(
-      ssh,
-      withLine(await readAuthorizedKeys(ssh), old)
-    );
+    try {
+      await writeAuthorizedKeys(
+        ssh,
+        withLine(await readAuthorizedKeys(ssh), old)
+      );
+    } catch {
+      throw new Error(
+        `${where}: key login failed with the new line alone, and the legacy line could not be restored: only the new line remains`
+      );
+    }
     throw new Error(
       "key login failed with the new line alone; the legacy line was put back"
     );

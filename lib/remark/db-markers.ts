@@ -88,7 +88,11 @@ async function pgPlaces(ctx: RemarkContext): Promise<PgPlace[]> {
 }
 
 /** Runs `sql` (on stdin) as postgres in the place's cluster; returns stdout. */
-async function runPg(place: PgPlace, sql: string): Promise<string> {
+async function runPg(
+  place: PgPlace,
+  sql: string,
+  opts: { readOnly: boolean }
+): Promise<string> {
   const { command, stdin } =
     place.serviceType === "systemd"
       ? privilegedWithStdin(PSQL, place.server, {
@@ -108,6 +112,7 @@ async function runPg(place: PgPlace, sql: string): Promise<string> {
     timeoutMs: TIMEOUT_MS,
     stdin,
     secrets: place.server.password ? [place.server.password] : [],
+    readOnly: opts.readOnly,
   });
 }
 
@@ -168,7 +173,12 @@ export async function plan(ctx: RemarkContext): Promise<RemarkItem[]> {
   for (const place of await pgPlaces(ctx)) {
     let roles: { role: string; comment: string }[];
     try {
-      roles = parseRoles(await runPg(place, legacyRolesSql(ctx.legacy.name)));
+      roles = parseRoles(
+        await runPg(place, legacyRolesSql(ctx.legacy.name), {
+          // A dry run writes nothing, not even to Menara's own database.
+          readOnly: true,
+        })
+      );
     } catch (error) {
       ctx.log.error(place.ref, messageOf(error));
       continue;
@@ -206,5 +216,7 @@ export async function apply(
   }
   const place = (await pgPlaces(ctx)).find((p) => p.ref === ref);
   if (!place) throw new Error(`${ref} is no longer registered`);
-  await runPg(place, remarkRoleSql(role, item.from, item.to));
+  await runPg(place, remarkRoleSql(role, item.from, item.to), {
+    readOnly: false,
+  });
 }

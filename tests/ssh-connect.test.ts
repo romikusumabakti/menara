@@ -469,6 +469,44 @@ describe("host key pinning", () => {
   });
 });
 
+describe("read-only connections", () => {
+  it("refuse a server with no pinned host key instead of pinning it", async () => {
+    await expect(
+      executeRemoteCommand(target(sshdA), "true", { readOnly: true })
+    ).rejects.toThrow();
+    expect(row().hostKey).toBeNull();
+    expect(state.activity).toEqual([]);
+  });
+
+  it("refuse a mismatch without recording the offered key", async () => {
+    state.servers = [serverRow(pinnedTo(blobA))];
+    await expect(
+      executeRemoteCommand(target(sshdB), "true", { readOnly: true })
+    ).rejects.toMatchObject({ code: "hostKeyMismatch" });
+    expect(row().hostKeyOfferedFingerprint).toBeNull();
+    expect(state.activity).toEqual([]);
+  });
+
+  it("leave keyNotVerified alone after a key login", async () => {
+    const keyRow = {
+      ...pinnedTo(blobA),
+      auth: "key",
+      sshKeyId: "key-1",
+      keyError: "keyNotVerified",
+    };
+    state.servers = [serverRow(keyRow)];
+    await executeRemoteCommand(target(sshdA, { auth: "key" }), "true", {
+      readOnly: true,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(row().keyError).toBe("keyNotVerified");
+    // Without readOnly the same login clears it.
+    await executeRemoteCommand(target(sshdA, { auth: "key" }), "true");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(row().keyError).toBeNull();
+  });
+});
+
 describe("credentials", () => {
   it("uses key when auth=key", async () => {
     state.servers = [serverRow({ auth: "key", sshKeyId: "key-1" })];

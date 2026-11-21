@@ -104,6 +104,15 @@ export function generateAssistantDbPassword(): string {
 // Raised inside the provisioning scripts, recognised in their error output.
 const LOGIN_EXISTS = "menara-assistant-login-exists";
 const LOGIN_MAPPED = "menara-assistant-login-mapped";
+const LOGIN_MISSING = "menara-assistant-login-missing";
+
+/** A rename found neither the old nor the new login on the server. */
+export class AssistantDbLoginMissing extends Error {
+  constructor(readonly login: string) {
+    super(`Login ${login} not found on the database server`);
+    this.name = "AssistantDbLoginMissing";
+  }
+}
 
 /**
  * Enabling refused before anything changed: a login of that name exists on
@@ -333,7 +342,7 @@ export function pgRenameAssistantDbSql(input: {
     "    RETURN;",
     "  END IF;",
     "  IF old_oid IS NULL THEN",
-    `    RAISE EXCEPTION 'role % not found', ${fromLit};`,
+    `    RAISE EXCEPTION '${LOGIN_MISSING}: role % not found', ${fromLit};`,
     "  END IF;",
     "  IF new_oid IS NOT NULL THEN",
     `    RAISE EXCEPTION '${LOGIN_EXISTS}: role % already exists', ${toLit};`,
@@ -591,7 +600,7 @@ export function mssqlRenameAssistantDbSql(input: {
     "IF SUSER_ID(@old) IS NOT NULL AND SUSER_ID(@new) IS NOT NULL",
     `  THROW 50000, N'${LOGIN_EXISTS}: a login with the new name exists', 1;`,
     "IF SUSER_ID(@old) IS NULL AND SUSER_ID(@new) IS NULL",
-    "  THROW 50000, N'login not found', 1;",
+    `  THROW 50000, N'${LOGIN_MISSING}: login not found', 1;`,
     "IF SUSER_ID(@old) IS NOT NULL",
     "BEGIN",
     "  SET @sql = N'ALTER LOGIN ' + QUOTENAME(@old) + N' WITH NAME = ' + QUOTENAME(@new);",
@@ -1024,7 +1033,8 @@ export async function disableAssistantDbLogin(
 /**
  * Renames the environment's read-only login `from` to `to` on its database
  * server (`menara remark`), through the same admin path as enabling. Done
- * when only `to` is there (a rerun); refused when both exist or neither, or
+ * when only `to` is there (a rerun); refused when both exist, or
+ * AssistantDbLoginMissing when neither does, or
  * (Postgres) when the role lacks the environment's marker. Does not prove a
  * login: the caller runs enableAssistantDbLogin with `to` as the own login
  * for that, which also sets the stored password again. Refuses incomplete
@@ -1038,6 +1048,12 @@ export async function renameAssistantDbLogin(
   const service = ready(input);
   const creds = sshTarget(service.server);
   const secrets = secretsOf(service, null);
+  const missing = (error: unknown) =>
+    (error instanceof Error ? error.message : String(error)).includes(
+      LOGIN_MISSING
+    )
+      ? new AssistantDbLoginMissing(opts.from)
+      : error;
   if (service.dbType === "postgres") {
     const sql = pgRenameAssistantDbSql(opts);
     await run(
@@ -1047,7 +1063,9 @@ export async function renameAssistantDbLogin(
         `printf '%s\\n' ${shq(sql)} | ${pgAssistantDbAdminPsql(service.dbName)}`
       ),
       secrets
-    );
+    ).catch((error: unknown) => {
+      throw missing(error);
+    });
     return;
   }
   const admin = dbAdminUser(service.dbType, service.dbUser);
@@ -1058,7 +1076,9 @@ export async function renameAssistantDbLogin(
       sqlcmdStdinCommand(admin, service.serviceType, service.serviceName),
       secrets,
       `${adminPassword}\n${mssqlRenameAssistantDbSql({ database: service.dbName, from: opts.from, to: opts.to })}`
-    );
+    ).catch((error: unknown) => {
+      throw missing(error);
+    });
     return;
   }
   const mysql = (sql: string, args: string[] = []) =>
@@ -1078,9 +1098,7 @@ export async function renameAssistantDbLogin(
     throw new AssistantDbLoginRefused("exists", opts.to);
   }
   if (present.has(opts.to)) return;
-  if (!present.has(opts.from)) {
-    throw new Error(`Login ${opts.from} not found on the database server`);
-  }
+  if (!present.has(opts.from)) throw new AssistantDbLoginMissing(opts.from);
   await mysql(mysqlRenameAssistantDbSql(opts));
 }
 

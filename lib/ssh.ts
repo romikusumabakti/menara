@@ -41,6 +41,8 @@ export type RemoteCommandOptions = {
    * logged, e.g. to take data values out of a database error.
    */
   redact?: (text: string) => string;
+  /** Connect without writing to Menara's database (ConnectOptions.readOnly). */
+  readOnly?: boolean;
 };
 
 export async function executeRemoteCommand(
@@ -61,6 +63,7 @@ export async function executeRemoteCommand(
     stdin,
     secrets = [],
     redact,
+    readOnly,
   } = typeof options === "number"
     ? { timeoutMs: options, redact: undefined }
     : options;
@@ -72,7 +75,11 @@ export async function executeRemoteCommand(
     // Bound the SSH handshake so an unreachable/overloaded DB host fails fast
     // (ssh2's readyTimeout defaults to ~20s) instead of hanging a page render
     // on it.
-    ssh = await openSsh(target, { readyTimeout: 5000 });
+    ssh = await openSsh(
+      target,
+      { readyTimeout: 5000 },
+      readOnly ? { readOnly } : {}
+    );
 
     // ssh2's exec has no command timeout, so race the command against a wall
     // clock and tear the connection down if it overruns — otherwise a stuck

@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import {
+  AssistantDbLoginMissing,
   assistantDbLoginName,
   enableAssistantDbLogin,
   renameAssistantDbLogin,
@@ -84,11 +85,21 @@ export async function apply(
     if (assistantDbLoginName(service.dbType, service.dbName) !== item.to) {
       throw new Error("the new login name no longer matches the database");
     }
-    await renameAssistantDbLogin(service, {
-      environmentId: locked.environmentId,
-      from: item.from,
-      to: item.to,
-    });
+    try {
+      await renameAssistantDbLogin(service, {
+        environmentId: locked.environmentId,
+        from: item.from,
+        to: item.to,
+      });
+    } catch (error) {
+      // Access off and no login under either name: a disable dropped it but
+      // could not forget it. Nothing to rename; the row takes the new name
+      // (a later disable of `to` finds it gone and forgets it), so the item
+      // is done instead of failing every run.
+      if (!(error instanceof AssistantDbLoginMissing && !locked.enabled)) {
+        throw error;
+      }
+    }
     await tx
       .update(environmentServices)
       .set({ assistantDbLogin: item.to })
@@ -108,7 +119,7 @@ export async function apply(
       }
       return null;
     } catch (error) {
-      return `renamed, but the login cannot log in: ${messageOf(error)}`;
+      return `renamed, but the login cannot log in: ${messageOf(error)}; turn the Assistant's database access off and on for ${environment?.name ?? locked.environmentId} to reset the login`;
     }
   });
   if (failure) throw new Error(failure);

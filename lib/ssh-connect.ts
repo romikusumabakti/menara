@@ -74,6 +74,10 @@ export type ConnectOptions = {
   // False: a key login with this config does not mark the server verified
   // (connectSucceeded); Check key login decides that itself.
   markVerified?: boolean;
+  // Write nothing to Menara's database (a dry run): no first-use pin (an
+  // unpinned server is refused), no offered key or mismatch recorded, no
+  // keyNotVerified cleared.
+  readOnly?: boolean;
   // Called with the key an unsaved target offered (nothing is pinned for it).
   onHostKey?: (hostKey: ObservedHostKey) => void;
 };
@@ -206,7 +210,12 @@ export async function connectConfig(
     const keyId =
       opts.keyId ?? stored?.sshKeyId ?? (await ensureCurrentKey()).id;
     config.privateKey = await loadPrivateKey(keyId);
-    if (target.serverId && config.hostVerifier && opts.markVerified !== false) {
+    if (
+      target.serverId &&
+      config.hostVerifier &&
+      opts.markVerified !== false &&
+      !opts.readOnly
+    ) {
       keyLogins.set(config.hostVerifier as HostVerifier, {
         serverId: target.serverId,
         keyId,
@@ -284,6 +293,11 @@ async function checkHostKey(
   // of one) is not about the host we reached.
   if (pin.host !== target.host) throw new Error("server host changed");
 
+  if (pin.hostKey === null && opts.readOnly) {
+    throw new Error(
+      "host key not pinned yet; a read-only connection does not pin it"
+    );
+  }
   if (pin.hostKey === null) {
     // Only one concurrent first connection wins; the rest compare against it.
     const won = await db
@@ -324,6 +338,12 @@ async function checkHostKey(
   }
 
   if (Buffer.from(pin.hostKey, "base64").equals(blob)) return;
+  if (opts.readOnly) {
+    throw new HostKeyMismatchError(
+      observed.fingerprint,
+      pin.hostKeyFingerprint
+    );
+  }
 
   // Keep exactly the key offered, so trusting it pins this key and no other.
   // Only a newly offered key is recorded in the activity log, not every

@@ -50,7 +50,10 @@ vi.mock("@/lib/ssh", async (importOriginal) => ({
       if (state.logins.has(OLD)) {
         state.logins.delete(OLD);
         state.logins.add(NEW);
-      } else if (!state.logins.has(NEW)) throw new Error("login not found");
+      } else if (!state.logins.has(NEW)) {
+        // What the rename scripts raise when neither name exists.
+        throw new Error("ERROR:  menara-assistant-login-missing: not found");
+      }
       return "";
     }
     throw new Error(`unexpected command: ${command}`);
@@ -75,7 +78,9 @@ vi.mock("@/lib/assistant-db/provision", async (importOriginal) => ({
 
 vi.mock("@/lib/environments", () => ({
   loadEnvironmentWithServers: async (id: string) =>
-    id === ENV ? { id, services: [{ ...state.service, role: "db" }] } : null,
+    id === ENV
+      ? { id, name: "kestrel-qa", services: [{ ...state.service, role: "db" }] }
+      : null,
 }));
 
 vi.mock("@/lib/teardown/guard", () => ({
@@ -247,8 +252,32 @@ describe("remark assistant-logins", () => {
     state.enableFails = true;
     const [item] = await step.plan(ctx());
     if (!item) throw new Error("no item");
-    await expect(step.apply(ctx(), item)).rejects.toThrow(/cannot log in/);
+    await expect(step.apply(ctx(), item)).rejects.toThrow(
+      "turn the Assistant's database access off and on for kestrel-qa to reset the login"
+    );
     expect(tables.environment_services?.[0]?.assistantDbLogin).toBe(NEW);
+  });
+
+  for (const engine of ["postgres", "mysql", "mssql"] as const) {
+    it(`treats a gone login whose access is off as done (${engine})`, async () => {
+      // A disable that dropped the login but could not forget it.
+      setup(engine, { assistantDbEnabled: false });
+      state.logins = new Set();
+      const [item] = await step.plan(ctx());
+      if (!item) throw new Error("no item");
+      await step.apply(ctx(), item);
+      expect(tables.environment_services?.[0]?.assistantDbLogin).toBe(NEW);
+      expect(await step.plan(ctx())).toEqual([]);
+    });
+  }
+
+  it("still fails a gone login whose access is on", async () => {
+    setup("postgres");
+    state.logins = new Set();
+    const [item] = await step.plan(ctx());
+    if (!item) throw new Error("no item");
+    await expect(step.apply(ctx(), item)).rejects.toThrow(/not found/);
+    expect(tables.environment_services?.[0]?.assistantDbLogin).toBe(OLD);
   });
 
   it("renames a Postgres role only when it carries the environment's marker", () => {

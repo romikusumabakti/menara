@@ -19,7 +19,7 @@ type Role = { role: string; comment: string | null };
 
 const state = vi.hoisted(() => ({
   clusters: new Map<string, { role: string; comment: string | null }[]>(),
-  commands: [] as { command: string; stdin: string }[],
+  commands: [] as { command: string; stdin: string; readOnly?: boolean }[],
   down: new Set<string>(),
 }));
 
@@ -34,10 +34,10 @@ vi.mock("@/lib/ssh", () => ({
   executeRemoteCommand: async (
     _target: unknown,
     command: string,
-    opts: { stdin?: string }
+    opts: { stdin?: string; readOnly?: boolean }
   ) => {
     const stdin = opts.stdin ?? "";
-    state.commands.push({ command, stdin });
+    state.commands.push({ command, stdin, readOnly: opts.readOnly });
     const name = clusterOf(command);
     if (state.down.has(name)) throw new Error("connect ECONNREFUSED");
     const roles = state.clusters.get(name) ?? [];
@@ -229,6 +229,16 @@ describe("remark db-markers", () => {
         to: `menara:${ENV2}`,
       })
     ).rejects.toThrow(/not this instance's/);
+  });
+
+  it("plans over connections that write nothing to Menara's database", async () => {
+    setClusters([{ role: "kestrel_app", comment: `oldtool:${ENV1}` }], []);
+    const [item] = await step.plan(ctx());
+    expect(state.commands.map((c) => c.readOnly)).toEqual([true, true]);
+    if (!item) throw new Error("no item");
+    state.commands = [];
+    await step.apply(ctx(), item);
+    expect(state.commands.map((c) => c.readOnly)).toEqual([false]);
   });
 
   it("is idempotent", async () => {

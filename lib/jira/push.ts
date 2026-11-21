@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { recordActivity } from "@/lib/activity";
 import { db } from "@/lib/db";
 import { issueComments, issues, projects, users } from "@/lib/db/schema";
+import { getBranding } from "@/lib/instance-branding";
 import { notifyJiraPushFailed } from "@/lib/notifications";
 import { markdownToRichText } from "./adf";
 import { addAttribution } from "./attribution";
@@ -260,7 +261,7 @@ export async function pushComment(commentId: string): Promise<PushResult> {
         .limit(1)
     : [];
   const body = author
-    ? addAttribution(comment.body, author.name)
+    ? addAttribution(comment.body, author.name, (await getBranding()).name)
     : comment.body;
 
   const client = new JiraClient(resolved.credentials);

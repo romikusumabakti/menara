@@ -12,6 +12,7 @@ import {
 import { type JiraDraft, jiraDraftSchema } from "@/lib/assistant/drafts";
 import { db } from "@/lib/db";
 import type { issues } from "@/lib/db/schema";
+import { getBranding } from "@/lib/instance-branding";
 import {
   ISSUE_JIRA_ID_INDEX,
   insertIssueWithNextNumber,
@@ -96,12 +97,18 @@ const length = (value: string) => Array.from(value).length;
  */
 export function jiraDescription(
   draft: JiraDraft,
-  options: { criteria: boolean; authorName: string | null }
+  options: {
+    criteria: boolean;
+    authorName: string | null;
+    instanceName: string;
+  }
 ): string {
   const criteria = options.criteria ? draft.acceptanceCriteria : [];
   const wrap = (description: string) => {
     const body = joinDescription(description, criteria);
-    return options.authorName ? addAttribution(body, options.authorName) : body;
+    return options.authorName
+      ? addAttribution(body, options.authorName, options.instanceName)
+      : body;
   };
   const full = wrap(draft.description);
   if (length(full) <= JIRA_DESCRIPTION_BUDGET) return full;
@@ -122,6 +129,7 @@ export function buildCreateFields(params: {
   issueTypeId: string;
   draft: JiraDraft;
   authorName: string | null;
+  instanceName: string;
   flavor: "cloud" | "datacenter";
   criteriaField: JiraCreateMetaField | null;
 }): Record<string, unknown> {
@@ -136,6 +144,7 @@ export function buildCreateFields(params: {
       jiraDescription(draft, {
         criteria: !useField,
         authorName: params.authorName,
+        instanceName: params.instanceName,
       }),
       flavor
     ),
@@ -239,6 +248,7 @@ export async function createJiraIssueFromDraft(
               issueTypeId: meta.issueType.id,
               draft: content,
               authorName: context.actorName,
+              instanceName: (await getBranding()).name,
               flavor: connection.flavor,
               criteriaField: acceptanceCriteriaField(meta.fields),
             })

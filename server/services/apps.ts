@@ -28,7 +28,10 @@ import {
   FILE_TOO_LARGE,
   readRepoFileOrLarge,
 } from "@/lib/ci/forges/bitbucket";
-import { generateWoodpeckerPipeline, PIPELINE_MARKER } from "@/lib/ci/pipeline";
+import {
+  generateWoodpeckerPipeline,
+  pipelineMarkerPattern,
+} from "@/lib/ci/pipeline";
 import {
   NOTIFY_SECRET_EVENTS,
   notifySecretNameFor,
@@ -236,7 +239,7 @@ async function holdsForeignPipelineFile(
   );
   if (current === null) return false;
   if (current === FILE_TOO_LARGE) return true;
-  return PIPELINE_MARKER.exec(current)?.[1] !== componentKey;
+  return pipelineMarkerPattern().exec(current)?.[1] !== componentKey;
 }
 
 type CommitResult = { sha: string } | { error: string };

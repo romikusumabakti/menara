@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { adfToMarkdown, markdownToAdf } from "@/lib/jira/adf";
-import { addAttribution, stripAttribution } from "@/lib/jira/attribution";
+import {
+  addAttribution,
+  attributionLine,
+  stripAttribution,
+} from "@/lib/jira/attribution";
 
 /**
  * The Jira connection authenticates as one person, so every comment Menara
@@ -9,8 +13,17 @@ import { addAttribution, stripAttribution } from "@/lib/jira/attribution";
  */
 describe("addAttribution", () => {
   it("prefixes the body with an italic author line", () => {
-    expect(addAttribution("Fixed on staging.", "Jane Doe")).toBe(
+    expect(addAttribution("Fixed on staging.", "Jane Doe", "Menara")).toBe(
       "*Written by Jane Doe via Menara*\n\nFixed on staging."
+    );
+  });
+
+  it("attribution uses the instance name", () => {
+    expect(attributionLine("Jane Doe", "Acme Cloud")).toBe(
+      "*Written by Jane Doe via Acme Cloud*\n\n"
+    );
+    expect(addAttribution("Hi.", "Jane Doe", "Acme Cloud")).toBe(
+      "*Written by Jane Doe via Acme Cloud*\n\nHi."
     );
   });
 });
@@ -18,13 +31,15 @@ describe("addAttribution", () => {
 describe("stripAttribution", () => {
   it("removes the line addAttribution added", () => {
     const body = "Fixed on staging.\n\n- step one";
-    expect(stripAttribution(addAttribution(body, "Jane Doe"))).toBe(body);
+    expect(stripAttribution(addAttribution(body, "Jane Doe", "Menara"))).toBe(
+      body
+    );
   });
 
   it("survives the Markdown -> ADF -> Markdown round trip through Jira", () => {
     const body = "Fixed on **staging**.";
     const roundTripped = adfToMarkdown(
-      markdownToAdf(addAttribution(body, "John Roe"))
+      markdownToAdf(addAttribution(body, "John Roe", "Acme Cloud"))
     );
     expect(stripAttribution(roundTripped)).toBe(body);
   });
@@ -34,6 +49,14 @@ describe("stripAttribution", () => {
     expect(
       stripAttribution("*Written by Jane Doe via Example Panel*\n\nFixed.")
     ).toBe("Fixed.");
+  });
+
+  it("strips any instance name", () => {
+    for (const name of ["Menara", "Acme Cloud", "oldtool-beta", "Kestrel QA"]) {
+      expect(
+        stripAttribution(`*Written by Jane Doe via ${name}*\n\nFixed.`)
+      ).toBe("Fixed.");
+    }
   });
 
   it("leaves a comment written in Jira untouched", () => {

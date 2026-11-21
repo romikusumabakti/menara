@@ -38,6 +38,11 @@ vi.mock("@/lib/db", () => ({
   db: { transaction: async (fn: (tx: unknown) => unknown) => fn({ tx: true }) },
 }));
 
+vi.mock("@/lib/instance-branding", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/instance-branding")>()),
+  getBranding: vi.fn(async () => ({ name: "Acme Cloud" })),
+}));
+
 vi.mock("@/lib/assistant/draft-store", () => ({
   lockDraft: vi.fn(async () => state.draft),
   linkDraftIssue: vi.fn(
@@ -354,7 +359,7 @@ describe("createJiraIssueFromDraft", () => {
     const description = fields.description as { type: string; version: number };
     expect(description).toMatchObject({ type: "doc", version: 1 });
     const words = adfText(description);
-    expect(words).toContain("Written by Widya via Menara");
+    expect(words).toContain("Written by Widya via Acme Cloud");
     expect(words).toContain("IuranService.java:42");
     expect(words).toContain("Acceptance Criteria");
     expect(words).toContain("Dibulatkan ke atas");
@@ -668,18 +673,19 @@ describe("jiraDescription", () => {
     const text = jiraDescription(draft, {
       criteria: true,
       authorName: "Widya",
+      instanceName: "Acme Cloud",
     });
     expect(Array.from(text).length).toBeLessThanOrEqual(
       JIRA_DESCRIPTION_BUDGET
     );
     expect(JIRA_DESCRIPTION_BUDGET).toBeLessThan(32_767);
-    expect(text.startsWith("*Written by Widya via Menara*")).toBe(true);
+    expect(text.startsWith("*Written by Widya via Acme Cloud*")).toBe(true);
     expect(text).toContain("[…]");
     expect(text).toContain(`- ${"19".padEnd(1000, "c")}`);
     // Short drafts are untouched.
     const short = jiraDescription(
       { ...draft, description: "pendek", acceptanceCriteria: ["a"] },
-      { criteria: false, authorName: null }
+      { criteria: false, authorName: null, instanceName: "Acme Cloud" }
     );
     expect(short).toBe("pendek");
   });

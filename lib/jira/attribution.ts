@@ -5,14 +5,26 @@
  * Menara copy keeps its original body.
  *
  * The wording is fixed (not localized) because the pull side recognizes it by
- * shape. Older releases wrote "via <Name> Panel"; comments they pushed are
- * still recognized.
+ * shape. The name after "via" is the instance name (Admin > Instance >
+ * Branding), and any name is stripped so comments pushed under an earlier
+ * instance name or by older releases ("via <Name> Panel") are still recognized.
  */
-const ATTRIBUTION_PATTERN =
-  /^\*Written by .+ via (?:Menara|[A-Z][A-Za-z]* Panel)\*\n\n/;
+const ATTRIBUTION_PATTERN = /^\*Written by .+ via [^*\n]+\*\n\n/;
 
-export function addAttribution(body: string, authorName: string): string {
-  return `*Written by ${authorName} via Menara*\n\n${body}`;
+/** The first paragraph naming the real author; `instanceName` is the branding name. */
+export function attributionLine(
+  authorName: string,
+  instanceName: string
+): string {
+  return `*Written by ${authorName} via ${instanceName}*\n\n`;
+}
+
+export function addAttribution(
+  body: string,
+  authorName: string,
+  instanceName: string
+): string {
+  return `${attributionLine(authorName, instanceName)}${body}`;
 }
 
 export function stripAttribution(body: string): string {

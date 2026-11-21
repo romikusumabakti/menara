@@ -4,7 +4,7 @@ import {
   buildImageSchema,
   buildSpecSchema,
 } from "@/lib/ci/build-spec";
-import { PIPELINE_MARKER } from "@/lib/ci/pipeline";
+import { pipelineMarkerPattern } from "@/lib/ci/pipeline";
 import { bundleImageFor } from "@/lib/ci/registration";
 import { legacy } from "@/lib/legacy";
 
@@ -155,7 +155,7 @@ function detectPipeline(
   if (!file) return { kind: "none" };
   const content = file.content ?? "";
   const previous = legacy();
-  const key = PIPELINE_MARKER.exec(content)?.[1];
+  const key = pipelineMarkerPattern().exec(content)?.[1];
   if (key) return { kind: "menara", componentKey: key };
   return {
     kind: "custom",

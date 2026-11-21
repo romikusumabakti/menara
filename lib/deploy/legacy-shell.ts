@@ -5,7 +5,8 @@ import { COMPOSE_OVERLAY_FILE } from "@/lib/variables/compose-overlay";
 /**
  * Shell fragments for the transition: a target directory may be deployed to by
  * an install already on Menara and by one still on the previous product name,
- * so a script with legacy config also holds the previous name's lock and moves
+ * so a script with legacy config also holds the previous name's lock (where
+ * one is there) and moves
  * the previous name's persistent files to the Menara names before using them.
  * Without legacy config none of this is emitted.
  */
@@ -19,6 +20,23 @@ export function lockLines(
   return [
     `exec ${fd}>${shq(lockFile)}`,
     `flock -w ${waitSeconds} ${fd} || { echo 'DEPLOY LOCKED'; exit 1; }`,
+  ];
+}
+
+/**
+ * The previous name's lock, taken like `lockLines` but only when the file is
+ * already there: an install on the previous name creates it, so a target it
+ * never deployed gets no new old-named file.
+ */
+export function existingLockLines(
+  fd: number,
+  lockFile: string,
+  waitSeconds: number
+): string[] {
+  return [
+    `if [ -e ${shq(lockFile)} ]; then`,
+    ...lockLines(fd, lockFile, waitSeconds),
+    "fi",
   ];
 }
 

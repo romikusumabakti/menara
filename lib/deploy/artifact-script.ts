@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  existingLockLines,
   legacyPrevPath,
   lockLines,
   moveIfLegacyLine,
@@ -153,10 +154,11 @@ function preamble(
     `trap ${shq(`rm -rf ${shq(staging)}`)} EXIT`,
     ...(cdDir === null ? [] : [`cd ${shq(cdDir)}`]),
     ...lockLines(9, lockFile, LOCK_WAIT_SECONDS),
-    // The previous name's lock too, always taken after Menara's.
+    // The previous name's lock too (only when it exists), always taken after
+    // Menara's.
     ...(legacyLockFile === null
       ? []
-      : lockLines(6, legacyLockFile, LOCK_WAIT_SECONDS)),
+      : existingLockLines(6, legacyLockFile, LOCK_WAIT_SECONDS)),
   ];
 }
 
@@ -311,7 +313,11 @@ function staticLines(
     `exec 8>${shq(NGINX_LOCK_FILE)}`,
     `flock -w ${NGINX_LOCK_WAIT_SECONDS} 8 || { echo 'DEPLOY LOCKED'; exit 1; }`,
     ...(l
-      ? lockLines(7, `/run/${l.name}-nginx.lock`, NGINX_LOCK_WAIT_SECONDS)
+      ? existingLockLines(
+          7,
+          `/run/${l.name}-nginx.lock`,
+          NGINX_LOCK_WAIT_SECONDS
+        )
       : []),
     `rm -rf ${prev}`,
     "had_root=0",

@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import {
   chmodSync,
   existsSync,
@@ -986,14 +986,16 @@ describe.concurrent("buildDeployScript stub runs", () => {
     expect(script).not.toContain("mv --");
   });
 
-  it("takes both lock files when a legacy name is set", () => {
+  it("takes the legacy lock after its own, only where it exists", () => {
     const script = buildDeployScript(base, LEGACY);
     expect(script).toContain(
       [
         "exec 9>.menara-deploy.lock",
         "flock -w 600 9 || { echo 'DEPLOY LOCKED'; exit 1; }",
+        "if [ -e '.oldtool-deploy.lock' ]; then",
         "exec 6>'.oldtool-deploy.lock'",
         "flock -w 600 6 || { echo 'DEPLOY LOCKED'; exit 1; }",
+        "fi",
         "",
       ].join("\n")
     );
@@ -1045,9 +1047,36 @@ describe.concurrent("buildDeployScript stub runs", () => {
       expect(r.unmanaged).toBe("OLD=1\n");
       expect(r.overlayPrev).toBe("OLD=1\n");
       expect(r.overlay).toBe("new: overlay\n");
-      expect(r.files.filter((f) => f.includes("oldtool"))).toEqual([
-        ".oldtool-deploy.lock",
-      ]);
+      // No old-named file is left behind, not even a lock.
+      expect(r.files.filter((f) => f.includes("oldtool"))).toEqual([]);
+    },
+    SLOW
+  );
+
+  it(
+    "stub run with legacy config: waits on the legacy lock when it is there",
+    async () => {
+      const root = mkdtempSync(join(tmpdir(), "deploy-lock-"));
+      const deployDir = join(root, "deploy");
+      mkdirSync(deployDir);
+      writeFileSync(join(deployDir, ".env"), "IMAGE_TAG=old\n");
+      writeFileSync(join(deployDir, ".oldtool-deploy.lock"), "");
+      // Another holder of the legacy lock: the script must give up on it.
+      const script = buildDeployScript({ ...base, deployDir }, LEGACY).replace(
+        "flock -w 600 6",
+        "flock -w 0 6"
+      );
+      try {
+        const r = spawnSync(
+          "flock",
+          [join(deployDir, ".oldtool-deploy.lock"), "sh", "-c", script],
+          { encoding: "utf8", timeout: 20_000 }
+        );
+        expect(r.stdout).toContain("DEPLOY LOCKED");
+        expect(r.status).toBe(1);
+      } finally {
+        rmSync(root, { recursive: true });
+      }
     },
     SLOW
   );

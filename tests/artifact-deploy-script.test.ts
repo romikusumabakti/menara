@@ -155,27 +155,31 @@ describe("buildArtifactDeployScript with legacy config", () => {
     expect(buildArtifactDeployScript(staticBase)).not.toContain("oldtool");
   });
 
-  it("takes both lock files when a legacy name is set (jar)", () => {
+  it("takes the legacy lock after its own, only where it exists (jar)", () => {
     const script = buildArtifactDeployScript(jarBase, LEGACY);
     expect(script).toContain(
       [
         "exec 9>'/srv/core/.menara-deploy.lock'",
         "flock -w 600 9 || { echo 'DEPLOY LOCKED'; exit 1; }",
+        "if [ -e '/srv/core/.oldtool-deploy.lock' ]; then",
         "exec 6>'/srv/core/.oldtool-deploy.lock'",
         "flock -w 600 6 || { echo 'DEPLOY LOCKED'; exit 1; }",
+        "fi",
         "",
       ].join("\n")
     );
   });
 
-  it("takes both deploy locks and both nginx locks when a legacy name is set (static)", () => {
+  it("takes the legacy deploy and nginx locks after its own, only where they exist (static)", () => {
     const script = buildArtifactDeployScript(staticBase, LEGACY);
     expect(script).toContain(
       [
         "exec 9>'/usr/share/nginx/html.menara-deploy.lock'",
         "flock -w 600 9 || { echo 'DEPLOY LOCKED'; exit 1; }",
+        "if [ -e '/usr/share/nginx/html.oldtool-deploy.lock' ]; then",
         "exec 6>'/usr/share/nginx/html.oldtool-deploy.lock'",
         "flock -w 600 6 || { echo 'DEPLOY LOCKED'; exit 1; }",
+        "fi",
         "",
       ].join("\n")
     );
@@ -183,8 +187,10 @@ describe("buildArtifactDeployScript with legacy config", () => {
       [
         "exec 8>'/run/menara-nginx.lock'",
         "flock -w 120 8 || { echo 'DEPLOY LOCKED'; exit 1; }",
+        "if [ -e '/run/oldtool-nginx.lock' ]; then",
         "exec 7>'/run/oldtool-nginx.lock'",
         "flock -w 120 7 || { echo 'DEPLOY LOCKED'; exit 1; }",
+        "fi",
         "",
       ].join("\n")
     );
@@ -214,7 +220,7 @@ describe("buildArtifactDeployScript with legacy config", () => {
 
 describe.concurrent("buildArtifactDeployScript stub runs with legacy config", () => {
   it(
-    "jar: moves the previous name's prev dir and holds both locks",
+    "jar: moves the previous name's prev dir and creates no legacy lock",
     async () => {
       const r = await runJar({}, { legacy: LEGACY, legacyPrev: "ANCIENT" });
       try {
@@ -225,7 +231,27 @@ describe.concurrent("buildArtifactDeployScript stub runs with legacy config", ()
           read(join(r.deployDir, ".menara-prev/core-web-service.jar"))
         ).toBe("OLD");
         expect(r.log).toContain(`${r.deployDir}/.menara-deploy.lock`);
-        expect(r.log).toContain(`${r.deployDir}/.oldtool-deploy.lock`);
+        expect(r.log).not.toContain("oldtool-deploy.lock");
+        expect(existsSync(join(r.deployDir, ".oldtool-deploy.lock"))).toBe(
+          false
+        );
+      } finally {
+        rmSync(r.root, { recursive: true });
+      }
+    },
+    SLOW
+  );
+
+  it(
+    "jar: holds the legacy lock too when it is there",
+    async () => {
+      const r = await runJar({}, { legacy: LEGACY, legacyLock: true });
+      try {
+        expect(r.status).toBe(0);
+        const menara = r.log.indexOf(`${r.deployDir}/.menara-deploy.lock`);
+        const old = r.log.indexOf(`${r.deployDir}/.oldtool-deploy.lock`);
+        expect(menara).toBeGreaterThanOrEqual(0);
+        expect(old).toBeGreaterThan(menara);
       } finally {
         rmSync(r.root, { recursive: true });
       }
@@ -241,7 +267,27 @@ describe.concurrent("buildArtifactDeployScript stub runs with legacy config", ()
         expect(r.status).toBe(0);
         expect(existsSync(`${r.webRoot}.oldtool-prev`)).toBe(false);
         expect(read(`${r.webRoot}.menara-prev/index.html`)).toBe("OLD");
-        expect(r.log).toContain(join(r.root, "legacy-nginx.lock"));
+        expect(r.log).not.toContain("legacy-nginx.lock");
+        expect(r.log).not.toContain("oldtool-deploy.lock");
+        expect(existsSync(join(r.root, "legacy-nginx.lock"))).toBe(false);
+        expect(existsSync(`${r.webRoot}.oldtool-deploy.lock`)).toBe(false);
+      } finally {
+        rmSync(r.root, { recursive: true });
+      }
+    },
+    SLOW
+  );
+
+  it(
+    "static: holds the legacy deploy and nginx locks too when they are there",
+    async () => {
+      const r = await runStatic({ legacy: LEGACY, legacyLock: true });
+      try {
+        expect(r.status).toBe(0);
+        expect(r.log).toContain(`${r.webRoot}.oldtool-deploy.lock`);
+        expect(
+          r.log.indexOf(join(r.root, "legacy-nginx.lock"))
+        ).toBeGreaterThan(r.log.indexOf(r.lock));
       } finally {
         rmSync(r.root, { recursive: true });
       }
@@ -449,6 +495,8 @@ async function runJar(
     legacy?: Legacy;
     /** Content of the jar kept in the previous name's prev dir, if any. */
     legacyPrev?: string;
+    /** Creates the previous name's deploy lock first. */
+    legacyLock?: boolean;
   } = {}
 ) {
   const root = mkdtempSync(join(tmpdir(), "artifact-script-"));
@@ -486,6 +534,9 @@ async function runJar(
       options.legacyPrev
     );
   }
+  if (options.legacyLock) {
+    writeFileSync(join(deployDir, ".oldtool-deploy.lock"), "");
+  }
   const script = buildArtifactDeployScript(
     { ...jarBase, deployDir, ...input },
     options.legacy ?? null
@@ -504,6 +555,8 @@ async function runStatic(
     legacy?: Legacy;
     /** Content of a file kept in the previous name's prev root, if any. */
     legacyPrev?: string;
+    /** Creates the previous name's deploy and nginx locks first. */
+    legacyLock?: boolean;
   } = {}
 ) {
   const root = mkdtempSync(join(tmpdir(), "artifact-script-"));
@@ -537,6 +590,10 @@ async function runStatic(
   if (options.legacyPrev !== undefined) {
     mkdirSync(`${webRoot}.oldtool-prev`);
     writeFileSync(`${webRoot}.oldtool-prev/index.html`, options.legacyPrev);
+  }
+  if (options.legacyLock) {
+    writeFileSync(`${webRoot}.oldtool-deploy.lock`, "");
+    writeFileSync(join(root, "legacy-nginx.lock"), "");
   }
   const lock = join(root, "nginx.lock");
   // /run is root-only here: point the constant at a temp file; the stub flock

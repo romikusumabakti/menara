@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
+  existingLockLines,
   legacyComposeFiles,
-  lockLines,
   moveIfLegacyLine,
 } from "@/lib/deploy/legacy-shell";
 import {
@@ -188,9 +188,13 @@ export function buildDeployScript(
     "exec 9>.menara-deploy.lock",
     `flock -w ${LOCK_WAIT_SECONDS} 9 || { echo 'DEPLOY LOCKED'; exit 1; }`,
     // A target also deployed by an install still on the previous name: hold
-    // its lock too, always taken after Menara's.
+    // its lock too (only when it exists), always taken after Menara's.
     ...(legacyConfig
-      ? lockLines(6, `.${legacyConfig.name}-deploy.lock`, LOCK_WAIT_SECONDS)
+      ? existingLockLines(
+          6,
+          `.${legacyConfig.name}-deploy.lock`,
+          LOCK_WAIT_SECONDS
+        )
       : []),
 
     // 1. Deploy bundle: compose.yaml and friends, extracted into the deploy dir.

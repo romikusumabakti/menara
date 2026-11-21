@@ -110,6 +110,10 @@ const HOST_STUBS = {
   uname: '#!/bin/sh\n[ "$1" = -m ] && echo x86_64 || echo Linux\n',
   dpkg: '#!/bin/sh\n[ "$1" = --print-architecture ] && echo amd64\n',
   "dpkg-query": "#!/bin/sh\nexit 1\n",
+  // Sizes for the --migrate-from disk check: KiB in the old backups/ and KiB
+  // free on the new install dir's filesystem.
+  du: '#!/bin/sh\nprintf \'%s\\t%s\\n\' "${STUB_BACKUPS_KIB:-0}" "$2"\n',
+  df: '#!/bin/sh\nprintf \'Filesystem 1024-blocks Used Available Capacity Mounted on\\n/dev/x 1 1 %s 1%% %s\\n\' "${STUB_DIR_FREE:-1000000}" "$2"\n',
 };
 
 const IMAGE_NAMES = {
@@ -1072,6 +1076,44 @@ describe("install.sh --migrate-from --dry-run", () => {
     expect(r.stderr).toContain("not enough free disk");
     expect(r.stdout).not.toContain("==> Install dir");
     const ok = migrate(m, { STUB_SPACE: "10000 11000" });
+    expect(ok.status, ok.all).toBe(0);
+  });
+
+  it("counts the old backups/ in the disk check", () => {
+    const m = migrateSetup();
+    // Volumes and backups together need 11000 KiB with the margin.
+    const tight = migrate(m, {
+      STUB_SPACE: "6000 10999",
+      STUB_BACKUPS_KIB: "4000",
+    });
+    expect(tight.status).toBe(1);
+    expect(tight.stderr).toContain("not enough free disk");
+    expect(tight.stderr).toContain("4000 KiB of backups");
+    expect(tight.stdout).not.toContain("==> Install dir");
+    const ok = migrate(m, {
+      STUB_SPACE: "6000 11000",
+      STUB_BACKUPS_KIB: "4000",
+    });
+    expect(ok.status, ok.all).toBe(0);
+  });
+
+  it("refuses when the backups do not fit on the install dir's filesystem", () => {
+    const m = migrateSetup();
+    const r = migrate(m, {
+      STUB_SPACE: "6000 1000000",
+      STUB_BACKUPS_KIB: "4000",
+      STUB_DIR_FREE: "4399",
+    });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain(
+      `not enough free disk under ${m.ctx.opt} for the backups/ copy: it needs 4400 KiB`
+    );
+    expect(r.stdout).not.toContain("==> Install dir");
+    const ok = migrate(m, {
+      STUB_SPACE: "6000 1000000",
+      STUB_BACKUPS_KIB: "4000",
+      STUB_DIR_FREE: "4400",
+    });
     expect(ok.status, ok.all).toBe(0);
   });
 

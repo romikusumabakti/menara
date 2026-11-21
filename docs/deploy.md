@@ -464,7 +464,9 @@ Preflight refuses, before changing anything, when:
 - the old stack is not running (the installer asks its own database), the
   old image is not pinned by digest, or a required key is missing;
 - a `<instance>_*` volume already exists, so it never copies over data;
-- the free disk is less than the old volumes plus 10%.
+- the free disk for the Docker volumes is less than the old volumes and the
+  old `backups/` plus 10%, or the free disk under the new install dir is less
+  than `backups/` plus 10%.
 
 `--dry-run` runs every check and prints every action. If the migration fails
 part way, the new stack is stopped and the old one is started again; nothing

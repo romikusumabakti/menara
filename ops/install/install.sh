@@ -501,9 +501,25 @@ migrate_preflight() {
   matches "$space" '[0-9]+ [0-9]+' || die "--migrate-from: cannot measure the old volumes (docker run of ${old_upper}_IMAGE)"
   used=${space%% *}
   free=${space#* }
-  need=$((used + used / 10))
+  # backups/ is copied into the new dir, on its filesystem, which may or may
+  # not be the volumes' one: counted on both.
+  backups=0
+  if [ -d "$old_dir/backups" ]; then
+    backups=$(du -sk "$old_dir/backups" | cut -f1)
+    matches "$backups" '[0-9]+' || die "--migrate-from: cannot measure $old_dir/backups"
+  fi
+  need=$(((used + backups) + (used + backups) / 10))
   if [ "$free" -lt "$need" ]; then
-    die "not enough free disk for the volume copies: they need $need KiB (the old volumes and 10%), $free KiB are free"
+    die "not enough free disk for the copies: they need $need KiB (the old volumes, $backups KiB of backups and 10%), $free KiB are free"
+  fi
+  # The new dir does not exist yet: its nearest existing parent.
+  parent=$dir
+  while [ ! -d "$parent" ]; do parent=$(dirname "$parent"); done
+  dir_free=$(df -Pk "$parent" | awk 'NR == 2 { print $4 }')
+  matches "$dir_free" '[0-9]+' || die "--migrate-from: cannot measure the free disk under $parent"
+  dir_need=$((backups + backups / 10))
+  if [ "$dir_free" -lt "$dir_need" ]; then
+    die "not enough free disk under $parent for the backups/ copy: it needs $dir_need KiB (and 10%), $dir_free KiB are free"
   fi
 }
 

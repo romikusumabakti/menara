@@ -8,6 +8,7 @@ import {
 import { bundleImageFor } from "@/lib/ci/registration";
 import { CiProviderError, type SecretEvent } from "@/lib/ci/types";
 import { componentKeySchema } from "@/lib/deploy/validation";
+import type { Legacy } from "@/lib/legacy";
 import { isUniqueViolation } from "@/lib/people/names";
 import { encryptSecret } from "@/lib/secrets";
 import { insertServices } from "@/lib/service-catalog";
@@ -42,6 +43,20 @@ export function notifySecretNameFor(
   return repoHasOtherComponent
     ? `${DEFAULT_NOTIFY_SECRET_NAME}_${componentKey.replaceAll("-", "_")}`
     : DEFAULT_NOTIFY_SECRET_NAME;
+}
+
+/**
+ * The Menara name of a notify secret written under the previous name:
+ * `<name>_notify` becomes `menara_notify`, `<name>_notify_<key>` becomes
+ * `menara_notify_<key>`; any other name is null.
+ */
+export function menaraSecretName(name: string, l: Legacy): string | null {
+  const base = `${l.name.replaceAll("-", "_")}_notify`;
+  if (name === base) return DEFAULT_NOTIFY_SECRET_NAME;
+  if (name.startsWith(`${base}_`)) {
+    return `${DEFAULT_NOTIFY_SECRET_NAME}${name.slice(base.length)}`;
+  }
+  return null;
 }
 
 /** A refused or failed registration; the message is safe to print. */

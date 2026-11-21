@@ -6,6 +6,7 @@ import {
 } from "@/lib/ci/build-spec";
 import { PIPELINE_MARKER } from "@/lib/ci/pipeline";
 import { bundleImageFor } from "@/lib/ci/registration";
+import { legacy } from "@/lib/legacy";
 
 /**
  * What a repository offers the setup wizard: its compose file and runtime
@@ -153,11 +154,15 @@ function detectPipeline(
     ) ?? files.find((f) => f.path.startsWith(".woodpecker/"));
   if (!file) return { kind: "none" };
   const content = file.content ?? "";
+  const previous = legacy();
   const key = PIPELINE_MARKER.exec(content)?.[1];
   if (key) return { kind: "menara", componentKey: key };
   return {
     kind: "custom",
-    notifiesMenara: content.includes("menara_notify"),
+    notifiesMenara:
+      content.includes("menara_notify") ||
+      (previous !== null &&
+        content.includes(`${previous.name.replaceAll("-", "_")}_notify`)),
   };
 }
 

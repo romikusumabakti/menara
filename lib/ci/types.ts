@@ -48,6 +48,8 @@ export interface CiProvider {
     value: string,
     events: SecretEvent[]
   ): Promise<void>;
+  /** Removes a repo secret; one that does not exist is not an error. */
+  deleteRepoSecret(ciRepoId: string, name: string): Promise<void>;
   /** All null when the pipeline does not exist (404). */
   getPipeline(ciRepoId: string, number: number): Promise<PipelineActors>;
   /** Starts a pipeline of the branch; resolves with its number. */

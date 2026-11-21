@@ -196,6 +196,22 @@ export function createWoodpeckerProvider(
     else await request("POST", base, { name, value, events });
   }
 
+  async function deleteRepoSecret(
+    ciRepoId: string,
+    name: string
+  ): Promise<void> {
+    try {
+      await request(
+        "DELETE",
+        `/api/repos/${encodeURIComponent(ciRepoId)}/secrets/${encodeURIComponent(name)}`
+      );
+    } catch (error) {
+      if (!(error instanceof CiProviderError) || error.status !== 404) {
+        throw error;
+      }
+    }
+  }
+
   async function getPipeline(
     ciRepoId: string,
     number: number
@@ -272,6 +288,7 @@ export function createWoodpeckerProvider(
     activateRepo,
     updateRepoSettings,
     upsertRepoSecret,
+    deleteRepoSecret,
     getPipeline,
     triggerPipeline,
   };

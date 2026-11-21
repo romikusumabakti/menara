@@ -175,6 +175,15 @@ describe("woodpecker provider", () => {
     expect(calls[1]?.body).toEqual({ value: "v", events: ["push", "manual"] });
   });
 
+  it("deleteRepoSecret sends DELETE .../secrets/<name>", async () => {
+    const { calls, provider } = mockFetch([
+      new Response(null, { status: 204 }),
+    ]);
+    await provider.deleteRepoSecret("5", "oldtool_notify");
+    expect(calls[0]?.method).toBe("DELETE");
+    expect(calls[0]?.url).toBe(`${BASE}/api/repos/5/secrets/oldtool_notify`);
+  });
+
   it("POSTs a secret that is missing", async () => {
     const { calls, provider } = mockFetch([
       new Response("not found", { status: 404 }),

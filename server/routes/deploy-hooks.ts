@@ -1,7 +1,12 @@
 import { bodyLimit } from "hono/body-limit";
 import { getComponent } from "@/lib/apps";
-import { verifySignature } from "@/lib/deploy/signature";
+import {
+  legacySignatureHeader,
+  SIGNATURE_HEADER,
+  verifySignature,
+} from "@/lib/deploy/signature";
 import { componentKeySchema } from "@/lib/deploy/validation";
+import { legacy } from "@/lib/legacy";
 import { decryptSecret } from "@/lib/secrets";
 import { publicRouter } from "@/server/router";
 import {
@@ -41,7 +46,8 @@ async function notifySecret(componentKey: string): Promise<string | null> {
 /**
  * Build notifications from CI (Woodpecker), posted after the images are
  * pushed. Public: CI has no session. The credential is the per-component HMAC of the
- * raw body in `X-Menara-Signature` (lib/deploy/signature.ts).
+ * raw body in `X-Menara-Signature` (lib/deploy/signature.ts); a migrated
+ * install (MENARA_LEGACY_NAME) also accepts the previous name's header.
  *
  * The body is read once, as text, and the signature is checked over exactly
  * those bytes before any field but `app` is trusted. The body field `app` holds
@@ -73,7 +79,12 @@ export const deployHooksRouter = publicRouter().post(
       return invalid();
     }
 
-    const signature = c.req.header("X-Menara-Signature");
+    // A migrated install also accepts the previous header, but only when the
+    // new one is absent: when both are sent, only the new one is checked.
+    const previous = legacy();
+    const signature =
+      c.req.header(SIGNATURE_HEADER) ??
+      (previous ? c.req.header(legacySignatureHeader(previous)) : undefined);
     const componentKey = componentKeySchema.safeParse(
       (payload as { app?: unknown } | null)?.app
     );

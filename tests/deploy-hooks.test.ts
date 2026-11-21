@@ -47,11 +47,17 @@ function sign(body: string, secret = SECRET): string {
   return `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`;
 }
 
-function deliver(body: string, signature?: string) {
+function deliver(
+  body: string,
+  signature?: string,
+  header = "X-Menara-Signature",
+  extra: Record<string, string> = {}
+) {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    ...extra,
   };
-  if (signature !== undefined) headers["X-Menara-Signature"] = signature;
+  if (signature !== undefined) headers[header] = signature;
   return app.request("/api/deploy-hooks/builds", {
     method: "POST",
     headers,
@@ -511,5 +517,34 @@ describe("build actors on notify", () => {
     expect(stored.pushedBy).toBe("s".repeat(200));
     expect(stored.commitAuthorEmail).toHaveLength(320);
     expect(stored.commitMessage).toBe("m".repeat(500));
+  });
+});
+
+describe("legacy signature header", () => {
+  const body = JSON.stringify(notification);
+
+  it("accepts the legacy signature header", async () => {
+    vi.stubEnv("MENARA_LEGACY_NAME", "oldtool");
+    const res = await deliver(body, sign(body), "X-Oldtool-Signature");
+    expect(res.status).toBe(202);
+  });
+
+  it("ignores the legacy header without legacy config", async () => {
+    vi.stubEnv("MENARA_LEGACY_NAME", "");
+    const res = await deliver(body, sign(body), "X-Oldtool-Signature");
+    expect(res.status).toBe(401);
+  });
+
+  it("checks only the new header when both are sent", async () => {
+    vi.stubEnv("MENARA_LEGACY_NAME", "oldtool");
+    const res = await deliver(
+      body,
+      sign(body, "wrong-secret"),
+      "X-Menara-Signature",
+      {
+        "X-Oldtool-Signature": sign(body),
+      }
+    );
+    expect(res.status).toBe(401);
   });
 });

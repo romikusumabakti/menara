@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildSpecSchema } from "@/lib/ci/build-spec";
 import { generateWoodpeckerPipeline, PIPELINE_MARKER } from "@/lib/ci/pipeline";
 import { detectRepo, suggestedBuildSpec } from "@/lib/setup/detect";
@@ -264,6 +264,27 @@ describe("pipeline detection", () => {
       { path: ".woodpecker.yml", content: "steps: []\n" },
     ]);
     expect(silent.pipeline).toEqual({ kind: "custom", notifiesMenara: false });
+  });
+
+  it("detect recognises a legacy notify secret", () => {
+    const files = [
+      {
+        path: ".woodpecker.yaml",
+        content:
+          "steps:\n  - environment:\n      S: { from_secret: oldtool_notify_api }\n",
+      },
+    ];
+    vi.stubEnv("MENARA_LEGACY_NAME", "");
+    expect(detectRepo(files).pipeline).toEqual({
+      kind: "custom",
+      notifiesMenara: false,
+    });
+    vi.stubEnv("MENARA_LEGACY_NAME", "oldtool");
+    expect(detectRepo(files).pipeline).toEqual({
+      kind: "custom",
+      notifiesMenara: true,
+    });
+    vi.unstubAllEnvs();
   });
 
   it("a custom pipeline with either notify step and the menara_notify secret notifies Menara", () => {

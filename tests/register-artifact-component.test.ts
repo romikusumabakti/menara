@@ -444,3 +444,21 @@ describe("setComponentSecret", () => {
     expect(String((error as Error).message)).not.toContain("s3cret");
   });
 });
+
+describe("menaraSecretName", () => {
+  it("menaraSecretName swaps the prefix", async () => {
+    const { menaraSecretName } = await import(
+      "@/lib/ci/register-artifact-component"
+    );
+    const l = {
+      name: "oldtool",
+      upper: "OLDTOOL",
+      title: "Oldtool",
+      instance: null,
+    };
+    expect(menaraSecretName("oldtool_notify", l)).toBe("menara_notify");
+    expect(menaraSecretName("oldtool_notify_api", l)).toBe("menara_notify_api");
+    expect(menaraSecretName("other", l)).toBeNull();
+    expect(menaraSecretName("oldtool_notifyx", l)).toBeNull();
+  });
+});

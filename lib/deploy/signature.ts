@@ -1,8 +1,17 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import type { Legacy } from "@/lib/legacy";
 
 // Build notifications from CI carry `X-Menara-Signature: sha256=<hex>`, the
 // HMAC-SHA256 of the raw request body under the app's notify secret (the
 // GitHub webhook convention, so `openssl dgst -sha256 -hmac` can produce it).
+
+/** The header CI sends the signature in. */
+export const SIGNATURE_HEADER = "X-Menara-Signature";
+
+/** The header pipelines of a migrated install may still send. */
+export function legacySignatureHeader(l: Legacy): string {
+  return `X-${l.title}-Signature`;
+}
 
 const SIGNATURE = /^sha256=([0-9a-fA-F]{64})$/;
 

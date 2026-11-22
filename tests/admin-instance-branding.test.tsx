@@ -174,7 +174,7 @@ describe("Admin → Instance → Branding", () => {
     await render(settings({ logo: LIGHT }));
     // Stored logos show in the preview at once.
     expect(
-      preview()?.querySelector(`img[src^='${LIGHT.src}#load-']`)
+      preview()?.querySelector(`img[src^='${LIGHT.src}#logo-']`)
     ).not.toBeNull();
     await type(byId("brand-name"), "Acme Ops");
     const headers = preview()?.querySelectorAll(

@@ -178,6 +178,63 @@ describe("/brand routes", () => {
     expect(cached.headers.get("etag")).toBe('"kx1-icon"');
   });
 
+  it("/brand/icon.svg follows the colour scheme when a dark logo is set", async () => {
+    storeLogo("light", { bytes: LOGO, type: "image/svg+xml" });
+    storeLogo("dark", { bytes: DARK, type: "image/svg+xml" });
+    const res = await app.request("/brand/icon.svg");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/svg+xml");
+    expect(res.headers.get("etag")).toBe('"kx1-icon"');
+    expect(res.headers.get("content-security-policy")).toBe(CSP);
+    const svg = await res.text();
+    // Like the built-in mark: the browser's scheme picks the logo, since a
+    // favicon can't see the app theme.
+    expect(svg).toContain(
+      "@media (prefers-color-scheme:dark){.l{display:none}.d{display:inline}}"
+    );
+    const images = [
+      ...svg.matchAll(
+        /<image class="([ld])" width="64" height="64" href="data:([^;]+);base64,([^"]+)"\/>/g
+      ),
+    ].map(([, slot, type, data]) => ({
+      slot,
+      type,
+      text: Buffer.from(data ?? "", "base64").toString(),
+    }));
+    expect(images.map((i) => [i.slot, i.type])).toEqual([
+      ["l", "image/svg+xml"],
+      ["d", "image/svg+xml"],
+    ]);
+    // Each one still: CSS animation off, as for a single logo.
+    const still =
+      "<style>*{animation:none!important;transition:none!important}</style></svg>";
+    expect(images[0]?.text).toContain(still);
+    expect(images[0]?.text).toContain(
+      new TextDecoder().decode(LOGO).replace(/<\/svg>\s*$/, "")
+    );
+    expect(images[1]?.text).toContain(still);
+    expect(images[1]?.text).toContain('class="dark"');
+  });
+
+  it("/brand/icon.svg pairs raster logos as 64×64 PNGs", async () => {
+    const png = await new Bun.Image(SEED).resize(200, 200).png().bytes();
+    storeLogo("light", { bytes: png, type: "image/png" });
+    storeLogo("dark", { bytes: DARK, type: "image/svg+xml" });
+    const res = await app.request("/brand/icon.svg");
+    expect(res.status).toBe(200);
+    const svg = await res.text();
+    const light =
+      /<image class="l"[^>]*href="data:image\/png;base64,([^"]+)"/.exec(svg);
+    expect(light).not.toBeNull();
+    const meta = await new Bun.Image(
+      Buffer.from(light?.[1] ?? "", "base64")
+    ).metadata();
+    expect(meta).toMatchObject({ width: 64, height: 64 });
+    expect(svg).toContain(
+      '<image class="d" width="64" height="64" href="data:image/svg+xml;base64,'
+    );
+  });
+
   it("/brand/icon.svg redirects to /brand/icon.png for a raster logo", async () => {
     const png = await new Bun.Image(SEED).resize(128, 128).png().bytes();
     storeLogo("light", { bytes: png, type: "image/png" });

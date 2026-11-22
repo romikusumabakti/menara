@@ -166,3 +166,40 @@ describe("instance branding cache", () => {
     expect(bootBrandName()).toBe(DEFAULT_APP_NAME);
   });
 });
+
+describe("brandIcon", () => {
+  const base = {
+    name: "Menara",
+    company: null,
+    accent: "neutral" as const,
+    logoDark: null,
+    version: "kx1",
+  };
+
+  it("is the built-in mark, the SVG logo, or the PNG of a raster one", async () => {
+    const { brandIcon } = await import("@/lib/instance-branding");
+    expect(brandIcon({ ...base, logo: null }).custom).toBe(false);
+    expect(
+      brandIcon({ ...base, logo: { type: "image/svg+xml" } })
+    ).toMatchObject({ src: "/brand/icon.svg?v=kx1", type: "image/svg+xml" });
+    expect(brandIcon({ ...base, logo: { type: "image/png" } })).toMatchObject({
+      src: "/brand/icon.png?v=kx1",
+      type: "image/png",
+    });
+  });
+
+  it("is the SVG that pairs both logos when a dark one is set, raster or not", async () => {
+    const { brandIcon } = await import("@/lib/instance-branding");
+    expect(
+      brandIcon({
+        ...base,
+        logo: { type: "image/png" },
+        logoDark: { type: "image/webp" },
+      })
+    ).toEqual({
+      src: "/brand/icon.svg?v=kx1",
+      type: "image/svg+xml",
+      custom: true,
+    });
+  });
+});

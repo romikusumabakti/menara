@@ -1,16 +1,20 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslations } from "use-intl";
 import { logoShapes } from "@/lib/brand-logos";
 import { cn } from "@/lib/utils";
 import { useBootstrap } from "@/web/api/session";
 
-// Firefox keeps a decoded SVG image per URL for the tab and hands it to the
-// next page with its CSS animation already played, so an animated logo would
-// only animate on the tab's first load. A fragment that changes per page load
-// gives each load its own image; it is never sent, so HTTP caching is
-// unchanged, and the image stays shared within the load (no replay on
-// in-app navigation).
-const PAGE_LOAD = `#load-${Math.round(performance.timeOrigin).toString(36)}`;
+// Firefox keeps a decoded SVG image per URL for the tab and hands it to every
+// later use, across page loads too, with its CSS animation already played, so
+// an animated logo would animate only the first time it showed in a tab. Each
+// logo shown gets a fragment of its own (the page load's time origin plus a
+// counter, so a new load never repeats an old one): a fresh image that plays
+// its animation when the logo appears, e.g. on the sign-in page after
+// sign-out, which is no page load. A fragment is never sent, so HTTP caching
+// is unchanged; re-renders keep theirs.
+const PAGE_LOAD = Math.round(performance.timeOrigin).toString(36);
+let shown = 0;
+const nextFragment = () => `#logo-${PAGE_LOAD}-${(++shown).toString(36)}`;
 
 /** The instance's uploaded logo (bootstrap `logo`); null = the built-in mark. */
 export type BrandLogoSource = { src: string; darkSrc: string | null } | null;
@@ -38,6 +42,7 @@ export function BrandLogoView({
   className?: string;
   runsLabel?: string;
 }) {
+  const [fragment] = useState(nextFragment);
   return (
     <span
       className={cn(
@@ -50,7 +55,7 @@ export function BrandLogoView({
       {logo ? (
         <>
           <img
-            src={logo.src + PAGE_LOAD}
+            src={logo.src + fragment}
             alt=""
             draggable={false}
             className={cn(
@@ -60,7 +65,7 @@ export function BrandLogoView({
           />
           {logo.darkSrc ? (
             <img
-              src={logo.darkSrc + PAGE_LOAD}
+              src={logo.darkSrc + fragment}
               alt=""
               draggable={false}
               className="hidden size-6 object-contain dark:block"

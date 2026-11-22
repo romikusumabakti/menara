@@ -92,6 +92,42 @@ function stillSvg(bytes: Uint8Array): string {
   return end === -1 ? svg : `${svg.slice(0, end)}${STILL}${svg.slice(end)}`;
 }
 
+const ICON_SIZE = 64;
+
+const iconRaster = (bytes: Uint8Array) =>
+  new Bun.Image(bytes).resize(ICON_SIZE, ICON_SIZE).png().bytes();
+
+/** One theme's logo as a favicon data URI: a still SVG, or a 64px PNG. */
+async function iconDataUri(logo: {
+  bytes: Uint8Array;
+  type: string;
+}): Promise<string> {
+  const [type, bytes] =
+    logo.type === SVG
+      ? [SVG, Buffer.from(stillSvg(logo.bytes))]
+      : ["image/png", Buffer.from(await iconRaster(logo.bytes))];
+  return `data:${type};base64,${bytes.toString("base64")}`;
+}
+
+// With a dark logo, the favicon holds both and lets the browser's colour
+// scheme pick, as the built-in mark does: a favicon can't see the app theme.
+// Data URIs keep the two documents apart (both may use the same class names),
+// and an image may load them under the sandbox CSP.
+async function pairedIcon(
+  light: { bytes: Uint8Array; type: string },
+  dark: { bytes: Uint8Array; type: string }
+): Promise<string> {
+  const image = async (slot: string, logo: typeof light) =>
+    `<image class="${slot}" width="${ICON_SIZE}" height="${ICON_SIZE}" href="${await iconDataUri(logo)}"/>`;
+  return [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${ICON_SIZE} ${ICON_SIZE}">`,
+    "<style>.d{display:none}@media (prefers-color-scheme:dark){.l{display:none}.d{display:inline}}</style>",
+    await image("l", light),
+    await image("d", dark),
+    "</svg>",
+  ].join("");
+}
+
 export const brandRouter = publicRouter()
   .use(brandHeaders)
   .get("/logo", async (c) => {
@@ -109,19 +145,21 @@ export const brandRouter = publicRouter()
   // only tints the default mark; a custom logo is shown as uploaded, still.
   .get("/icon.svg", async (c) => {
     const branding = await getBranding();
-    if (branding.logo?.type === SVG) {
+    if (branding.logo?.type === SVG || branding.logoDark) {
       const etag = `"${branding.version}-icon"`;
       if (matches(c.req.header("If-None-Match"), etag)) {
         return c.body(null, 304, { ETag: etag });
       }
-      const logo = await getBrandLogoBytes("light");
-      if (!logo || logo.type !== SVG) {
-        return c.json({ error: "Not Found" }, 404);
-      }
-      return c.body(stillSvg(logo.bytes), 200, {
-        "Content-Type": SVG,
-        ETag: etag,
-      });
+      const [light, dark] = await Promise.all([
+        getBrandLogoBytes("light"),
+        branding.logoDark ? getBrandLogoBytes("dark") : null,
+      ]);
+      if (!light) return c.json({ error: "Not Found" }, 404);
+      let svg: string;
+      if (dark) svg = await pairedIcon(light, dark);
+      else if (light.type === SVG) svg = stillSvg(light.bytes);
+      else return c.redirect("/brand/icon.png", 302);
+      return c.body(svg, 200, { "Content-Type": SVG, ETag: etag });
     }
     if (branding.logo) return c.redirect("/brand/icon.png", 302);
     const param = c.req.query("accent");
@@ -140,11 +178,10 @@ export const brandRouter = publicRouter()
       const logo = await getBrandLogoBytes("light");
       if (!logo || logo.type === SVG)
         return c.json({ error: "Not Found" }, 404);
-      const bytes = await new Bun.Image(logo.bytes)
-        .resize(64, 64)
-        .png()
-        .bytes();
-      iconPng = { version: branding.version, bytes };
+      iconPng = {
+        version: branding.version,
+        bytes: await iconRaster(logo.bytes),
+      };
     }
     return c.body(iconPng.bytes as Uint8Array<ArrayBuffer>, 200, {
       "Content-Type": "image/png",

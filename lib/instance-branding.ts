@@ -23,13 +23,21 @@ export type InstanceBranding = {
   version: string;
 };
 
-/** The favicon for `b`: the uploaded logo (a PNG of a raster one), or the built-in mark. */
+/**
+ * The favicon for `b`: the built-in mark; the uploaded logo (a PNG of a raster
+ * one); or, with a dark logo too, an SVG that shows the one for the browser's
+ * colour scheme, whatever their types (server/routes/brand.ts).
+ */
 export function brandIcon(b: InstanceBranding): BootstrapIcon {
   if (!b.logo) {
     return { src: BRAND_ICON_SRC, type: "image/svg+xml", custom: false };
   }
-  return b.logo.type === "image/svg+xml"
-    ? { src: `/brand/icon.svg?v=${b.version}`, type: b.logo.type, custom: true }
+  return b.logo.type === "image/svg+xml" || b.logoDark
+    ? {
+        src: `/brand/icon.svg?v=${b.version}`,
+        type: "image/svg+xml",
+        custom: true,
+      }
     : {
         src: `/brand/icon.png?v=${b.version}`,
         type: "image/png",

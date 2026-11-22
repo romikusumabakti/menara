@@ -54,11 +54,11 @@ describe("BrandLogoView", () => {
     render(<BrandLogoView logo={LOGO} />);
     const images = container.querySelectorAll("img");
     expect(images).toHaveLength(2);
-    // A fragment that changes per page load: Firefox reuses a same-URL SVG
+    // A fragment of its own per logo shown: Firefox reuses a same-URL SVG
     // image with its animation already played, so an animated logo would only
-    // animate on a tab's first load.
+    // animate the first time it appeared in a tab.
     const fragment = images[0]?.getAttribute("src")?.split("#")[1];
-    expect(fragment).toMatch(/^load-[0-9a-z]+$/);
+    expect(fragment).toMatch(/^logo-[0-9a-z]+-[0-9a-z]+$/);
     expect(images[0]?.getAttribute("src")).toBe(`${LOGO.src}#${fragment}`);
     expect(images[0]?.classList).toContain("dark:hidden");
     expect(images[1]?.getAttribute("src")).toBe(`${LOGO.darkSrc}#${fragment}`);
@@ -74,6 +74,27 @@ describe("BrandLogoView", () => {
     const single = container.querySelectorAll("img");
     expect(single).toHaveLength(1);
     expect(single[0]?.classList).not.toContain("dark:hidden");
+  });
+
+  it("gives each logo shown its own fragment, kept across re-renders", () => {
+    // Sign-out moves to the sign-in page without a page load: its logo must
+    // not share the sidebar logo's already-played image.
+    const fragmentOf = (img: Element | undefined) =>
+      img?.getAttribute("src")?.split("#")[1];
+    render(<BrandLogoView logo={LOGO} />);
+    const first = fragmentOf(container.querySelectorAll("img")[0]);
+    act(() => root.render(<BrandLogoView logo={LOGO} active />));
+    expect(fragmentOf(container.querySelectorAll("img")[0])).toBe(first);
+    act(() =>
+      root.render(
+        <span key="other">
+          <BrandLogoView logo={LOGO} />
+        </span>
+      )
+    );
+    const second = fragmentOf(container.querySelectorAll("img")[0]);
+    expect(second).toMatch(/^logo-/);
+    expect(second).not.toBe(first);
   });
 
   it("shows a labelled pulsing dot for active runs on an uploaded logo", () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ACCENT_GROUPS,
   ACCENTS,
   accentSchema,
   type BootstrapIcon,
@@ -9,17 +10,13 @@ import {
 } from "@/lib/accents";
 
 describe("accents", () => {
-  it("lists neutral plus shadcn's seven colour themes", () => {
-    expect([...ACCENTS]).toEqual([
-      "neutral",
-      "blue",
-      "green",
-      "orange",
-      "red",
-      "rose",
-      "violet",
-      "yellow",
-    ]);
+  it("lists neutral plus every Tailwind palette, grays first", () => {
+    expect([...ACCENTS]).toEqual(ACCENT_GROUPS.flat());
+    expect(ACCENTS).toHaveLength(26);
+    expect(ACCENT_GROUPS[0]).toEqual(["neutral"]);
+    expect(ACCENTS).toEqual(
+      expect.arrayContaining(["slate", "mauve", "amber", "teal", "pink"])
+    );
   });
 
   it("uses a valid stored accent", () => {
@@ -29,7 +26,9 @@ describe("accents", () => {
 
   it("falls back to the instance accent", () => {
     expect(effectiveAccent(null, "blue")).toBe("blue");
-    expect(effectiveAccent({ accentColor: "teal" }, "green")).toBe("green");
+    expect(effectiveAccent({ accentColor: "chartreuse" }, "green")).toBe(
+      "green"
+    );
     expect(effectiveAccent({ accentColor: null }, "rose")).toBe("rose");
     expect(effectiveAccent({}, "neutral")).toBe("neutral");
     expect(effectiveAccent({ accentColor: "" }, "violet")).toBe("violet");
@@ -37,7 +36,7 @@ describe("accents", () => {
 
   it("validates input to the closed set", () => {
     expect(accentSchema.safeParse("violet").success).toBe(true);
-    expect(accentSchema.safeParse("teal").success).toBe(false);
+    expect(accentSchema.safeParse("chartreuse").success).toBe(false);
     expect(accentSchema.safeParse(null).success).toBe(false);
     expect(isAccent("blue")).toBe(true);
     expect(isAccent(42)).toBe(false);

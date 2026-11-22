@@ -83,7 +83,7 @@ describe("instance branding cache", () => {
       version: (1_700_000_000_000).toString(36),
     });
     invalidateBranding();
-    state.row = { ...state.row, accent: "teal" };
+    state.row = { ...state.row, accent: "chartreuse" };
     expect((await getBranding()).accent).toBe("neutral");
   });
 

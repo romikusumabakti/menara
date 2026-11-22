@@ -1,22 +1,65 @@
 import { z } from "zod";
 
 /**
- * Accent colours a user can pick: shadcn/ui's seven colour themes plus
- * `neutral` (the stock black/white tokens). The choice is stored per user in
+ * Accent colours a user can pick: `neutral` (the stock black/white tokens)
+ * and every Tailwind palette, grays first, then the colours in hue order. The choice is stored per user in
  * `users.accent_color`, set on <html data-accent> by the root layout, and
  * mapped to Tailwind palette steps in web/styles.css.
  */
 export const ACCENTS = [
   "neutral",
-  "blue",
-  "green",
-  "orange",
+  "slate",
+  "gray",
+  "zinc",
+  "stone",
+  "mauve",
+  "olive",
+  "mist",
+  "taupe",
   "red",
-  "rose",
-  "violet",
+  "orange",
+  "amber",
   "yellow",
+  "lime",
+  "green",
+  "emerald",
+  "teal",
+  "cyan",
+  "sky",
+  "blue",
+  "indigo",
+  "violet",
+  "purple",
+  "fuchsia",
+  "pink",
+  "rose",
 ] as const;
 export type AccentColor = (typeof ACCENTS)[number];
+
+/** The pickers' sections: neutral, the gray palettes, the colours. */
+export const ACCENT_GROUPS: readonly (readonly AccentColor[])[] = [
+  ["neutral"],
+  ["slate", "gray", "zinc", "stone", "mauve", "olive", "mist", "taupe"],
+  [
+    "red",
+    "orange",
+    "amber",
+    "yellow",
+    "lime",
+    "green",
+    "emerald",
+    "teal",
+    "cyan",
+    "sky",
+    "blue",
+    "indigo",
+    "violet",
+    "purple",
+    "fuchsia",
+    "pink",
+    "rose",
+  ],
+];
 
 export const accentSchema = z.enum(ACCENTS);
 

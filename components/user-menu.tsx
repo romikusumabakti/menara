@@ -41,7 +41,7 @@ import { UserAvatar } from "@/components/user/user-avatar";
 import { persistLocale } from "@/i18n/locale-preference";
 import { type Locale, localeLabels, locales } from "@/i18n/locales";
 import { usePathname, useRouter } from "@/i18n/navigation";
-import { ACCENTS, type AccentColor } from "@/lib/accents";
+import { ACCENT_GROUPS, type AccentColor } from "@/lib/accents";
 import { authClient } from "@/lib/auth-client";
 import { getMotif, MOTIFS, type MotifPreference } from "@/lib/motifs";
 import { resetSession } from "@/web/api/session";
@@ -213,16 +213,21 @@ export function UserMenu({
               <CurrentValue>{tAccent(accent)}</CurrentValue>
             </DropdownMenuSubTrigger>
             <DropdownMenuPortal>
-              <DropdownMenuSubContent>
+              <DropdownMenuSubContent className="max-h-[min(70vh,34rem)] overflow-y-auto">
                 <DropdownMenuRadioGroup
                   value={accent}
                   onValueChange={(v) => setAccent(v as AccentColor)}
                 >
-                  {ACCENTS.map((a) => (
-                    <DropdownMenuRadioItem key={a} value={a}>
-                      <AccentDot accent={a} />
-                      {tAccent(a)}
-                    </DropdownMenuRadioItem>
+                  {ACCENT_GROUPS.map((group, i) => (
+                    <React.Fragment key={group[0]}>
+                      {i > 0 && <DropdownMenuSeparator />}
+                      {group.map((a) => (
+                        <DropdownMenuRadioItem key={a} value={a}>
+                          <AccentDot accent={a} />
+                          {tAccent(a)}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </React.Fragment>
                   ))}
                 </DropdownMenuRadioGroup>
               </DropdownMenuSubContent>

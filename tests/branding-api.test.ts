@@ -176,7 +176,7 @@ describe("instance branding API", () => {
       state.role = role;
       const responses = [
         await send("GET", BASE),
-        await send("PUT", BASE, { name: 42, accent: "teal" }),
+        await send("PUT", BASE, { name: 42, accent: "chartreuse" }),
         await upload("sideways", null),
         await send("DELETE", `${BASE}/logo?theme=sideways`),
       ];
@@ -240,7 +240,7 @@ describe("instance branding API", () => {
       ).status
     ).toBe(400);
     expect(
-      (await send("PUT", BASE, { name: null, company: null, accent: "teal" }))
+      (await send("PUT", BASE, { name: null, company: null, accent: "chartreuse" }))
         .status
     ).toBe(400);
   });

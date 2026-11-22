@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AccentColor } from "@/lib/accents";
+import { LOGO_COLORS } from "@/lib/brand-logos";
 
 const state = vi.hoisted(() => ({ accent: "blue" as AccentColor }));
 
@@ -48,7 +49,7 @@ describe("GET /brand/icon.svg", () => {
     for (const query of [
       "",
       "?accent=",
-      "?accent=teal",
+      "?accent=chartreuse",
       "?accent=%3Cscript%3E",
     ]) {
       const { res, body } = await fetchIcon(query);
@@ -56,16 +57,21 @@ describe("GET /brand/icon.svg", () => {
       expect(body).toContain("oklch(37.9% 0.146 265.522)"); // blue-900
     }
     state.accent = "neutral";
-    const { body } = await fetchIcon("?accent=teal");
-    expect(body).toContain("#171717");
-    expect(body).not.toContain("oklch(");
+    const { body } = await fetchIcon("?accent=chartreuse");
+    expect(body).toContain(LOGO_COLORS["neutral-900"]);
+    expect(body).not.toContain("oklch(37.9% 0.146 265.522)");
   });
 
-  it("draws neutral in black and white", async () => {
+  it("draws neutral in black and white, with the amber beacon", async () => {
     const { body } = await fetchIcon("?accent=neutral");
-    expect(body).toContain("#171717");
-    expect(body).toContain("#fafafa");
-    expect(body).not.toContain("oklch(");
+    const colors = new Set(body.match(/oklch\([^)]*\)/g));
+    expect(colors).toEqual(
+      new Set([
+        LOGO_COLORS["neutral-900"],
+        LOGO_COLORS["neutral-50"],
+        LOGO_COLORS["amber-500"],
+      ])
+    );
   });
 
   it("adapts to the browser's colour scheme, since it can't see the app theme", async () => {

@@ -33,15 +33,20 @@ const status = () =>
   container.querySelector<HTMLElement>("[data-slot='brand-activity']");
 
 describe("BrandLogoView", () => {
-  it("renders the default tile mark when no logo is set, with the tile pulse when active", () => {
+  it("renders the default tower mark when no logo is set, with the beacon pulse when active", () => {
     render(<BrandLogoView logo={null} active runsLabel="Runs in progress" />);
-    expect(container.querySelectorAll("path.brand-tile")).toHaveLength(4);
-    expect(container.querySelector("path.brand-tile-br")?.classList).toContain(
-      "fill-(--logo-status)"
+    expect(container.querySelectorAll("path.brand-part")).toHaveLength(3);
+    for (const slab of container.querySelectorAll(
+      "path[class*='brand-slab-']"
+    )) {
+      expect(slab.classList).toContain("fill-(--logo)");
+    }
+    expect(container.querySelector("path.brand-beacon")?.classList).toContain(
+      "fill-amber-500"
     );
     expect(container.querySelector("img")).toBeNull();
     expect(wrapper()?.hasAttribute("data-active")).toBe(true);
-    // The tile itself pulses: no extra dot on the built-in mark.
+    // The beacon itself pulses: no extra dot on the built-in mark.
     expect(status()).toBeNull();
   });
 
@@ -57,7 +62,7 @@ describe("BrandLogoView", () => {
       expect(image.getAttribute("alt")).toBe("");
       expect(image.className).not.toContain("fill-(--logo)");
     }
-    expect(container.querySelector("path.brand-tile")).toBeNull();
+    expect(container.querySelector("path.brand-part")).toBeNull();
 
     // No dark variant: one image, shown in both themes.
     act(() => root.render(<BrandLogoView logo={{ ...LOGO, darkSrc: null }} />));

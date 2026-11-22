@@ -93,7 +93,7 @@ describe("accent themes", () => {
     }
   });
 
-  it("bind the ring steps lib/accent-palette.ts uses for the favicon", () => {
+  it("bind the ring steps lib/accent-palette.ts names", () => {
     for (const accent of TINTED) {
       const binding = must(block(`[data-accent="${accent}"]`), accent);
       const steps = ACCENT_STEPS[accent];
@@ -123,9 +123,7 @@ describe("accent themes", () => {
     }
   });
 
-  it("point the logo at the logo steps and the status tile at the ring", () => {
-    expect(ROLE_LIGHT["logo-status"]).toBe("var(--tint-ring-light)");
-    expect(ROLE_DARK["logo-status"]).toBe("var(--tint-ring-dark)");
+  it("point the logo at the logo steps", () => {
     for (const accent of TINTED) {
       const binding = must(block(`[data-accent="${accent}"]`), accent);
       const steps = ACCENT_STEPS[accent];

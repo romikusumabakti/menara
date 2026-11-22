@@ -91,10 +91,9 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
-  /* Logo colours (components/brand-mark.tsx). Neutral is black/white;
-     coloured accents override both in the role blocks below. */
+  /* Logo tower colour (components/brand-mark.tsx). Neutral is black/white;
+     coloured accents override it in the role blocks below. */
   --logo: var(--foreground);
-  --logo-status: color-mix(in oklab, var(--foreground) 40%, transparent);
 }
 
 .dark {
@@ -214,7 +213,6 @@
   --sidebar-accent-foreground: var(--tint-900);
   --sidebar-ring: var(--tint-ring-light);
   --logo: var(--tint-900);
-  --logo-status: var(--tint-ring-light);
 }
 
 /* `.dark [data-accent]` (and the neutral reset below) lets a nested
@@ -231,7 +229,6 @@
   --sidebar-accent-foreground: var(--tint-200);
   --sidebar-ring: var(--tint-ring-dark);
   --logo: var(--tint-200);
-  --logo-status: var(--tint-ring-dark);
 }
 
 /* Neutral is the stock tokens; re-declared for a nested neutral subtree,
@@ -247,7 +244,6 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-ring: oklch(0.708 0 0);
   --logo: var(--foreground);
-  --logo-status: color-mix(in oklab, var(--foreground) 40%, transparent);
 }
 
 .dark [data-accent="neutral"],
@@ -261,7 +257,6 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-ring: oklch(0.556 0 0);
   --logo: var(--foreground);
-  --logo-status: color-mix(in oklab, var(--foreground) 40%, transparent);
 }
 
 /* The variables next/font used to set on <body>, under the same names, so the
@@ -397,50 +392,42 @@
   }
 }
 
-/* Brand logo motion (components/brand-mark.tsx). The tiles assemble once when
+/* Brand logo motion (components/brand-mark.tsx). The tower builds once when
    the logo mounts (the sidebar persists across navigations, so once per page
-   load), part slightly while its parent — the sidebar button, the sign-in
-   lockup — is hovered, and the status tile breathes while runs are active.
-   All decoration, so reduced-motion users get none of it. Intro and breathing
-   animate `scale`/`opacity`, hover animates `translate`, so they compose. */
+   load): the slabs from the bottom up, then the beacon. While its parent — the
+   sidebar button, the sign-in lockup — is hovered the beacon lifts, and while
+   runs are active it breathes. All decoration, so reduced-motion users get
+   none of it. Intro and breathing animate `scale`/`opacity`, hover animates
+   `translate`, so they compose. */
 @media (prefers-reduced-motion: no-preference) {
-  .brand-tile {
+  .brand-part {
     transform-box: fill-box;
     transform-origin: center;
     transition: translate 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
-    animation: brand-tile-in 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    animation: brand-part-in 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
-  .brand-tile-bl {
-    animation-delay: 70ms;
+  .brand-slab-1 {
+    animation-delay: 0ms;
   }
-  .brand-tile-tr {
-    animation-delay: 140ms;
+  .brand-slab-0 {
+    animation-delay: 90ms;
   }
-  .brand-tile-br {
-    animation-delay: 210ms;
+  .brand-beacon {
+    animation-delay: 180ms;
   }
-  :hover > .brand-logo .brand-tile-tl {
-    translate: -1px -1px;
+  :hover > .brand-logo .brand-beacon {
+    translate: 0 -1px;
   }
-  :hover > .brand-logo .brand-tile-tr {
-    translate: 1px -1px;
-  }
-  :hover > .brand-logo .brand-tile-bl {
-    translate: -1px 1px;
-  }
-  :hover > .brand-logo .brand-tile-br {
-    translate: 1px 1px;
-  }
-  .brand-logo[data-active] .brand-tile-br {
+  .brand-logo[data-active] .brand-beacon {
     animation:
-      brand-tile-in 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) 210ms both,
-      brand-breathe 1.4s ease-in-out 0.63s infinite;
+      brand-part-in 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) 180ms both,
+      brand-breathe 1.4s ease-in-out 0.6s infinite;
   }
   /* An uploaded logo shows as uploaded; a corner dot breathes instead. */
   .brand-logo[data-active] .brand-activity {
     animation: brand-breathe 1.4s ease-in-out infinite;
   }
-  @keyframes brand-tile-in {
+  @keyframes brand-part-in {
     from {
       opacity: 0;
       scale: 0.35;

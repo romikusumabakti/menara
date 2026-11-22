@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useTranslations } from "use-intl";
-import { logoTiles } from "@/lib/brand-logos";
+import { logoShapes } from "@/lib/brand-logos";
 import { cn } from "@/lib/utils";
 import { useBootstrap } from "@/web/api/session";
 
@@ -12,10 +12,10 @@ export type BrandLogoSource = { src: string; darkSrc: string | null } | null;
  * icon button, and the 24px mark inside it stays on its whole-pixel grid.
  * Decorative: the app name is always beside it or in a tooltip.
  *
- * With no uploaded logo it is the built-in Menara mark, inline so it takes
- * the accent's colours (--logo and --logo-status, set per accent in
- * web/styles.css) and animates (motion under `.brand-logo` there); `active`
- * makes its status tile pulse. An uploaded logo is shown as uploaded, its
+ * With no uploaded logo it is the built-in Menara mark, inline so its tower
+ * takes the accent's colour (--logo, set per accent in web/styles.css) and it
+ * animates (motion under `.brand-logo` there); `active` makes its amber beacon
+ * breathe. An uploaded logo is shown as uploaded, its
  * dark variant in dark mode; `active` adds a pulsing corner dot labelled
  * `runsLabel`. Set `active` while runs are in progress.
  */
@@ -75,7 +75,7 @@ export function BrandLogoView({
 }
 
 function DefaultMark() {
-  const tiles = logoTiles();
+  const { slabs, beacon } = logoShapes();
   return (
     <svg
       viewBox="0 0 24 24"
@@ -83,13 +83,14 @@ function DefaultMark() {
       // `!`: SidebarMenuButton forces every descendant svg to size-4.
       className="size-6! overflow-visible"
     >
-      <path className="brand-tile brand-tile-tl fill-(--logo)" d={tiles.tl} />
-      <path className="brand-tile brand-tile-bl fill-(--logo)" d={tiles.bl} />
-      <path className="brand-tile brand-tile-tr fill-(--logo)" d={tiles.tr} />
-      <path
-        className="brand-tile brand-tile-br fill-(--logo-status)"
-        d={tiles.br}
-      />
+      {slabs.map((d, i) => (
+        <path
+          key={d}
+          className={`brand-part brand-slab-${i} fill-(--logo)`}
+          d={d}
+        />
+      ))}
+      <path className="brand-part brand-beacon fill-amber-500" d={beacon} />
     </svg>
   );
 }

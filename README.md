@@ -1,3 +1,5 @@
+<img src="docs/images/menara-icon.svg" alt="" width="72" height="72">
+
 # Menara
 
 A self-hosted operations panel for teams that run the same products for many

@@ -152,7 +152,9 @@ describe.skipIf(!enabled)("menara seed demo on a real Postgres", () => {
         (select count(*) from knowledge_collections)::int as collections,
         (select count(*) from knowledge_documents)::int as documents,
         (select count(*) from knowledge_revisions)::int as revisions,
-        (select count(*) from knowledge_links)::int as links`;
+        (select count(*) from knowledge_links)::int as links,
+        (select count(*) from assistant_conversations)::int as conversations,
+        (select count(*) from assistant_messages)::int as "assistantMessages"`;
     return row as Record<string, number>;
   };
   let first: Record<string, number>;
@@ -239,6 +241,9 @@ describe.skipIf(!enabled)("menara seed demo on a real Postgres", () => {
       documents: 4,
       revisions: 1,
       links: 2,
+      // demo-admin's chats: the one pinned to DEMO (real here) is skipped.
+      conversations: 2,
+      assistantMessages: 4,
     });
     expect(first.builds).toBe(66);
     expect(first.deployments).toBeGreaterThan(40);
@@ -389,6 +394,26 @@ describe.skipIf(!enabled)("menara seed demo on a real Postgres", () => {
         (select count(*) from knowledge_documents d where d.collection_id = c.id)::int as documents
       from knowledge_collections c where c.name = 'Catatan Teknis'`;
     expect(collection).toEqual({ description: "Our own notes", documents: 0 });
+  });
+
+  it("stores finished Assistant chats for demo-admin, with their context", async () => {
+    const rows = await sql`
+      select c.title, u.name as owner, m.role, m.status, m.project_name as "projectName",
+             m.finished_at is not null as finished
+      from assistant_conversations c
+      join users u on u.id = c.user_id
+      join assistant_messages m on m.conversation_id = c.id
+      order by c.created_at, m.created_at`;
+    expect(new Set(rows.map((r) => r.owner))).toEqual(new Set(["demo-admin"]));
+    expect(rows.every((r) => r.status === "done" && r.finished)).toBe(true);
+    const pinned = rows.find(
+      (r) => r.role === "user" && r.title.includes("Demo Portal QA")
+    );
+    expect(pinned?.projectName).toBe("Demo Portal");
+    const automatic = rows.find(
+      (r) => r.role === "user" && r.title.startsWith("Summarise")
+    );
+    expect(automatic?.projectName).toBeNull();
   });
 
   it("numbers issues uniquely and contiguously per project", async () => {

@@ -1,6 +1,7 @@
 // `menara seed demo`: fictional sample data for beta instances — projects
 // with environments, placeholder servers, services, a month of deploy history,
-// staff, issues and a knowledge base — plus one sign-in account per role.
+// staff, issues, a knowledge base and finished Assistant chats — plus one
+// sign-in account per role.
 // Everything is keyed by a fixed key and kept when present, and rows that
 // hang off a parent (comments, deployments, revisions) are added only with a
 // parent created in the same run, so a second run changes nothing.
@@ -8,6 +9,7 @@ import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { instanceSettings } from "@/lib/db/schema";
+import { seedAssistant } from "./seed-steps/assistant";
 import {
   seedEnvironments,
   seedProjects,
@@ -37,7 +39,8 @@ Creates (or keeps, when present) fictional demo data:
   activity entries, and a small knowledge base;
 - sign-in accounts for most roles (demo-admin, demo-infra, demo-observer,
   demo-engineer, demo-qa, demo-ba, demo-staff @example.invalid) with
-  email+password sign-in.
+  email+password sign-in, and three finished Assistant chats for demo-admin
+  (written as stored answers: no model is called).
 Existing rows and accounts are never changed or reset. A project with a demo
 key, or a collection with a demo name, that is not demo data is skipped with
 nothing added under it; so is an account whose name someone else holds.
@@ -107,6 +110,7 @@ export async function seedDemo(
     await seedDeploys(ctx);
     await seedIssues(ctx);
     await seedKnowledge(ctx);
+    await seedAssistant(ctx);
   });
   for (const line of lines) opts.out(line);
   const summary = Object.entries(inserted)

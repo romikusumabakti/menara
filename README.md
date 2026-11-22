@@ -1,6 +1,4 @@
-<img src="docs/images/menara-icon.svg" alt="" width="72" height="72">
-
-# Menara
+<h1><img src="docs/images/menara-icon.svg" alt="" width="40" height="40" align="top"> Menara</h1>
 
 A self-hosted operations panel for teams that run the same products for many
 clients, each with its own Dev, QA and UAT environments on its own servers.
@@ -10,7 +8,10 @@ it back, what its services, variables and databases look like, what mail it
 just sent, what time the application thinks it is, and which issues are open
 against it.
 
-![Mock time for a QA environment, frozen at New Year](docs/images/mock-time.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/projects-dark.png">
+  <img alt="Projects grouped by client, each with its Dev, QA and Demo environments" src="docs/images/projects-light.png">
+</picture>
 
 > **Status.** Menara was built for one team. There it replaced Jenkins as the
 > deploy tool and runs their client environments every day. It has one
@@ -34,10 +35,20 @@ apart:
   [`docs/time-mocking-api.md`](docs/time-mocking-api.md) describes the
   contract and how to implement it in your app.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/mock-time-dark.png">
+  <img alt="Mock time for a QA environment, frozen at New Year" src="docs/images/mock-time-light.png">
+</picture>
+
 ## Features
 
 Work is organised as **projects**, each with **environments** (Dev, QA, Demo,
 …).
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/home-dark.png">
+  <img alt="Home with the question box, recent chats and what needs attention" src="docs/images/home-light.png">
+</picture>
 
 **Environments**
 
@@ -64,7 +75,15 @@ Work is organised as **projects**, each with **environments** (Dev, QA, Demo,
   tracker.
 - A knowledge base with revisions, per-role visibility and a Markdown import.
 
-![Issues in a project](docs/images/issues.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/issues-dark.png">
+  <img alt="Issues in a project" src="docs/images/issues-light.png">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/knowledge-dark.png">
+  <img alt="A runbook in the knowledge base" src="docs/images/knowledge-light.png">
+</picture>
 
 **Assistant** (optional)
 
@@ -77,6 +96,11 @@ Work is organised as **projects**, each with **environments** (Dev, QA, Demo,
 - Turns a conversation into a BRD section or a Jira issue draft.
 - Runs on Anthropic, OpenAI, Google or any OpenAI-compatible endpoint with
   your API key. Daily usage is metered per user against the prices you set.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/assistant-dark.png">
+  <img alt="An Assistant answer about a failing import, with the code it read" src="docs/images/assistant-light.png">
+</picture>
 
 **Infrastructure**
 
@@ -165,7 +189,8 @@ menara knowledge import <folder> --as <email> [--dry-run] [--update-visibility]
 **`seed demo`** fills a beta or test instance with fictional data: five
 projects with Dev/QA/Demo environments on placeholder `.invalid` servers, a
 month of finished deploys, issues with comments and milestones, a small
-knowledge base, staff who can't sign in, and one sign-in account per role. It
+knowledge base, a few finished Assistant chats, staff who can't sign in, and
+one sign-in account per role. It
 never changes existing rows, and running it again adds nothing.
 
 **`knowledge import`** publishes every `*.md` file in a folder as a knowledge

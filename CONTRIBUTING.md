@@ -173,6 +173,20 @@ bun run test:e2e             # Playwright, production build
 CI (`.github/workflows/ci.yml`) runs `biome ci`, typecheck, Vitest, the build
 and Playwright on every push and pull request.
 
+### README screenshots
+
+```sh
+bunx playwright test -c playwright.screenshots.config.ts
+```
+
+This rewrites `docs/images/<page>-{light,dark}.png` after a UI change. It uses
+the same server setup as the e2e suite (a loopback `*_e2e` database that gets
+reset, `E2E_PORT`), then fills it with `menara seed demo` and signs in as the
+seeded `demo-admin` (`docs/screenshots/`). No model is called: the Assistant
+shot opens a chat the seed stored, and the Mock time shot stubs the two
+responses the demo environments can't give. Look over the images before you
+commit them.
+
 ## i18n
 
 UI strings use `use-intl`, with catalogs in `messages/{ar,en,es,id,zh}.json`.

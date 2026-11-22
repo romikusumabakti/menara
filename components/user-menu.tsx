@@ -213,7 +213,7 @@ export function UserMenu({
               <CurrentValue>{tAccent(accent)}</CurrentValue>
             </DropdownMenuSubTrigger>
             <DropdownMenuPortal>
-              <DropdownMenuSubContent className="max-h-[min(70vh,34rem)] overflow-y-auto">
+              <DropdownMenuSubContent>
                 <DropdownMenuRadioGroup
                   value={accent}
                   onValueChange={(v) => setAccent(v as AccentColor)}

@@ -10,12 +10,22 @@ import {
 } from "@/lib/accents";
 
 describe("accents", () => {
-  it("lists neutral plus every Tailwind palette, grays first", () => {
+  it("lists neutral plus every chromatic Tailwind palette", () => {
     expect([...ACCENTS]).toEqual(ACCENT_GROUPS.flat());
-    expect(ACCENTS).toHaveLength(26);
+    expect(ACCENTS).toHaveLength(18);
     expect(ACCENT_GROUPS[0]).toEqual(["neutral"]);
+    for (const gray of ["slate", "gray", "zinc", "stone", "taupe"]) {
+      expect(ACCENTS).not.toContain(gray);
+    }
     expect(ACCENTS).toEqual(
-      expect.arrayContaining(["slate", "mauve", "amber", "teal", "pink"])
+      expect.arrayContaining([
+        "amber",
+        "lime",
+        "teal",
+        "sky",
+        "fuchsia",
+        "pink",
+      ])
     );
   });
 

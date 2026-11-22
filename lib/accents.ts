@@ -2,20 +2,13 @@ import { z } from "zod";
 
 /**
  * Accent colours a user can pick: `neutral` (the stock black/white tokens)
- * and every Tailwind palette, grays first, then the colours in hue order. The choice is stored per user in
+ * and every chromatic Tailwind palette, in hue order. The gray palettes are
+ * left out: as an accent they read as neutral. The choice is stored per user in
  * `users.accent_color`, set on <html data-accent> by the root layout, and
  * mapped to Tailwind palette steps in web/styles.css.
  */
 export const ACCENTS = [
   "neutral",
-  "slate",
-  "gray",
-  "zinc",
-  "stone",
-  "mauve",
-  "olive",
-  "mist",
-  "taupe",
   "red",
   "orange",
   "amber",
@@ -36,10 +29,9 @@ export const ACCENTS = [
 ] as const;
 export type AccentColor = (typeof ACCENTS)[number];
 
-/** The pickers' sections: neutral, the gray palettes, the colours. */
+/** The pickers' sections: neutral, then the colours. */
 export const ACCENT_GROUPS: readonly (readonly AccentColor[])[] = [
   ["neutral"],
-  ["slate", "gray", "zinc", "stone", "mauve", "olive", "mist", "taupe"],
   [
     "red",
     "orange",

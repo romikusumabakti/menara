@@ -7,14 +7,6 @@ import { cn } from "@/lib/utils";
 // most saturated step, 600, and 500 on dark menus. Neutral stays black/white.
 const DOT: Record<AccentColor, string> = {
   neutral: "bg-neutral-900 dark:bg-neutral-100",
-  slate: "bg-slate-600 dark:bg-slate-500",
-  gray: "bg-gray-600 dark:bg-gray-500",
-  zinc: "bg-zinc-600 dark:bg-zinc-500",
-  stone: "bg-stone-600 dark:bg-stone-500",
-  mauve: "bg-mauve-600 dark:bg-mauve-500",
-  olive: "bg-olive-600 dark:bg-olive-500",
-  mist: "bg-mist-600 dark:bg-mist-500",
-  taupe: "bg-taupe-600 dark:bg-taupe-500",
   red: "bg-red-600 dark:bg-red-500",
   orange: "bg-orange-600 dark:bg-orange-500",
   amber: "bg-amber-600 dark:bg-amber-500",

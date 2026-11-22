@@ -18,14 +18,6 @@ export type LogoStep = "logoLight" | "logoDark";
  * checks both agree.
  */
 export const ACCENT_STEPS: Record<TintedAccent, Steps> = {
-  slate: { logoLight: 900, logoDark: 200, ringLight: 500, ringDark: 400 },
-  gray: { logoLight: 900, logoDark: 200, ringLight: 500, ringDark: 400 },
-  zinc: { logoLight: 900, logoDark: 200, ringLight: 500, ringDark: 400 },
-  stone: { logoLight: 900, logoDark: 200, ringLight: 500, ringDark: 400 },
-  mauve: { logoLight: 900, logoDark: 200, ringLight: 500, ringDark: 400 },
-  olive: { logoLight: 900, logoDark: 200, ringLight: 500, ringDark: 400 },
-  mist: { logoLight: 900, logoDark: 200, ringLight: 500, ringDark: 400 },
-  taupe: { logoLight: 900, logoDark: 200, ringLight: 500, ringDark: 400 },
   red: { logoLight: 900, logoDark: 200, ringLight: 500, ringDark: 400 },
   orange: { logoLight: 900, logoDark: 200, ringLight: 600, ringDark: 400 },
   amber: { logoLight: 900, logoDark: 200, ringLight: 600, ringDark: 400 },
@@ -51,38 +43,6 @@ export const ACCENT_STEPS: Record<TintedAccent, Steps> = {
  * sync by tests/accent-palette.test.ts.
  */
 export const ACCENT_PALETTE: Record<TintedAccent, Record<LogoStep, string>> = {
-  slate: {
-    logoLight: "oklch(20.8% 0.042 265.755)",
-    logoDark: "oklch(92.9% 0.013 255.508)",
-  },
-  gray: {
-    logoLight: "oklch(21% 0.034 264.665)",
-    logoDark: "oklch(92.8% 0.006 264.531)",
-  },
-  zinc: {
-    logoLight: "oklch(21% 0.006 285.885)",
-    logoDark: "oklch(92% 0.004 286.32)",
-  },
-  stone: {
-    logoLight: "oklch(21.6% 0.006 56.043)",
-    logoDark: "oklch(92.3% 0.003 48.717)",
-  },
-  mauve: {
-    logoLight: "oklch(21.2% 0.019 322.12)",
-    logoDark: "oklch(92.2% 0.005 325.62)",
-  },
-  olive: {
-    logoLight: "oklch(22.8% 0.013 107.4)",
-    logoDark: "oklch(93% 0.007 106.5)",
-  },
-  mist: {
-    logoLight: "oklch(21.8% 0.008 223.9)",
-    logoDark: "oklch(92.5% 0.005 214.3)",
-  },
-  taupe: {
-    logoLight: "oklch(21.4% 0.009 43.1)",
-    logoDark: "oklch(92.2% 0.005 34.3)",
-  },
   red: {
     logoLight: "oklch(39.6% 0.141 25.723)",
     logoDark: "oklch(88.5% 0.062 18.334)",

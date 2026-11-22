@@ -4,6 +4,14 @@ import { logoShapes } from "@/lib/brand-logos";
 import { cn } from "@/lib/utils";
 import { useBootstrap } from "@/web/api/session";
 
+// Firefox keeps a decoded SVG image per URL for the tab and hands it to the
+// next page with its CSS animation already played, so an animated logo would
+// only animate on the tab's first load. A fragment that changes per page load
+// gives each load its own image; it is never sent, so HTTP caching is
+// unchanged, and the image stays shared within the load (no replay on
+// in-app navigation).
+const PAGE_LOAD = `#load-${Math.round(performance.timeOrigin).toString(36)}`;
+
 /** The instance's uploaded logo (bootstrap `logo`); null = the built-in mark. */
 export type BrandLogoSource = { src: string; darkSrc: string | null } | null;
 
@@ -42,7 +50,7 @@ export function BrandLogoView({
       {logo ? (
         <>
           <img
-            src={logo.src}
+            src={logo.src + PAGE_LOAD}
             alt=""
             draggable={false}
             className={cn(
@@ -52,7 +60,7 @@ export function BrandLogoView({
           />
           {logo.darkSrc ? (
             <img
-              src={logo.darkSrc}
+              src={logo.darkSrc + PAGE_LOAD}
               alt=""
               draggable={false}
               className="hidden size-6 object-contain dark:block"

@@ -173,7 +173,9 @@ describe("Admin → Instance → Branding", () => {
   it("the preview follows unsaved edits", async () => {
     await render(settings({ logo: LIGHT }));
     // Stored logos show in the preview at once.
-    expect(preview()?.querySelector(`img[src='${LIGHT.src}']`)).not.toBeNull();
+    expect(
+      preview()?.querySelector(`img[src^='${LIGHT.src}#load-']`)
+    ).not.toBeNull();
     await type(byId("brand-name"), "Acme Ops");
     const headers = preview()?.querySelectorAll(
       "[data-slot='brand-preview-header']"

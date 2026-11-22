@@ -77,6 +77,21 @@ const defaultMark = (accent: AccentColor): Answer => ({
 // The favicon PNG for a raster logo, resized once per branding version.
 let iconPng: { version: string; bytes: Uint8Array } | null = null;
 
+// A browser may draw an SVG favicon once, at its first frame (Firefox does),
+// so a logo whose shapes animate in would be a blank tab icon. The favicon
+// turns CSS animation off and shows the logo as it ends; the sanitizer
+// already drops SMIL. A <style> applies to the whole document wherever it sits, so it goes
+// just before the last </svg> (the root's), which is easier to find safely
+// than the end of the root's opening tag.
+const STILL =
+  "<style>*{animation:none!important;transition:none!important}</style>";
+
+function stillSvg(bytes: Uint8Array): string {
+  const svg = new TextDecoder().decode(bytes);
+  const end = svg.lastIndexOf("</svg>");
+  return end === -1 ? svg : `${svg.slice(0, end)}${STILL}${svg.slice(end)}`;
+}
+
 export const brandRouter = publicRouter()
   .use(brandHeaders)
   .get("/logo", async (c) => {
@@ -91,11 +106,22 @@ export const brandRouter = publicRouter()
     return serve(c, answer);
   })
   // The favicon. The root layout links it with the user's `?accent=`, which
-  // only tints the default mark; a custom logo is shown as uploaded.
+  // only tints the default mark; a custom logo is shown as uploaded, still.
   .get("/icon.svg", async (c) => {
     const branding = await getBranding();
     if (branding.logo?.type === SVG) {
-      return serve(c, stored(branding, "light"));
+      const etag = `"${branding.version}-icon"`;
+      if (matches(c.req.header("If-None-Match"), etag)) {
+        return c.body(null, 304, { ETag: etag });
+      }
+      const logo = await getBrandLogoBytes("light");
+      if (!logo || logo.type !== SVG) {
+        return c.json({ error: "Not Found" }, 404);
+      }
+      return c.body(stillSvg(logo.bytes), 200, {
+        "Content-Type": SVG,
+        ETag: etag,
+      });
     }
     if (branding.logo) return c.redirect("/brand/icon.png", 302);
     const param = c.req.query("accent");

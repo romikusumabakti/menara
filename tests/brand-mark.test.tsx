@@ -54,9 +54,14 @@ describe("BrandLogoView", () => {
     render(<BrandLogoView logo={LOGO} />);
     const images = container.querySelectorAll("img");
     expect(images).toHaveLength(2);
-    expect(images[0]?.getAttribute("src")).toBe(LOGO.src);
+    // A fragment that changes per page load: Firefox reuses a same-URL SVG
+    // image with its animation already played, so an animated logo would only
+    // animate on a tab's first load.
+    const fragment = images[0]?.getAttribute("src")?.split("#")[1];
+    expect(fragment).toMatch(/^load-[0-9a-z]+$/);
+    expect(images[0]?.getAttribute("src")).toBe(`${LOGO.src}#${fragment}`);
     expect(images[0]?.classList).toContain("dark:hidden");
-    expect(images[1]?.getAttribute("src")).toBe(LOGO.darkSrc);
+    expect(images[1]?.getAttribute("src")).toBe(`${LOGO.darkSrc}#${fragment}`);
     expect(images[1]?.classList).toContain("dark:block");
     for (const image of images) {
       expect(image.getAttribute("alt")).toBe("");

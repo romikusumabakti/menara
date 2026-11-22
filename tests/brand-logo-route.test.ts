@@ -155,12 +155,27 @@ describe("/brand routes", () => {
     expect(new Uint8Array(await light.arrayBuffer())).toEqual(LOGO);
   });
 
-  it("/brand/icon.svg is the SVG logo when one is set", async () => {
+  it("/brand/icon.svg is the SVG logo when one is set, with CSS animation off", async () => {
     storeLogo("light", { bytes: LOGO, type: "image/svg+xml" });
     const res = await app.request("/brand/icon.svg?accent=green");
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("image/svg+xml");
-    expect(new Uint8Array(await res.arrayBuffer())).toEqual(LOGO);
+    // Its own tag: the bytes differ from /brand/logo's.
+    expect(res.headers.get("etag")).toBe('"kx1-icon"');
+    // A browser may draw an SVG favicon once, at its first frame, so a logo that
+    // animates in would be blank: the favicon shows the finished logo.
+    const svg = await res.text();
+    const logo = new TextDecoder().decode(LOGO);
+    const end = logo.lastIndexOf("</svg>");
+    expect(svg).toBe(
+      `${logo.slice(0, end)}<style>*{animation:none!important;transition:none!important}</style>${logo.slice(end)}`
+    );
+
+    const cached = await app.request("/brand/icon.svg", {
+      headers: { "If-None-Match": '"kx1-icon"' },
+    });
+    expect(cached.status).toBe(304);
+    expect(cached.headers.get("etag")).toBe('"kx1-icon"');
   });
 
   it("/brand/icon.svg redirects to /brand/icon.png for a raster logo", async () => {

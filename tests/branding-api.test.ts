@@ -240,8 +240,13 @@ describe("instance branding API", () => {
       ).status
     ).toBe(400);
     expect(
-      (await send("PUT", BASE, { name: null, company: null, accent: "chartreuse" }))
-        .status
+      (
+        await send("PUT", BASE, {
+          name: null,
+          company: null,
+          accent: "chartreuse",
+        })
+      ).status
     ).toBe(400);
   });
 

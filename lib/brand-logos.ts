@@ -19,8 +19,21 @@ export const DEFAULT_APP_NAME = "Menara";
  *   - 16 units (gap 1) for the favicon, shown at 16 and 32px.
  */
 
-/** Tailwind amber-500: the beacon in every theme and accent. */
-export const BEACON_COLOR = "#f59e0b";
+/**
+ * The Tailwind colours the standalone SVGs use (the favicon and the app icon
+ * cannot read the page's CSS), copied verbatim from tailwindcss/theme.css;
+ * tests/brand-logos.test.ts keeps them equal. The in-app mark uses the
+ * classes instead (fill-amber-500, and --logo for the tower).
+ */
+export const LOGO_COLORS = {
+  "amber-500": "oklch(76.9% 0.188 70.08)",
+  "neutral-50": "oklch(98.5% 0 none)",
+  "neutral-900": "oklch(20.5% 0 none)",
+  "neutral-950": "oklch(14.5% 0 none)",
+} as const;
+
+/** The beacon in every theme and accent. */
+export const BEACON_COLOR = LOGO_COLORS["amber-500"];
 
 type Grid = {
   /** Beacon centre and radius. */
@@ -135,8 +148,8 @@ export function logoShapes(): Shapes {
 type Colors = { fg: string };
 
 const NEUTRAL_ICON: { light: Colors; dark: Colors } = {
-  light: { fg: "#171717" },
-  dark: { fg: "#fafafa" },
+  light: { fg: LOGO_COLORS["neutral-900"] },
+  dark: { fg: LOGO_COLORS["neutral-50"] },
 };
 
 function iconColors(accent: AccentColor): { light: Colors; dark: Colors } {
@@ -174,9 +187,9 @@ export function renderAppIcon(): string {
   return [
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">',
     "<title>Menara</title>",
-    '<rect width="32" height="32" rx="7" fill="#0d0f12"/>',
+    `<rect width="32" height="32" rx="7" fill="${LOGO_COLORS["neutral-950"]}"/>`,
     '<g transform="translate(4 4)">',
-    ...slabs.map((d) => `<path fill="#f4f4f0" d="${d}"/>`),
+    ...slabs.map((d) => `<path fill="${LOGO_COLORS["neutral-50"]}" d="${d}"/>`),
     `<path fill="${BEACON_COLOR}" d="${beacon}"/>`,
     "</g>",
     "</svg>",

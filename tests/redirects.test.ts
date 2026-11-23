@@ -12,6 +12,8 @@ describe("resolveRedirect", () => {
     // Unknown locale-like segments are paths, not locales.
     ["/fr/servers", "/en/fr/servers"],
     ["/english", "/en/english"],
+    // better-auth sends agents' users to the unprefixed consent page.
+    ["/oauth/consent", "/en/oauth/consent"],
   ])("prefixes the default locale on %s", (path, to) => {
     expect(resolveRedirect(path)).toEqual({ to, status: 302 });
   });
@@ -97,6 +99,8 @@ describe("resolveRedirect", () => {
     "/en/admin/activity",
     "/en/assistant",
     "/en/assistant?c=0199a1b2-0000-7000-8000-000000000001",
+    // The MCP consent page is not a project called OAUTH.
+    "/en/oauth/consent",
   ])("leaves %s alone", (path) => {
     expect(resolveRedirect(path)).toBeNull();
   });

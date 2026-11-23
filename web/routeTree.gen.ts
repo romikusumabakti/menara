@@ -23,6 +23,7 @@ import { Route as LocaleAppAssistantRouteImport } from './routes/$locale/_app/as
 import { Route as LocaleAppIssuesRouteImport } from './routes/$locale/_app/issues'
 import { Route as LocaleAppKnowledgeRouteRouteImport } from './routes/$locale/_app/knowledge.route'
 import { Route as LocaleAcceptInviteTokenRouteImport } from './routes/$locale/accept-invite.$token'
+import { Route as LocaleOauthConsentRouteImport } from './routes/$locale/oauth.consent'
 import { Route as LocaleAppProjectKeyIndexRouteImport } from './routes/$locale/_app/$projectKey.index'
 import { Route as LocaleAppProjectKeyEnvSlugRouteRouteImport } from './routes/$locale/_app/$projectKey.$envSlug.route'
 import { Route as LocaleAppProjectKeyAssistantRouteImport } from './routes/$locale/_app/$projectKey.assistant'
@@ -177,6 +178,11 @@ const LocaleAppKnowledgeRouteRoute = LocaleAppKnowledgeRouteRouteImport.update({
 const LocaleAcceptInviteTokenRoute = LocaleAcceptInviteTokenRouteImport.update({
   id: '/accept-invite/$token',
   path: '/accept-invite/$token',
+  getParentRoute: () => LocaleRouteRoute,
+} as any)
+const LocaleOauthConsentRoute = LocaleOauthConsentRouteImport.update({
+  id: '/oauth/consent',
+  path: '/oauth/consent',
   getParentRoute: () => LocaleRouteRoute,
 } as any)
 const LocaleAppProjectKeyIndexRoute =
@@ -681,6 +687,7 @@ export interface FileRoutesByFullPath {
   '/$locale/assistant': typeof LocaleAppAssistantRoute
   '/$locale/issues': typeof LocaleAppIssuesRoute
   '/$locale/accept-invite/$token': typeof LocaleAcceptInviteTokenRoute
+  '/$locale/oauth/consent': typeof LocaleOauthConsentRoute
   '/$locale/': typeof LocaleAppIndexRoute
   '/$locale/$projectKey/$envSlug': typeof LocaleAppProjectKeyEnvSlugRouteRouteWithChildren
   '/$locale/$projectKey/assistant': typeof LocaleAppProjectKeyAssistantRoute
@@ -780,6 +787,7 @@ export interface FileRoutesByTo {
   '/$locale/assistant': typeof LocaleAppAssistantRoute
   '/$locale/issues': typeof LocaleAppIssuesRoute
   '/$locale/accept-invite/$token': typeof LocaleAcceptInviteTokenRoute
+  '/$locale/oauth/consent': typeof LocaleOauthConsentRoute
   '/$locale/$projectKey/assistant': typeof LocaleAppProjectKeyAssistantRoute
   '/$locale/$projectKey/members': typeof LocaleAppProjectKeyMembersRoute
   '/$locale/$projectKey/milestones': typeof LocaleAppProjectKeyMilestonesRoute
@@ -881,6 +889,7 @@ export interface FileRoutesById {
   '/$locale/_app/assistant': typeof LocaleAppAssistantRoute
   '/$locale/_app/issues': typeof LocaleAppIssuesRoute
   '/$locale/accept-invite/$token': typeof LocaleAcceptInviteTokenRoute
+  '/$locale/oauth/consent': typeof LocaleOauthConsentRoute
   '/$locale/_app/': typeof LocaleAppIndexRoute
   '/$locale/_app/$projectKey/$envSlug': typeof LocaleAppProjectKeyEnvSlugRouteRouteWithChildren
   '/$locale/_app/$projectKey/assistant': typeof LocaleAppProjectKeyAssistantRoute
@@ -984,6 +993,7 @@ export interface FileRouteTypes {
     | '/$locale/assistant'
     | '/$locale/issues'
     | '/$locale/accept-invite/$token'
+    | '/$locale/oauth/consent'
     | '/$locale/'
     | '/$locale/$projectKey/$envSlug'
     | '/$locale/$projectKey/assistant'
@@ -1083,6 +1093,7 @@ export interface FileRouteTypes {
     | '/$locale/assistant'
     | '/$locale/issues'
     | '/$locale/accept-invite/$token'
+    | '/$locale/oauth/consent'
     | '/$locale/$projectKey/assistant'
     | '/$locale/$projectKey/members'
     | '/$locale/$projectKey/milestones'
@@ -1183,6 +1194,7 @@ export interface FileRouteTypes {
     | '/$locale/_app/assistant'
     | '/$locale/_app/issues'
     | '/$locale/accept-invite/$token'
+    | '/$locale/oauth/consent'
     | '/$locale/_app/'
     | '/$locale/_app/$projectKey/$envSlug'
     | '/$locale/_app/$projectKey/assistant'
@@ -1375,6 +1387,13 @@ declare module '@tanstack/react-router' {
       path: '/accept-invite/$token'
       fullPath: '/$locale/accept-invite/$token'
       preLoaderRoute: typeof LocaleAcceptInviteTokenRouteImport
+      parentRoute: typeof LocaleRouteRoute
+    }
+    '/$locale/oauth/consent': {
+      id: '/$locale/oauth/consent'
+      path: '/oauth/consent'
+      fullPath: '/$locale/oauth/consent'
+      preLoaderRoute: typeof LocaleOauthConsentRouteImport
       parentRoute: typeof LocaleRouteRoute
     }
     '/$locale/_app/$projectKey/': {
@@ -2241,6 +2260,7 @@ interface LocaleRouteRouteChildren {
   LocaleSetupRoute: typeof LocaleSetupRoute
   LocaleSignInRoute: typeof LocaleSignInRoute
   LocaleAcceptInviteTokenRoute: typeof LocaleAcceptInviteTokenRoute
+  LocaleOauthConsentRoute: typeof LocaleOauthConsentRoute
 }
 
 const LocaleRouteRouteChildren: LocaleRouteRouteChildren = {
@@ -2250,6 +2270,7 @@ const LocaleRouteRouteChildren: LocaleRouteRouteChildren = {
   LocaleSetupRoute: LocaleSetupRoute,
   LocaleSignInRoute: LocaleSignInRoute,
   LocaleAcceptInviteTokenRoute: LocaleAcceptInviteTokenRoute,
+  LocaleOauthConsentRoute: LocaleOauthConsentRoute,
 }
 
 const LocaleRouteRouteWithChildren = LocaleRouteRoute._addFileChildren(

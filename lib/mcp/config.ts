@@ -13,21 +13,9 @@ const BASE_URL = (
  */
 export const MCP_RESOURCE = `${BASE_URL}/api/mcp`;
 
-/**
- * What an agent may ask for. `read` is required on every grant; the write
- * scopes widen it. `offline_access` (refresh tokens) is an authorization
- * server scope and is not listed here.
- */
-export const MCP_SCOPES = [
-  "read",
-  "database:read",
-  "issues:write",
-  "deploys:write",
-] as const;
-export type McpScope = (typeof MCP_SCOPES)[number];
-
-/** Where better-auth sends the user to approve an agent. */
-export const MCP_CONSENT_PATH = "/oauth/consent";
+// The scope list and the consent path live in a dependency-free module the
+// consent page imports too.
+export { MCP_CONSENT_PATH, MCP_SCOPES, type McpScope } from "./scopes";
 
 /** How long a read of the instance switch is reused. */
 const MCP_ENABLED_TTL_MS = 5_000;

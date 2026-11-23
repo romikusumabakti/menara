@@ -1702,7 +1702,8 @@
     "assistantDbAccessBlocksRebind": "Nonaktifkan akses basis data Asisten sebelum memindahkan atau menghapus basis data ini.",
     "assistantDbLoginExists": "Login bernama {login} sudah ada di server basis data dan bukan milik environment ini. {{APP_NAME}} tidak akan mengambil alihnya: hapus atau ganti namanya di sana terlebih dahulu.",
     "assistantDbLoginMappedElsewhere": "Login {login} juga punya user di basis data lain pada server ini, sehingga Asisten bisa membaca lebih dari basis data environment ini. Hapus user itu terlebih dahulu.",
-    "assistantDbLoginRecorded": "Asisten masih punya login baca-saja di basis data environment ini. Nonaktifkan dulu \"Izinkan Asisten mengkueri basis data ini\" di Pengaturan › Basis data: itu menghapus login dari server basis data."
+    "assistantDbLoginRecorded": "Asisten masih punya login baca-saja di basis data environment ini. Nonaktifkan dulu \"Izinkan Asisten mengkueri basis data ini\" di Pengaturan › Basis data: itu menghapus login dari server basis data.",
+    "oauthConsentInvalid": "Permintaan otorisasi ini tidak valid atau sudah kedaluwarsa. Mulai lagi dari aplikasinya."
   },
   "unsavedChanges": {
     "title": "Buang perubahan yang belum disimpan?",
@@ -4249,5 +4250,25 @@
     "pinChat": "Sematkan",
     "unpinChat": "Lepas sematan",
     "editQuestion": "Edit pertanyaan"
+  },
+  "oauthConsent": {
+    "title": "Izinkan {client} memakai akun {{APP_NAME}} Anda?",
+    "clientHost": "Aplikasi dipublikasikan di {host}",
+    "redirectHost": "Anda kembali ke {host} setelah memutuskan.",
+    "signedInAs": "Masuk sebagai {name} ({email})",
+    "notYou": "Bukan Anda?",
+    "switchAccount": "Ganti akun",
+    "scopesHeading": "Aplikasi ini akan dapat:",
+    "alwaysIncluded": "Selalu disertakan",
+    "scopeRead": "Melihat project, issue, environment, deploy, server, kode, dan pengetahuan yang bisa Anda lihat",
+    "scopeDatabaseRead": "Menjalankan query di basis data yang akses basis data Asisten-nya aktif",
+    "scopeDatabaseReadWarning": "Hasil query dikirim ke model AI yang dipakai aplikasi ini.",
+    "scopeIssuesWrite": "Membuat dan memperbarui issue serta menambah komentar atas nama Anda",
+    "scopeDeploysWrite": "Men-deploy dan me-rollback environment dev, QA, dan sandbox atas nama Anda",
+    "footer": "Anda bisa mencabut akses kapan saja di Akun › Aplikasi terhubung.",
+    "allow": "Izinkan",
+    "deny": "Tolak",
+    "errorTitle": "Permintaan ini tidak bisa dilanjutkan",
+    "failed": "Jawaban Anda gagal dikirim. Coba lagi."
   }
 }

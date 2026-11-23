@@ -18,6 +18,9 @@ export const RESERVED_PROJECT_KEYS = new Set([
   "ISSUES",
   "JIRA",
   "KNOWLEDGE",
+  // The MCP consent page (/oauth/consent). Without it, /en/oauth/consent
+  // would be canonicalised to a project URL (/en/OAUTH/consent).
+  "OAUTH",
   "PEOPLE",
   "PROJECT",
   "PROJECTS",

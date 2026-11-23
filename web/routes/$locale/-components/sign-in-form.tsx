@@ -82,6 +82,20 @@ const PASSKEY_CANCELLED_CODES = new Set([
   "ERROR_CEREMONY_ABORTED",
 ]);
 
+/**
+ * Whether a sign-in answer resumes an MCP agent's authorization. On a page
+ * whose URL carries the signed OAuth query, better-auth's oauth-provider
+ * client plugin sends it with the sign-in, and the server answers the step
+ * that creates the session with `{ redirect: true, url }` (the consent page,
+ * or the agent itself) instead. The client's redirect plugin is already
+ * taking the browser there, so the form must not navigate on its own.
+ */
+function resumesAuthorization(data: unknown): boolean {
+  if (typeof data !== "object" || data === null) return false;
+  const { redirect, url } = data as { redirect?: unknown; url?: unknown };
+  return redirect === true && typeof url === "string" && url !== "";
+}
+
 /** better-auth codes meaning the pending two-factor challenge can no longer be answered. */
 const CHALLENGE_ENDED_CODES = new Set([
   "INVALID_TWO_FACTOR_COOKIE",
@@ -98,7 +112,7 @@ function TwoFactorStep({
   onCancel,
   onExpired,
 }: {
-  onVerified: () => Promise<void>;
+  onVerified: (data: unknown) => Promise<void>;
   onCancel: () => void;
   onExpired: () => void;
 }) {
@@ -114,7 +128,7 @@ function TwoFactorStep({
     if (!value) return;
     setError(null);
     setPending(true);
-    const { error: failure } = useBackup
+    const { data, error: failure } = useBackup
       ? await authClient.twoFactor.verifyBackupCode({ code: value })
       : await authClient.twoFactor.verifyTotp({ code: value });
     if (failure) {
@@ -128,7 +142,7 @@ function TwoFactorStep({
       setError(failure.message ?? t("errorCode"));
       return;
     }
-    await onVerified();
+    await onVerified(data);
   }
 
   return (
@@ -267,11 +281,17 @@ export function SignInForm({
     form.formState.isSubmitting || microsoftPending || passkeyPending;
 
   // Signed in: load the new session (dropping anything cached while signed
-  // out) so the gate lets the target page through, then go there.
-  const enterApp = useCallback(async () => {
-    await resetSession();
-    router.push(redirectTo || "/");
-  }, [redirectTo, router]);
+  // out) so the gate lets the target page through, then go there — unless
+  // the answer resumed an agent's authorization, whose redirect is already
+  // under way (the form then stays busy until the page goes).
+  const enterApp = useCallback(
+    async (data: unknown) => {
+      if (resumesAuthorization(data)) return;
+      await resetSession();
+      router.push(redirectTo || "/");
+    },
+    [redirectTo, router]
+  );
 
   // Conditional UI ("passkey autofill"): the browser offers this site's
   // passkeys from the email field's own autofill dropdown, so a returning user
@@ -285,9 +305,11 @@ export function SignInForm({
     (async () => {
       if (!(await isPasskeyAutofillSupported()) || cancelled) return;
       autofillStarted.current = true;
-      const { error } = await authClient.signIn.passkey({ autoFill: true });
+      const { data, error } = await authClient.signIn.passkey({
+        autoFill: true,
+      });
       if (cancelled || error) return;
-      await enterApp();
+      await enterApp(data);
     })();
     return () => {
       cancelled = true;
@@ -308,7 +330,7 @@ export function SignInForm({
       return;
     }
 
-    await enterApp();
+    await enterApp(data);
   }
 
   async function onPasskeySignIn() {
@@ -318,13 +340,15 @@ export function SignInForm({
     // Starting this ceremony aborts the conditional one waiting on the email
     // field — @simplewebauthn cancels any in-flight request before opening a
     // new one — so the two entry points cannot collide.
-    const { error } = await authClient.signIn.passkey();
-    setPasskeyPending(false);
+    const { data, error } = await authClient.signIn.passkey();
 
     if (!error) {
-      await enterApp();
+      if (resumesAuthorization(data)) return;
+      setPasskeyPending(false);
+      await enterApp(data);
       return;
     }
+    setPasskeyPending(false);
 
     // `error.message` from the server is not localised, so map the one code
     // worth explaining and fall back to a generic line for the rest.

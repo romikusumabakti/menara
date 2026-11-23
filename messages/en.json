@@ -1702,7 +1702,8 @@
     "assistantDbAccessBlocksRebind": "Turn off the Assistant's database access before moving or removing this database.",
     "assistantDbLoginExists": "A login named {login} already exists on the database server and isn't this environment's. {{APP_NAME}} won't take it over: remove or rename it there first.",
     "assistantDbLoginMappedElsewhere": "The login {login} also has a user in another database on this server, so the Assistant could read more than this environment's database. Remove that user first.",
-    "assistantDbLoginRecorded": "The Assistant still has a read-only login on this environment's database. Turn off \"Let the Assistant query this database\" under Settings › Database first: that removes the login from the database server."
+    "assistantDbLoginRecorded": "The Assistant still has a read-only login on this environment's database. Turn off \"Let the Assistant query this database\" under Settings › Database first: that removes the login from the database server.",
+    "oauthConsentInvalid": "This authorization request is invalid or has expired. Start again from the app."
   },
   "unsavedChanges": {
     "title": "Discard unsaved changes?",
@@ -4249,5 +4250,25 @@
     "pinChat": "Pin",
     "unpinChat": "Unpin",
     "editQuestion": "Edit question"
+  },
+  "oauthConsent": {
+    "title": "Allow {client} to use your {{APP_NAME}} account?",
+    "clientHost": "App published at {host}",
+    "redirectHost": "You return to {host} after you decide.",
+    "signedInAs": "Signed in as {name} ({email})",
+    "notYou": "Not you?",
+    "switchAccount": "Switch account",
+    "scopesHeading": "This app will be able to:",
+    "alwaysIncluded": "Always included",
+    "scopeRead": "See projects, issues, environments, deploys, servers, code and knowledge you can see",
+    "scopeDatabaseRead": "Query databases where Assistant database access is on",
+    "scopeDatabaseReadWarning": "Query results are sent to the AI model this app uses.",
+    "scopeIssuesWrite": "Create and update issues and add comments as you",
+    "scopeDeploysWrite": "Deploy and roll back dev, QA and sandbox environments as you",
+    "footer": "You can revoke access any time in Account › Connected apps.",
+    "allow": "Allow",
+    "deny": "Deny",
+    "errorTitle": "This request can't continue",
+    "failed": "Your answer could not be sent. Try again."
   }
 }

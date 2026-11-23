@@ -1702,7 +1702,8 @@
     "assistantDbAccessBlocksRebind": "移动或移除此数据库前，请先关闭助手的数据库访问。",
     "assistantDbLoginExists": "数据库服务器上已存在名为 {login} 的登录名，且不属于此环境。{{APP_NAME}} 不会接管它：请先在服务器上删除或重命名它。",
     "assistantDbLoginMappedElsewhere": "登录名 {login} 在此服务器的其他数据库中也有用户，助手可能读取到此环境数据库以外的数据。请先删除该用户。",
-    "assistantDbLoginRecorded": "助手在此环境的数据库上仍有只读登录名。请先在“设置 › 数据库”中关闭“允许助手查询此数据库”：这会从数据库服务器删除该登录名。"
+    "assistantDbLoginRecorded": "助手在此环境的数据库上仍有只读登录名。请先在“设置 › 数据库”中关闭“允许助手查询此数据库”：这会从数据库服务器删除该登录名。",
+    "oauthConsentInvalid": "此授权请求无效或已过期。请从应用中重新开始。"
   },
   "unsavedChanges": {
     "title": "放弃未保存的更改？",
@@ -4249,5 +4250,25 @@
     "pinChat": "置顶",
     "unpinChat": "取消置顶",
     "editQuestion": "编辑问题"
+  },
+  "oauthConsent": {
+    "title": "允许 {client} 使用你的 {{APP_NAME}} 账户？",
+    "clientHost": "应用发布于 {host}",
+    "redirectHost": "做出选择后，你将返回 {host}。",
+    "signedInAs": "已登录为 {name}（{email}）",
+    "notYou": "不是你？",
+    "switchAccount": "切换账户",
+    "scopesHeading": "此应用将能够：",
+    "alwaysIncluded": "始终包含",
+    "scopeRead": "查看你能看到的项目、问题、环境、部署、服务器、代码和知识库",
+    "scopeDatabaseRead": "查询已开启助手数据库访问的数据库",
+    "scopeDatabaseReadWarning": "查询结果会发送给此应用使用的 AI 模型。",
+    "scopeIssuesWrite": "以你的身份创建和更新问题并添加评论",
+    "scopeDeploysWrite": "以你的身份部署和回滚开发、QA 和沙盒环境",
+    "footer": "你可以随时在 账户 › 已连接的应用 中撤销访问权限。",
+    "allow": "允许",
+    "deny": "拒绝",
+    "errorTitle": "此请求无法继续",
+    "failed": "无法发送你的选择，请重试。"
   }
 }

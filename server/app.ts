@@ -41,6 +41,7 @@ import { mailpitSettingsRouter } from "@/server/routes/mailpit-settings";
 import { milestonesCompatRouter } from "@/server/routes/milestones-compat";
 import { mockTimeRouter } from "@/server/routes/mock-time";
 import { notificationsRouter } from "@/server/routes/notifications";
+import { oauthConsentRouter } from "@/server/routes/oauth-consent";
 import { avatarsRouter, profileRouter } from "@/server/routes/profile";
 import { projectCatalogRouter } from "@/server/routes/project-catalog";
 import { projectGroupsRouter } from "@/server/routes/project-groups";
@@ -167,6 +168,9 @@ export const app = createBaseApp()
   .route("/api/service-catalog", serviceCatalogRouter)
   .route("/api/service-catalog", variableTemplatesRouter)
   .route("/api/setup", setupRouter)
+  // What the MCP consent page shows; better-auth's own /api/auth/oauth2/*
+  // endpoints take the decision.
+  .route("/api/oauth", oauthConsentRouter)
   .route("/api/ci-connections", ciConnectionsRouter)
   .route("/api/cloudflare-account", cloudflareAccountRouter)
   // Before /api/instance: its instance:manage guard would answer first.

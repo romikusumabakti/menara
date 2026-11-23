@@ -1,5 +1,6 @@
 "use client";
 
+import { oauthProviderClient } from "@better-auth/oauth-provider/client";
 import { passkeyClient } from "@better-auth/passkey/client";
 import { adminClient, twoFactorClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
@@ -8,7 +9,18 @@ export const authClient = createAuthClient({
   // No `onTwoFactorRedirect`: the sign-in form reads `twoFactorRedirect` from
   // the `signIn.email` result and shows the code step itself, so there is
   // nothing for a global callback to do.
-  plugins: [adminClient(), passkeyClient(), twoFactorClient()],
+  //
+  // oauthProviderClient: on a page whose URL carries the signed OAuth query
+  // (the sign-in and consent pages of an MCP agent's authorization), every
+  // POST also sends it as `oauth_query`. That is how a sign-in resumes the
+  // authorization, and how `oauth2.consent` knows which request it answers;
+  // the server then replies `{ redirect: true, url }` and the client goes on.
+  plugins: [
+    adminClient(),
+    passkeyClient(),
+    twoFactorClient(),
+    oauthProviderClient(),
+  ],
 });
 
 export const {

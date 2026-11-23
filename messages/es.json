@@ -1702,7 +1702,8 @@
     "assistantDbAccessBlocksRebind": "Desactiva el acceso del asistente a la base de datos antes de mover o quitar esta base de datos.",
     "assistantDbLoginExists": "Ya existe un inicio de sesión llamado {login} en el servidor de base de datos y no es de este entorno. {{APP_NAME}} no lo tomará: elimínalo o cámbiale el nombre allí primero.",
     "assistantDbLoginMappedElsewhere": "El inicio de sesión {login} también tiene un usuario en otra base de datos de este servidor, así que el asistente podría leer más que la base de datos de este entorno. Elimina ese usuario primero.",
-    "assistantDbLoginRecorded": "El asistente aún tiene un inicio de sesión de solo lectura en la base de datos de este entorno. Desactiva primero \"Permitir que el asistente consulte esta base de datos\" en Ajustes › Base de datos: así se elimina el inicio de sesión del servidor de base de datos."
+    "assistantDbLoginRecorded": "El asistente aún tiene un inicio de sesión de solo lectura en la base de datos de este entorno. Desactiva primero \"Permitir que el asistente consulte esta base de datos\" en Ajustes › Base de datos: así se elimina el inicio de sesión del servidor de base de datos.",
+    "oauthConsentInvalid": "Esta solicitud de autorización no es válida o ha caducado. Empieza de nuevo desde la aplicación."
   },
   "unsavedChanges": {
     "title": "¿Descartar los cambios sin guardar?",
@@ -4249,5 +4250,25 @@
     "pinChat": "Fijar",
     "unpinChat": "Desfijar",
     "editQuestion": "Editar pregunta"
+  },
+  "oauthConsent": {
+    "title": "¿Permitir que {client} use tu cuenta de {{APP_NAME}}?",
+    "clientHost": "Aplicación publicada en {host}",
+    "redirectHost": "Volverás a {host} cuando decidas.",
+    "signedInAs": "Sesión iniciada como {name} ({email})",
+    "notYou": "¿No eres tú?",
+    "switchAccount": "Cambiar de cuenta",
+    "scopesHeading": "Esta aplicación podrá:",
+    "alwaysIncluded": "Siempre incluido",
+    "scopeRead": "Ver los proyectos, incidencias, entornos, despliegues, servidores, código y conocimiento que tú puedes ver",
+    "scopeDatabaseRead": "Consultar las bases de datos que tienen activado el acceso del asistente",
+    "scopeDatabaseReadWarning": "Los resultados de las consultas se envían al modelo de IA que usa esta aplicación.",
+    "scopeIssuesWrite": "Crear y actualizar incidencias y añadir comentarios en tu nombre",
+    "scopeDeploysWrite": "Desplegar y revertir entornos de desarrollo, QA y sandbox en tu nombre",
+    "footer": "Puedes revocar el acceso cuando quieras en Cuenta › Aplicaciones conectadas.",
+    "allow": "Permitir",
+    "deny": "Denegar",
+    "errorTitle": "Esta solicitud no puede continuar",
+    "failed": "No se pudo enviar tu respuesta. Inténtalo de nuevo."
   }
 }

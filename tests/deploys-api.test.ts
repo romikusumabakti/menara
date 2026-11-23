@@ -122,6 +122,7 @@ vi.mock("@/server/services/deployments", () => deployments);
 
 const { app } = await import("@/server/app");
 const { requireProjectPermission } = await import("@/lib/authz");
+const { requireProjectPermissionIn } = await import("@/lib/access-scope");
 
 const target = {
   id: TARGET_ID,
@@ -249,8 +250,13 @@ describe("authorization scope", () => {
     });
   });
 
+  // The session guard (target edits) or the scope guard the deploy and
+  // rollback cores call (server/services/deploys#deployTagFor).
   function scopes() {
-    return vi.mocked(requireProjectPermission).mock.calls.map((c) => c[0]);
+    return [
+      ...vi.mocked(requireProjectPermission).mock.calls.map((c) => c[0]),
+      ...vi.mocked(requireProjectPermissionIn).mock.calls.map((c) => c[1]),
+    ];
   }
 
   it("deploy checks the target's environment", async () => {

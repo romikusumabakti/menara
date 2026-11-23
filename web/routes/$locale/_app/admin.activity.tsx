@@ -85,6 +85,8 @@ function message(
         actor,
         jiraKey: String(d.jiraKey),
       });
+    case "issue.commented":
+      return t("issueCommented", { actor, key: String(d.key) });
     case "issue.status_changed":
       return t("issueStatusChanged", {
         actor,
@@ -456,6 +458,20 @@ function message(
         environment: String(d.environment),
         count: Number(d.count),
       });
+    case "deploy.requested":
+      return t("deployRequested", {
+        actor,
+        tag: String(d.tag),
+        target: String(d.target),
+        environment: String(d.environment),
+      });
+    case "deploy.rollbackRequested":
+      return t("deployRollbackRequested", {
+        actor,
+        tag: String(d.tag),
+        target: String(d.target),
+        environment: String(d.environment),
+      });
     case "deployTarget.created":
       return t("deployTargetCreated", {
         actor,
@@ -688,6 +704,20 @@ function message(
   }
 }
 
+// A write made through an OAuth client (an MCP tool call) names the client.
+function messageWithVia(
+  t: ReturnType<typeof useTranslations<"activity">>,
+  tIssues: ReturnType<typeof useTranslations<"issues">>,
+  format: ReturnType<typeof useFormatter>,
+  row: ActivityRow
+): string {
+  const text = message(t, tIssues, format, row);
+  const client = row.data.viaClient;
+  return client
+    ? t("viaClient", { message: text, client: String(client) })
+    : text;
+}
+
 function ActivityPage() {
   const t = useTranslations("activity");
   const tIssues = useTranslations("issues");
@@ -722,7 +752,7 @@ function ActivityPage() {
                 <Activity className="size-4 shrink-0 text-muted-foreground" />
               )}
               <span className="flex-1 min-w-0">
-                {message(t, tIssues, format, e)}
+                {messageWithVia(t, tIssues, format, e)}
               </span>
               <span className="shrink-0 text-xs text-muted-foreground">
                 <RelativeTime date={e.createdAt} />

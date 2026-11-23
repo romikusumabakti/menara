@@ -351,9 +351,14 @@ const SCOPED_WRITES: Record<string, Record<string, RegExp>> = {
     unacknowledgeRuns: /run: \["acknowledge"\]/,
   },
   "server/services/issues.ts": {
-    addComment: /issue: \["write"\]/,
-    createIssue: /issue: \["write"\]/,
-    updateIssue: /issue: \["write"\]/,
+    // The session wrappers hand the caller's scope to the scope-taking cores
+    // (the MCP tools call the cores directly), which own the guard.
+    addComment: /return addCommentFor\(await accessScopeFromSession\(\)/,
+    createIssue: /return createIssueFor\(await accessScopeFromSession\(\)/,
+    updateIssue: /return updateIssueFor\(await accessScopeFromSession\(\)/,
+    addCommentFor: /requireProjectPermissionIn\([\s\S]*issue: \["write"\]/,
+    createIssueFor: /requireProjectPermissionIn\([\s\S]*issue: \["write"\]/,
+    updateIssueFor: /requireProjectPermissionIn\([\s\S]*issue: \["write"\]/,
     // setIssueStatus delegates to updateIssue, which owns the guard.
     setIssueStatus: /return updateIssue\(/,
     bulkSetStatus: /requireProjectPermissionForAll\([\s\S]*issue: \["write"\]/,
@@ -389,8 +394,12 @@ const SCOPED_WRITES: Record<string, Record<string, RegExp>> = {
     createDeployTarget: /deploy: \["configure"\]/,
     updateDeployTarget: /deploy: \["configure"\]/,
     deleteDeployTarget: /deploy: \["configure"\]/,
-    deployTag: /deploy: \["run"\]/,
-    rollbackTarget: /deploy: \["rollback"\]/,
+    deployTag: /return deployTagFor\(await accessScopeFromSession\(\)/,
+    rollbackTarget:
+      /return rollbackTargetFor\(await accessScopeFromSession\(\)/,
+    deployTagFor: /requireProjectPermissionIn\([\s\S]*deploy: \["run"\]/,
+    rollbackTargetFor:
+      /requireProjectPermissionIn\([\s\S]*deploy: \["rollback"\]/,
   },
   "server/services/backups.ts": {
     getBackupList:
@@ -480,7 +489,7 @@ describe("project-scoped writes state their permission", () => {
 
 describe("issue writes validate their references", () => {
   const source = readFileSync("server/services/issues.ts", "utf8");
-  for (const fn of ["createIssue", "updateIssue"]) {
+  for (const fn of ["createIssueFor", "updateIssueFor"]) {
     it(`${fn} checks assignee and same-project references`, () => {
       expect(body(source, fn)).toMatch(/canAssignTo/);
       expect(body(source, fn)).toMatch(/referencesInProject/);
@@ -510,8 +519,8 @@ describe("environment writes validate their owner", () => {
 // recipients from projectVisibleUsersWhere.
 describe("mention notifications only reach users who can see the project", () => {
   const source = readFileSync("server/services/issues.ts", "utf8");
-  it("addComment selects mention candidates with projectVisibleUsersWhere", () => {
-    const fn = body(source, "addComment");
+  it("addCommentFor selects mention candidates with projectVisibleUsersWhere", () => {
+    const fn = body(source, "addCommentFor");
     expect(fn).toMatch(
       /projectVisibleUsersWhere\(\s*eq\(projectMembers\.projectId, issue\.projectId\)/
     );
@@ -519,7 +528,7 @@ describe("mention notifications only reach users who can see the project", () =>
       fn.indexOf("notifyIssueMention(")
     );
   });
-  it("notifyIssueMention is only called from addComment", () => {
+  it("notifyIssueMention is only called from addCommentFor", () => {
     const files = Array.from(
       globSync("**/*.{ts,tsx}", { cwd: "server/services" }),
       (f) => `server/services/${f}`

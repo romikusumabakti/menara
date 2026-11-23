@@ -5,7 +5,7 @@ import {
   accessScopeFromSession,
   requireProjectPermissionIn,
 } from "@/lib/access-scope";
-import { recordActivity } from "@/lib/activity";
+import { recordActivity, type WriteVia } from "@/lib/activity";
 import { getComponent } from "@/lib/apps";
 import { requireProjectPermission } from "@/lib/authz";
 import { type DbTransaction, db } from "@/lib/db";
@@ -603,13 +603,54 @@ function requireDeployEnabled() {
   if (!process.env.DEPLOY_REGISTRY) fail(503, "Deploy disabled");
 }
 
+// The activity row of a manual deploy or rollback request, after it is
+// queued. `target` names the target by its component, as the deployTarget.*
+// rows do. A failed environment lookup only costs the name.
+async function recordDeployRequest(
+  action: "deploy.requested" | "deploy.rollbackRequested",
+  actorId: string,
+  target: DeployTarget,
+  tag: string,
+  via: WriteVia | undefined
+): Promise<void> {
+  const environment = await getEnvironmentForLock(target.environmentId).catch(
+    (error: unknown) => {
+      console.error("Deploy request audit: environment lookup failed:", error);
+      return null;
+    }
+  );
+  await recordActivity({
+    actorId,
+    action,
+    entityType: "environment",
+    entityId: target.environmentId,
+    data: {
+      environment: environment?.name ?? target.environmentId,
+      target: target.componentKey,
+      tag,
+      ...(via && { viaClient: via.client, viaClientId: via.clientId }),
+    },
+  });
+}
+
 /** Manual deploy of a tag that CI built for the target's component and branch. */
 export async function deployTag(
   targetId: string,
   tag: string
 ): Promise<{ deploymentId: string; runId: string }> {
+  return deployTagFor(await accessScopeFromSession(), targetId, tag);
+}
+
+/** deployTag for a scope (the session's, or an MCP token's). */
+export async function deployTagFor(
+  scope: AccessScope,
+  targetId: string,
+  tag: string,
+  via?: WriteVia
+): Promise<{ deploymentId: string; runId: string }> {
   const target = await requireTarget(targetId);
-  const { session } = await requireProjectPermission(
+  await requireProjectPermissionIn(
+    scope,
     { environmentId: target.environmentId },
     { deploy: ["run"] }
   );
@@ -619,15 +660,17 @@ export async function deployTag(
   if (!build || build.branch !== target.sourceBranch) {
     fail(404, "Build not found");
   }
-  return queuedRun(
+  const queued = queuedRun(
     await requestDeployment({
       targetId: target.id,
       tag,
       trigger: "manual",
-      userId: session.user.id,
+      userId: scope.userId,
       buildId: build?.id ?? null,
     })
   );
+  await recordDeployRequest("deploy.requested", scope.userId, target, tag, via);
+  return queued;
 }
 
 /**
@@ -638,8 +681,18 @@ export async function deployTag(
 export async function rollbackTarget(
   targetId: string
 ): Promise<{ deploymentId: string; runId: string }> {
+  return rollbackTargetFor(await accessScopeFromSession(), targetId);
+}
+
+/** rollbackTarget for a scope (the session's, or an MCP token's). */
+export async function rollbackTargetFor(
+  scope: AccessScope,
+  targetId: string,
+  via?: WriteVia
+): Promise<{ deploymentId: string; runId: string }> {
   const target = await requireTarget(targetId);
-  const { session } = await requireProjectPermission(
+  await requireProjectPermissionIn(
+    scope,
     { environmentId: target.environmentId },
     { deploy: ["rollback"] }
   );
@@ -648,13 +701,21 @@ export async function rollbackTarget(
   const tag = (await getTagState(target.id)).previousTag;
   if (!tag) return fail(409, "No previous successful deploy");
   const build = await findBuild(target.componentKey, tag);
-  return queuedRun(
+  const queued = queuedRun(
     await requestDeployment({
       targetId: target.id,
       tag,
       trigger: "rollback",
-      userId: session.user.id,
+      userId: scope.userId,
       buildId: build?.id ?? null,
     })
   );
+  await recordDeployRequest(
+    "deploy.rollbackRequested",
+    scope.userId,
+    target,
+    tag,
+    via
+  );
+  return queued;
 }

@@ -24,3 +24,9 @@ export async function recordActivity(input: {
     console.error("recordActivity failed:", error);
   }
 }
+
+// The OAuth client a write came through (an MCP tool call). Its activity row
+// adds the flat keys `viaClient` (name) and `viaClientId`, and the feed
+// appends "via {client}". Callers spread it inline (`...(via && {...})`)
+// rather than through a helper here: many tests mock this module wholesale.
+export type WriteVia = { client: string; clientId: string };

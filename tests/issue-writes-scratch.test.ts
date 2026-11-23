@@ -568,4 +568,124 @@ describe.skipIf(!enabled)("issue writes on Postgres", () => {
       });
     });
   });
+
+  // The cores the MCP tools call: they act for the scope they are given and
+  // never read the request session (here an observer's, who may not write).
+  describe("scope-taking cores", () => {
+    const via = { client: "Acme Agent", clientId: "https://example.com/agent" };
+    const viaKeys = {
+      viaClient: "Acme Agent",
+      viaClientId: "https://example.com/agent",
+    };
+
+    it("createIssueFor writes as the scope's user and records viaClient", async () => {
+      const { accessScopeForUser } = await import("@/lib/access-scope");
+      const { createIssueFor } = await import("@/server/services/issues");
+      as(OBSERVER, "observer");
+      const scope = await accessScopeForUser(ADMIN);
+      const res = await createIssueFor(
+        scope,
+        { projectId: ids.project, title: "Filed by an agent" },
+        via
+      );
+      expect(res.success).toBe(true);
+      if (!res.success) return;
+      expect((await issueRow(res.data.id)).createdById).toBe(ADMIN);
+      const [row] = await activityFor(res.data.id);
+      expect(row).toMatchObject({
+        actorId: ADMIN,
+        action: "issue.created",
+        data: {
+          key: `ACME-${res.data.number}`,
+          title: "Filed by an agent",
+          ...viaKeys,
+        },
+      });
+    });
+
+    it("createIssueFor refuses a scope that cannot see the project with 404", async () => {
+      const { accessScopeForUser } = await import("@/lib/access-scope");
+      const { createIssueFor } = await import("@/server/services/issues");
+      as(ADMIN, "admin");
+      const scope = await accessScopeForUser(QA);
+      const before = await issueCount(ids.project);
+      expect(
+        await refusal(
+          createIssueFor(scope, { projectId: ids.project, title: "Nope" })
+        )
+      ).toMatchObject({ status: 404 });
+      expect(await issueCount(ids.project)).toBe(before);
+    });
+
+    it("updateIssueFor records issue.status_changed with viaClient", async () => {
+      const { accessScopeForUser } = await import("@/lib/access-scope");
+      const { updateIssueFor } = await import("@/server/services/issues");
+      as(OBSERVER, "observer");
+      const id = await seedIssue(ids.project, 40);
+      const res = await updateIssueFor(
+        await accessScopeForUser(ADMIN),
+        id,
+        { status: "in_progress" },
+        via
+      );
+      expect(res.success).toBe(true);
+      const rows = await activityFor(id);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        actorId: ADMIN,
+        action: "issue.status_changed",
+        data: { key: "ACME-40", status: "in_progress", ...viaKeys },
+      });
+    });
+
+    it("addCommentFor stores the comment and records issue.commented", async () => {
+      const { accessScopeForUser } = await import("@/lib/access-scope");
+      const { addComment, addCommentFor } = await import(
+        "@/server/services/issues"
+      );
+      as(OBSERVER, "observer");
+      const id = await seedIssue(ids.project, 41);
+      expect(
+        await addCommentFor(
+          await accessScopeForUser(ADMIN),
+          id,
+          "  Fixed on dev  ",
+          via
+        )
+      ).toEqual({ success: true });
+      const comments = await d
+        .select()
+        .from(schema.issueComments)
+        .where(eq(schema.issueComments.issueId, id));
+      expect(comments).toMatchObject([
+        { authorId: ADMIN, body: "Fixed on dev" },
+      ]);
+      // The session wrapper writes the same row, without the via keys.
+      as(ADMIN, "admin");
+      expect(await addComment(id, "Confirmed")).toEqual({ success: true });
+      const rows = (await activityFor(id)).map((r) => ({
+        actorId: r.actorId,
+        action: r.action,
+        entityType: r.entityType,
+        data: r.data,
+      }));
+      expect(rows).toEqual(
+        expect.arrayContaining([
+          {
+            actorId: ADMIN,
+            action: "issue.commented",
+            entityType: "issue",
+            data: { key: "ACME-41", ...viaKeys },
+          },
+          {
+            actorId: ADMIN,
+            action: "issue.commented",
+            entityType: "issue",
+            data: { key: "ACME-41" },
+          },
+        ])
+      );
+      expect(rows).toHaveLength(2);
+    });
+  });
 });

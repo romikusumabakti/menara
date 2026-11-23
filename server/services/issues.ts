@@ -26,7 +26,7 @@ import {
   roleOn,
   scopedProjectFilter,
 } from "@/lib/access-scope";
-import { recordActivity } from "@/lib/activity";
+import { recordActivity, type WriteVia } from "@/lib/activity";
 import {
   assignableUsersWhere,
   projectVisibleUsersWhere,
@@ -345,10 +345,21 @@ export async function addComment(
   issueId: string,
   body: string
 ): Promise<{ success: boolean; message?: string }> {
-  const { session } = await requireProjectPermission(
-    { issueId },
-    { issue: ["write"] }
-  );
+  return addCommentFor(await accessScopeFromSession(), issueId, body);
+}
+
+/**
+ * addComment for a scope (the session's, or an MCP token's): the same checks,
+ * Jira push and mention notifications, plus an `issue.commented` row.
+ */
+export async function addCommentFor(
+  scope: AccessScope,
+  issueId: string,
+  body: string,
+  via?: WriteVia
+): Promise<{ success: boolean; message?: string }> {
+  await requireProjectPermissionIn(scope, { issueId }, { issue: ["write"] });
+  const actorId = scope.userId;
   const trimmed = (body ?? "").trim();
   if (!trimmed) return { success: false, message: "Empty comment" };
   if (trimmed.length > 20_000) {
@@ -360,7 +371,7 @@ export async function addComment(
         .insert(issueComments)
         .values({
           issueId,
-          authorId: session.user.id,
+          authorId: actorId,
           body: trimmed,
         })
         .returning({ id: issueComments.id }),
@@ -389,15 +400,25 @@ export async function addComment(
           )
         );
       for (const u of resolveMentions(trimmed, users)) {
-        if (u.id === session.user.id) continue;
+        if (u.id === actorId) continue;
         await notifyIssueMention({
           userId: u.id,
-          actorId: session.user.id,
+          actorId,
           projectKey: issue.project.key,
           number: issue.number,
           title: issue.title,
         });
       }
+      await recordActivity({
+        actorId,
+        action: "issue.commented",
+        entityType: "issue",
+        entityId: issueId,
+        data: {
+          key: `${issue.project.key}-${issue.number}`,
+          ...(via && { viaClient: via.client, viaClientId: via.clientId }),
+        },
+      });
     }
     return { success: true };
   } catch (error) {
@@ -850,15 +871,26 @@ export async function listIssuesFor(
 export async function createIssue(
   data: unknown
 ): Promise<ActionResponse<Issue>> {
+  return createIssueFor(await accessScopeFromSession(), data);
+}
+
+/** createIssue for a scope (the session's, or an MCP token's). */
+export async function createIssueFor(
+  scope: AccessScope,
+  data: unknown,
+  via?: WriteVia
+): Promise<ActionResponse<Issue>> {
   const parsed = issueInputSchema.safeParse(data);
   if (!parsed.success) {
     return { success: false, message: "Invalid issue data" };
   }
   const input = parsed.data;
-  const { session } = await requireProjectPermission(
+  await requireProjectPermissionIn(
+    scope,
     { projectId: input.projectId },
     { issue: ["write"] }
   );
+  const actorId = scope.userId;
   if (
     input.assigneeId &&
     !(await canAssignTo(input.assigneeId, input.projectId))
@@ -885,7 +917,7 @@ export async function createIssue(
         environmentId: input.environmentId ?? null,
         assigneeId: input.assigneeId ?? null,
         parentId: input.parentId ?? null,
-        createdById: session.user.id,
+        createdById: actorId,
       });
       if (labelIds.length > 0) {
         await tx
@@ -898,18 +930,22 @@ export async function createIssue(
     if (input.assigneeId) {
       await notifyIssueAssigned({
         assigneeId: input.assigneeId,
-        actorId: session.user.id,
+        actorId,
         projectKey,
         number: created.number,
         title: created.title,
       });
     }
     await recordActivity({
-      actorId: session.user.id,
+      actorId,
       action: "issue.created",
       entityType: "issue",
       entityId: created.id,
-      data: { key: `${projectKey}-${created.number}`, title: created.title },
+      data: {
+        key: `${projectKey}-${created.number}`,
+        title: created.title,
+        ...(via && { viaClient: via.client, viaClientId: via.clientId }),
+      },
     });
     return { success: true, data: created };
   } catch (error) {
@@ -930,10 +966,22 @@ export async function updateIssue(
   id: string,
   data: unknown
 ): Promise<ActionResponse<Issue>> {
-  const { session, projectId } = await requireProjectPermission(
+  return updateIssueFor(await accessScopeFromSession(), id, data);
+}
+
+/** updateIssue for a scope (the session's, or an MCP token's). */
+export async function updateIssueFor(
+  scope: AccessScope,
+  id: string,
+  data: unknown,
+  via?: WriteVia
+): Promise<ActionResponse<Issue>> {
+  const { projectId } = await requireProjectPermissionIn(
+    scope,
     { issueId: id },
     { issue: ["write"] }
   );
+  const actorId = scope.userId;
   const parsed = issueUpdateSchema.safeParse(data);
   if (!parsed.success) {
     return { success: false, message: "Invalid issue data" };
@@ -978,7 +1026,7 @@ export async function updateIssue(
     if ("assigneeId" in parsed.data && parsed.data.assigneeId) {
       await notifyIssueAssigned({
         assigneeId: parsed.data.assigneeId,
-        actorId: session.user.id,
+        actorId,
         projectKey: await projectKeyOf(updated.projectId),
         number: updated.number,
         title: updated.title,
@@ -992,19 +1040,20 @@ export async function updateIssue(
         await enqueueJiraPush("jira/push.issue", {
           issueId: updated.id,
           fields,
-          actorId: session.user.id,
+          actorId,
         });
       }
     }
     if (parsed.data.status) {
       await recordActivity({
-        actorId: session.user.id,
+        actorId,
         action: "issue.status_changed",
         entityType: "issue",
         entityId: updated.id,
         data: {
           key: `${await projectKeyOf(updated.projectId)}-${updated.number}`,
           status: parsed.data.status,
+          ...(via && { viaClient: via.client, viaClientId: via.clientId }),
         },
       });
     }

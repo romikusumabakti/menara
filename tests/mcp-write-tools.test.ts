@@ -492,10 +492,10 @@ describe("MCP write tools", () => {
     });
     expect(offBranch.isError).toBe(true);
     expect(offBranch.structuredContent).toEqual({
-      code: "notFound",
+      code: "buildNotFound",
       params: {},
     });
-    expect(textOf(offBranch)).toBe("notFound: Build not found");
+    expect(textOf(offBranch)).toBe("buildNotFound: Build not found");
 
     repo.getTagState.mockResolvedValue({
       currentTag: TAG,
@@ -509,10 +509,12 @@ describe("MCP write tools", () => {
     });
     expect(rollback.isError).toBe(true);
     expect(rollback.structuredContent).toEqual({
-      code: "conflict",
+      code: "noPreviousDeploy",
       params: {},
     });
-    expect(textOf(rollback)).toBe("conflict: No previous successful deploy");
+    expect(textOf(rollback)).toBe(
+      "noPreviousDeploy: No previous successful deploy"
+    );
     expect(deployments.requestDeployment).not.toHaveBeenCalled();
   });
 

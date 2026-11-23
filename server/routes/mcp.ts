@@ -97,20 +97,28 @@ function calledToolOf(body: unknown): string | undefined {
 }
 
 /**
- * Whether the request counts against the write quota: a 2026-07-28 request
- * names its tool in `Mcp-Name` (the handler refuses a header that disagrees
- * with the body); a 2025-era one carries only the body, which is read here
- * from a copy.
+ * What the request costs against the quota, read from the body (a copy;
+ * the handler parses its own) and never from `Mcp-Name`: the SDK compares
+ * that header with the body only on 2026-07-28 traffic and accepts it
+ * Base64-encoded, so it cannot decide alone. A 2025-era batch costs one
+ * write per write call in it; anything else costs one read (a body that
+ * does not parse is refused by the handler).
  */
-async function callKindOf(request: Request): Promise<McpCallKind> {
-  const header = request.headers.get("mcp-name");
-  if (header !== null) return isWriteTool(header) ? "write" : "read";
+async function quotaCostOf(
+  request: Request
+): Promise<{ kind: McpCallKind; units: number }> {
   const body: unknown = await request
     .clone()
     .json()
     .catch(() => undefined);
-  const name = calledToolOf(body);
-  return name !== undefined && isWriteTool(name) ? "write" : "read";
+  const messages = Array.isArray(body) ? body : [body];
+  const writes = messages.filter((message) => {
+    const name = calledToolOf(message);
+    return name !== undefined && isWriteTool(name);
+  }).length;
+  return writes > 0
+    ? { kind: "write", units: writes }
+    : { kind: "read", units: 1 };
 }
 
 /** Mounted at /api/mcp. */
@@ -126,10 +134,12 @@ export const mcpRouter = publicRouter()
     async (c) => {
       const caller = await authenticateMcpRequest(c.req.raw);
       if (caller instanceof Response) return caller;
+      const cost = await quotaCostOf(c.req.raw);
       const quota = await consumeMcpQuota(
         caller.viewer.userId,
         caller.clientId,
-        await callKindOf(c.req.raw)
+        cost.kind,
+        cost.units
       );
       if (!quota.ok) {
         return jsonRpcError(

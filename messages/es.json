@@ -1705,7 +1705,9 @@
     "assistantDbLoginRecorded": "El asistente aún tiene un inicio de sesión de solo lectura en la base de datos de este entorno. Desactiva primero \"Permitir que el asistente consulte esta base de datos\" en Ajustes › Base de datos: así se elimina el inicio de sesión del servidor de base de datos.",
     "oauthConsentInvalid": "Esta solicitud de autorización no es válida o ha caducado. Empieza de nuevo desde la aplicación.",
     "mcpEnvironmentReadOnly": "Los agentes solo pueden desplegar y revertir en entornos dev, QA y sandbox. Usa {{APP_NAME}} directamente para este.",
-    "mcpRateLimited": "Demasiadas solicitudes de este agente. Inténtalo de nuevo en {retryAfterSeconds} segundos."
+    "mcpRateLimited": "Demasiadas solicitudes de este agente. Inténtalo de nuevo en {retryAfterSeconds} segundos.",
+    "buildNotFound": "Esta build ya no está disponible para la rama del destino.",
+    "noPreviousDeploy": "No hay un despliegue correcto anterior al que revertir."
   },
   "unsavedChanges": {
     "title": "¿Descartar los cambios sin guardar?",

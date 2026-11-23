@@ -1,7 +1,7 @@
 import IORedis from "ioredis";
 
 // Per user + client MCP quota: a fixed one-minute window counted in Valkey
-// (`INCR` + `EXPIRE` in one MULTI), so every app instance shares it. The
+// (`INCRBY` + `EXPIRE` in one MULTI), so every app instance shares it. The
 // limit protects the instance from a runaway agent; it is not an
 // availability gate, so a Valkey that cannot answer lets the call through
 // and says so once per outage.
@@ -18,7 +18,7 @@ const COMMAND_TIMEOUT_MS = 500;
 
 /** The part of an ioredis client the limiter uses. */
 type Multi = {
-  incr(key: string): Multi;
+  incrby(key: string, increment: number): Multi;
   expire(key: string, seconds: number): Multi;
   exec(): Promise<[Error | null, unknown][] | null>;
 };
@@ -55,10 +55,10 @@ export function setRateLimitConnectionForTests(
   outageLogged = false;
 }
 
-async function increment(key: string): Promise<number> {
+async function increment(key: string, units: number): Promise<number> {
   const results = await connectionOf()
     .multi()
-    .incr(key)
+    .incrby(key, units)
     .expire(key, KEY_TTL_SECONDS)
     .exec();
   const [error, count] = results?.[0] ?? [new Error("MULTI aborted"), null];
@@ -68,20 +68,22 @@ async function increment(key: string): Promise<number> {
 }
 
 /**
- * Counts one MCP call of `kind` for (user, client) in the current minute;
- * over the limit it answers how long until the window turns.
+ * Counts `units` MCP calls of `kind` (one, or each write call of a legacy
+ * batch) for (user, client) in the current minute; over the limit it answers
+ * how long until the window turns.
  */
 export async function consumeMcpQuota(
   userId: string,
   clientId: string,
-  kind: McpCallKind
+  kind: McpCallKind,
+  units = 1
 ): Promise<{ ok: true } | { ok: false; retryAfterSeconds: number }> {
   const nowSeconds = Math.floor(Date.now() / 1000);
   const epochMinute = Math.floor(nowSeconds / WINDOW_SECONDS);
   const key = `mcp:rl:${kind}:${userId}:${clientId}:${epochMinute}`;
   let count: number;
   try {
-    count = await increment(key);
+    count = await increment(key, units);
     outageLogged = false;
   } catch (error) {
     if (!outageLogged) {

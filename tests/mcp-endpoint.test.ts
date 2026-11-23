@@ -362,6 +362,53 @@ async function toolNames(bearer: string): Promise<string[]> {
   }
 }
 
+/** A Valkey stand-in for the limiter; returns its counters by key. */
+function useFakeValkey(): Map<string, number> {
+  const counts = new Map<string, number>();
+  setRateLimitConnectionForTests({
+    multi: () => {
+      let key = "";
+      let by = 0;
+      const chain = {
+        incrby: (k: string, n: number) => {
+          key = k;
+          by = n;
+          return chain;
+        },
+        expire: () => chain,
+        exec: async () => {
+          const next = (counts.get(key) ?? 0) + by;
+          counts.set(key, next);
+          return [
+            [null, next],
+            [null, 1],
+          ] as [null, number][];
+        },
+      };
+      return chain;
+    },
+  });
+  return counts;
+}
+
+/** The counter of `kind` for the test user and client, summed over windows. */
+function counted(counts: Map<string, number>, kind: "read" | "write"): number {
+  let total = 0;
+  for (const [key, value] of counts) {
+    if (key.startsWith(`mcp:rl:${kind}:${USER_ID}:${CLIENT_ID}:`)) {
+      total += value;
+    }
+  }
+  return total;
+}
+
+const callBody = (name: string, id = 1) => ({
+  jsonrpc: "2.0",
+  id,
+  method: "tools/call",
+  params: { name, arguments: {} },
+});
+
 describe("MCP endpoint authentication", () => {
   it("401 with resource_metadata challenge and no token", async () => {
     const response = await post({});
@@ -453,28 +500,7 @@ describe("MCP endpoint authentication", () => {
   });
 
   it("429 with Retry-After over the per-minute quota", async () => {
-    const counts = new Map<string, number>();
-    setRateLimitConnectionForTests({
-      multi: () => {
-        let key = "";
-        const chain = {
-          incr: (k: string) => {
-            key = k;
-            return chain;
-          },
-          expire: () => chain,
-          exec: async () => {
-            const next = (counts.get(key) ?? 0) + 1;
-            counts.set(key, next);
-            return [
-              [null, next],
-              [null, 1],
-            ] as [null, number][];
-          },
-        };
-        return chain;
-      },
-    });
+    const counts = useFakeValkey();
     const bearer = await token();
     for (let i = 0; i < 120; i++) {
       const ok = await post({ authorization: `Bearer ${bearer}` });
@@ -493,6 +519,74 @@ describe("MCP endpoint authentication", () => {
     expect([...counts.keys()].every((k) => k.startsWith("mcp:rl:read:"))).toBe(
       true
     );
+  });
+
+  it("counts a write call from the body, whatever Mcp-Name claims", async () => {
+    const counts = useFakeValkey();
+    const bearer = await token();
+    // A 2025-era request (no protocol claims): the SDK never compares the
+    // header with the body there.
+    await app.request(RESOURCE, {
+      method: "POST",
+      headers: {
+        host: HOST,
+        authorization: `Bearer ${bearer}`,
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        "mcp-name": "list_issues",
+      },
+      body: JSON.stringify(callBody("deploy")),
+    });
+    expect(counted(counts, "write")).toBe(1);
+
+    // The Base64 sentinel form of the header.
+    await post(
+      {
+        authorization: `Bearer ${bearer}`,
+        "mcp-method": "tools/call",
+        "mcp-name": "=?base64?ZGVwbG95?=",
+      },
+      callBody("deploy")
+    );
+    expect(counted(counts, "write")).toBe(2);
+
+    // A read call stays a read.
+    await post(
+      {
+        authorization: `Bearer ${bearer}`,
+        "mcp-method": "tools/call",
+        "mcp-name": "list_issues",
+      },
+      callBody("list_issues")
+    );
+    expect(counted(counts, "write")).toBe(2);
+    expect(counted(counts, "read")).toBe(1);
+  });
+
+  it("counts every write call of a legacy batch", async () => {
+    const counts = useFakeValkey();
+    const bearer = await token();
+    const batch = (n: number) =>
+      app.request(RESOURCE, {
+        method: "POST",
+        headers: {
+          host: HOST,
+          authorization: `Bearer ${bearer}`,
+          "content-type": "application/json",
+          accept: "application/json, text/event-stream",
+        },
+        body: JSON.stringify([
+          ...Array.from({ length: n }, (_, i) => callBody("deploy", i + 1)),
+          callBody("list_issues", n + 1),
+        ]),
+      });
+    await batch(3);
+    expect(counted(counts, "write")).toBe(3);
+    expect(counted(counts, "read")).toBe(0);
+    // 3 + 18 = 21 > 20: the whole batch is refused.
+    const limited = await batch(18);
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("retry-after")).toBeTruthy();
   });
 
   it("refuses a token signed with another key", async () => {

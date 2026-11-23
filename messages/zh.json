@@ -1705,7 +1705,9 @@
     "assistantDbLoginRecorded": "助手在此环境的数据库上仍有只读登录名。请先在“设置 › 数据库”中关闭“允许助手查询此数据库”：这会从数据库服务器删除该登录名。",
     "oauthConsentInvalid": "此授权请求无效或已过期。请从应用中重新开始。",
     "mcpEnvironmentReadOnly": "智能体只能在 dev、QA 和 sandbox 环境中部署和回滚。此环境请直接使用 {{APP_NAME}}。",
-    "mcpRateLimited": "此智能体的请求过多。请在 {retryAfterSeconds} 秒后重试。"
+    "mcpRateLimited": "此智能体的请求过多。请在 {retryAfterSeconds} 秒后重试。",
+    "buildNotFound": "该构建已不再适用于目标的分支。",
+    "noPreviousDeploy": "没有可回滚的上一次成功部署。"
   },
   "unsavedChanges": {
     "title": "放弃未保存的更改？",

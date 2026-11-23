@@ -1705,7 +1705,9 @@
     "assistantDbLoginRecorded": "The Assistant still has a read-only login on this environment's database. Turn off \"Let the Assistant query this database\" under Settings › Database first: that removes the login from the database server.",
     "oauthConsentInvalid": "This authorization request is invalid or has expired. Start again from the app.",
     "mcpEnvironmentReadOnly": "Agents can deploy and roll back only on dev, QA and sandbox environments. Use {{APP_NAME}} itself for this one.",
-    "mcpRateLimited": "Too many requests from this agent. Try again in {retryAfterSeconds} seconds."
+    "mcpRateLimited": "Too many requests from this agent. Try again in {retryAfterSeconds} seconds.",
+    "buildNotFound": "This build is no longer available for the target's branch.",
+    "noPreviousDeploy": "There is no previous successful deploy to roll back to."
   },
   "unsavedChanges": {
     "title": "Discard unsaved changes?",

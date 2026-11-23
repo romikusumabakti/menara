@@ -320,7 +320,10 @@ describe("deploy", () => {
         tag,
       });
       expect(res.status).toBe(404);
-      expect(await res.json()).toEqual({ error: "Build not found" });
+      expect(await res.json()).toEqual({
+        error: "Build not found",
+        code: "buildNotFound",
+      });
     }
     expect(deployments.requestDeployment).not.toHaveBeenCalled();
   });
@@ -369,6 +372,7 @@ describe("rollback", () => {
     expect(res.status).toBe(409);
     expect(await res.json()).toEqual({
       error: "No previous successful deploy",
+      code: "noPreviousDeploy",
     });
     expect(deployments.requestDeployment).not.toHaveBeenCalled();
   });

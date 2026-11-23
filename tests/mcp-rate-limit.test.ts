@@ -19,9 +19,9 @@ function fakeValkey() {
     multi() {
       const ops: (() => [null, number])[] = [];
       const chain = {
-        incr(key: string) {
+        incrby(key: string, by: number) {
           ops.push(() => {
-            const next = (counts.get(key) ?? 0) + 1;
+            const next = (counts.get(key) ?? 0) + by;
             counts.set(key, next);
             return [null, next];
           });
@@ -104,6 +104,17 @@ describe("consumeMcpQuota", () => {
     expect(await consumeMcpQuota(USER, CLIENT, "read")).toEqual({ ok: true });
   });
 
+  it("counts several units at once", async () => {
+    setRateLimitConnectionForTests(fakeValkey());
+    expect(await consumeMcpQuota(USER, CLIENT, "write", 19)).toEqual({
+      ok: true,
+    });
+    expect(await consumeMcpQuota(USER, CLIENT, "write", 1)).toEqual({
+      ok: true,
+    });
+    expect((await consumeMcpQuota(USER, CLIENT, "write", 1)).ok).toBe(false);
+  });
+
   it("counts per user and client separately", async () => {
     setRateLimitConnectionForTests(fakeValkey());
     await consumeTimes(20, "write");
@@ -121,7 +132,7 @@ describe("consumeMcpQuota", () => {
     setRateLimitConnectionForTests({
       multi: () => {
         const chain = {
-          incr: () => chain,
+          incrby: () => chain,
           expire: () => chain,
           exec: async () => {
             throw new Error("Connection is closed.");

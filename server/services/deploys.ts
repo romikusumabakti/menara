@@ -658,7 +658,7 @@ export async function deployTagFor(
   await assertNotDeployLocked(target.environmentId);
   const build = await findBuild(target.componentKey, tag);
   if (!build || build.branch !== target.sourceBranch) {
-    fail(404, "Build not found");
+    throw new CodedHTTPException(404, "buildNotFound", "Build not found");
   }
   const queued = queuedRun(
     await requestDeployment({
@@ -699,7 +699,13 @@ export async function rollbackTargetFor(
   requireDeployEnabled();
   await assertNotDeployLocked(target.environmentId);
   const tag = (await getTagState(target.id)).previousTag;
-  if (!tag) return fail(409, "No previous successful deploy");
+  if (!tag) {
+    throw new CodedHTTPException(
+      409,
+      "noPreviousDeploy",
+      "No previous successful deploy"
+    );
+  }
   const build = await findBuild(target.componentKey, tag);
   const queued = queuedRun(
     await requestDeployment({

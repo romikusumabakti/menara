@@ -186,6 +186,8 @@ describe("only known sites read the environment slug", () => {
     "lib/environment-slug.ts": "the resolver and aliases",
     "lib/env-url.ts": "/KEY/slug resolution for the API",
     "lib/home/queries.ts": "Home's environment links",
+    "lib/mcp/write-tools.ts":
+      "an agent's KEY + slug lookup, and the valid slugs it lists",
     "lib/nav-path.ts": "breadcrumb and switcher links",
     "lib/notifications.ts": "notification links",
     "lib/people/queries.ts": "a person's run links",

@@ -214,10 +214,27 @@ vi.mock("@/server/services/services", async (importOriginal) => {
   };
 });
 
+// query_database's first step: never reached without database:read.
+const queryGate = vi.hoisted(() => ({ calls: 0 }));
+vi.mock("@/lib/assistant-db/gate", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/assistant-db/gate")>();
+  return {
+    ...actual,
+    checkReadOnlyQuery: (
+      ...args: Parameters<typeof actual.checkReadOnlyQuery>
+    ) => {
+      queryGate.calls += 1;
+      return actual.checkReadOnlyQuery(...args);
+    },
+  };
+});
+
 const { createBaseApp } = await import("@/server/app");
 const { mcpRouter } = await import("@/server/routes/mcp");
 const { invalidateMcpEnabled } = await import("@/lib/mcp/config");
 const { resetGrantUsageThrottle } = await import("@/lib/mcp/gate");
+const { setRateLimitConnectionForTests } = await import("@/lib/mcp/rate-limit");
 
 const app = createBaseApp().route("/api/mcp", mcpRouter);
 
@@ -251,13 +268,17 @@ beforeEach(() => {
   state.usageWrites = [];
   state.getSession.mockReset();
   state.reserveVerificationValue.mockReset();
+  queryGate.calls = 0;
   invalidateMcpEnabled();
   resetGrantUsageThrottle();
+  // No Valkey here unless a test sets one: the limiter fails open.
+  vi.stubEnv("REDIS_URL", "");
+  setRateLimitConnectionForTests(undefined);
 });
 
 async function token(
   over: Record<string, unknown> = {},
-  opts: { audience?: string } = {}
+  opts: { audience?: string; typ?: string } = {}
 ): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   return new SignJWT({
@@ -267,7 +288,7 @@ async function token(
     sid: "session-1",
     ...over,
   })
-    .setProtectedHeader({ alg: "ES256", kid: KID, typ: "at+jwt" })
+    .setProtectedHeader({ alg: "ES256", kid: KID, typ: opts.typ ?? "at+jwt" })
     .setSubject(USER_ID)
     .setIssuer(ISSUER)
     .setAudience(opts.audience ?? RESOURCE)
@@ -371,6 +392,106 @@ describe("MCP endpoint authentication", () => {
     expect(response.status).toBe(401);
     expect(response.headers.get("www-authenticate")).toContain(
       'error="invalid_token"'
+    );
+  });
+
+  it("refuses a JWT that is not an access token (typ other than at+jwt)", async () => {
+    for (const typ of ["JWT", "id_token+jwt"]) {
+      const response = await post({
+        authorization: `Bearer ${await token({}, { typ })}`,
+      });
+      expect(response.status).toBe(401);
+      expect(response.headers.get("www-authenticate")).toContain(
+        'error="invalid_token"'
+      );
+    }
+    // The access-token type in its full media-type form is accepted.
+    const full = await post({
+      authorization: `Bearer ${await token({}, { typ: "application/at+jwt" })}`,
+    });
+    expect(full.status).toBe(200);
+  });
+
+  it("refuses a token without azp", async () => {
+    const response = await post({
+      authorization: `Bearer ${await token({ azp: undefined })}`,
+    });
+    expect(response.status).toBe(401);
+  });
+
+  it("413 JSON-RPC error for a body over 4 MiB", async () => {
+    const bearer = await token();
+    const big = { ...LIST_TOOLS, padding: "x".repeat(4 * 1024 * 1024) };
+    const response = await post({ authorization: `Bearer ${bearer}` }, big);
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({
+      jsonrpc: "2.0",
+      error: { code: -32000 },
+      id: null,
+    });
+    // Also without a Content-Length (chunked).
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(JSON.stringify(big)));
+        controller.close();
+      },
+    });
+    const chunked = await app.request(RESOURCE, {
+      method: "POST",
+      headers: {
+        host: HOST,
+        authorization: `Bearer ${bearer}`,
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        "mcp-protocol-version": "2026-07-28",
+        "mcp-method": "tools/list",
+      },
+      body,
+      duplex: "half",
+    } as RequestInit);
+    expect(chunked.status).toBe(413);
+  });
+
+  it("429 with Retry-After over the per-minute quota", async () => {
+    const counts = new Map<string, number>();
+    setRateLimitConnectionForTests({
+      multi: () => {
+        let key = "";
+        const chain = {
+          incr: (k: string) => {
+            key = k;
+            return chain;
+          },
+          expire: () => chain,
+          exec: async () => {
+            const next = (counts.get(key) ?? 0) + 1;
+            counts.set(key, next);
+            return [
+              [null, next],
+              [null, 1],
+            ] as [null, number][];
+          },
+        };
+        return chain;
+      },
+    });
+    const bearer = await token();
+    for (let i = 0; i < 120; i++) {
+      const ok = await post({ authorization: `Bearer ${bearer}` });
+      expect(ok.status).toBe(200);
+    }
+    const limited = await post({ authorization: `Bearer ${bearer}` });
+    expect(limited.status).toBe(429);
+    const retryAfter = Number(limited.headers.get("retry-after"));
+    expect(retryAfter).toBeGreaterThanOrEqual(1);
+    expect(retryAfter).toBeLessThanOrEqual(60);
+    expect(await limited.json()).toMatchObject({
+      jsonrpc: "2.0",
+      error: { code: -32000, data: { code: "mcpRateLimited" } },
+    });
+    // Unauthenticated requests never count.
+    expect([...counts.keys()].every((k) => k.startsWith("mcp:rl:read:"))).toBe(
+      true
     );
   });
 
@@ -612,6 +733,62 @@ describe("MCP read tools", () => {
     } finally {
       await client.close();
     }
+  });
+
+  it("refuses query_database on a token without database:read, unexecuted", async () => {
+    const client = await connect(await token({ scope: "read" }));
+    try {
+      const result = await client
+        .callTool({
+          name: "query_database",
+          arguments: { environment: "ACME/qa", sql: "select 1" },
+        })
+        .catch((error: unknown) => ({ isError: true, thrown: String(error) }));
+      expect(result.isError).toBe(true);
+    } finally {
+      await client.close();
+    }
+    expect(queryGate.calls).toBe(0);
+  });
+
+  it("logs neither the bearer token nor tool output", async () => {
+    state.serviceLog =
+      "2026-11-24 boot\nDB_URL=postgres://app:x@db/app password=hunter2\nready-marker-7\n";
+    const lines: string[] = [];
+    const capture = (...args: unknown[]) => {
+      lines.push(
+        args.map((a) => (a instanceof Error ? a.stack : String(a))).join(" ")
+      );
+    };
+    const info = vi.spyOn(console, "info").mockImplementation(capture);
+    const error = vi.spyOn(console, "error").mockImplementation(capture);
+    const bearer = await token();
+    try {
+      const client = await connect(bearer);
+      try {
+        const result = await client.callTool({
+          name: "get_service_logs",
+          arguments: { environment: "ACME/qa", role: "backend" },
+        });
+        expect(JSON.stringify(result)).toContain("ready-marker-7");
+        await client.callTool({
+          name: "list_issues",
+          arguments: { project: "NOPE" },
+        });
+      } finally {
+        await client.close();
+      }
+    } finally {
+      info.mockRestore();
+      error.mockRestore();
+    }
+    const logged = lines.join("\n");
+    expect(logged).toContain("tool=get_service_logs");
+    expect(logged).not.toContain(bearer);
+    expect(logged).not.toContain(bearer.split(".")[2]);
+    expect(logged).not.toContain("hunter2");
+    expect(logged).not.toContain("ready-marker-7");
+    expect(logged).not.toContain("ACME issue");
   });
 
   it("serves 2025-era clients through the stateless fallback", async () => {

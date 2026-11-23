@@ -1703,7 +1703,9 @@
     "assistantDbLoginExists": "A login named {login} already exists on the database server and isn't this environment's. {{APP_NAME}} won't take it over: remove or rename it there first.",
     "assistantDbLoginMappedElsewhere": "The login {login} also has a user in another database on this server, so the Assistant could read more than this environment's database. Remove that user first.",
     "assistantDbLoginRecorded": "The Assistant still has a read-only login on this environment's database. Turn off \"Let the Assistant query this database\" under Settings › Database first: that removes the login from the database server.",
-    "oauthConsentInvalid": "This authorization request is invalid or has expired. Start again from the app."
+    "oauthConsentInvalid": "This authorization request is invalid or has expired. Start again from the app.",
+    "mcpEnvironmentReadOnly": "Agents can deploy and roll back only on dev, QA and sandbox environments. Use {{APP_NAME}} itself for this one.",
+    "mcpRateLimited": "Too many requests from this agent. Try again in {retryAfterSeconds} seconds."
   },
   "unsavedChanges": {
     "title": "Discard unsaved changes?",

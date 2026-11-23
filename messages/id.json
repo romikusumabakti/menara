@@ -1703,7 +1703,9 @@
     "assistantDbLoginExists": "Login bernama {login} sudah ada di server basis data dan bukan milik environment ini. {{APP_NAME}} tidak akan mengambil alihnya: hapus atau ganti namanya di sana terlebih dahulu.",
     "assistantDbLoginMappedElsewhere": "Login {login} juga punya user di basis data lain pada server ini, sehingga Asisten bisa membaca lebih dari basis data environment ini. Hapus user itu terlebih dahulu.",
     "assistantDbLoginRecorded": "Asisten masih punya login baca-saja di basis data environment ini. Nonaktifkan dulu \"Izinkan Asisten mengkueri basis data ini\" di Pengaturan › Basis data: itu menghapus login dari server basis data.",
-    "oauthConsentInvalid": "Permintaan otorisasi ini tidak valid atau sudah kedaluwarsa. Mulai lagi dari aplikasinya."
+    "oauthConsentInvalid": "Permintaan otorisasi ini tidak valid atau sudah kedaluwarsa. Mulai lagi dari aplikasinya.",
+    "mcpEnvironmentReadOnly": "Agent hanya boleh deploy dan rollback di environment dev, QA, dan sandbox. Gunakan {{APP_NAME}} langsung untuk environment ini.",
+    "mcpRateLimited": "Terlalu banyak permintaan dari agent ini. Coba lagi dalam {retryAfterSeconds} detik."
   },
   "unsavedChanges": {
     "title": "Buang perubahan yang belum disimpan?",

@@ -373,7 +373,11 @@ const SCOPED_WRITES: Record<string, Record<string, RegExp>> = {
     listIssueAttachments: /project: \["read"\]/,
     deleteIssueAttachment: /issue: \["write"\]/,
   },
-  "server/services/labels.ts": { setIssueLabels: /issue: \["write"\]/ },
+  "server/services/labels.ts": {
+    setIssueLabels:
+      /return setIssueLabelsFor\(await accessScopeFromSession\(\)/,
+    setIssueLabelsFor: /requireProjectPermissionIn\([\s\S]*issue: \["write"\]/,
+  },
   // Org-wide, not project-scoped: the right that creates projects (admin).
   "server/services/project-groups.ts": {
     createGroup: /requireManageGroups\(/,

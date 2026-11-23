@@ -61,7 +61,7 @@ export function toCallToolResult(result: ToolResult<unknown>): CallToolResult {
 }
 
 /** One line per call: never the input, the output or a token. */
-function logCall(
+export function logCall(
   tool: string,
   caller: McpCaller,
   startedAt: number,

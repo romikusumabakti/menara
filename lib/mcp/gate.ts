@@ -1,5 +1,6 @@
-import { requireMcpAuth } from "@better-auth/mcp";
+import { createMcpProtectedRequestHandler } from "@better-auth/mcp";
 import { createResourceServerChallenge } from "@better-auth/oauth-provider";
+import { getLocalJwksSource } from "@better-auth/oauth-provider/internal";
 import { APIError } from "better-auth/api";
 import { and, eq, lt, sql } from "drizzle-orm";
 import {
@@ -67,25 +68,42 @@ function invalidToken(request: Request, description: string): Response {
 }
 
 /**
- * Verifies the access token the way better-auth's requireMcpAuth does: the
- * signature against this instance's own keys (in process), issuer, audience
- * = MCP_RESOURCE, expiry, an `azp`, and the `read` scope (a token without it
- * gets a 403 insufficient_scope challenge). Never reads a cookie.
+ * Verifies the access token as better-auth's requireMcpAuth does, plus the
+ * token type: the signature against this instance's own keys (in process),
+ * issuer, audience = MCP_RESOURCE, expiry, `typ: at+jwt` (RFC 9068, so an ID
+ * token or another JWT signed with the same keys is refused), an `azp`, and
+ * the `read` scope (a token without it gets a 403 insufficient_scope
+ * challenge). requireMcpAuth cannot add JWT verify options, hence the
+ * lower-level handler with the same inputs. Never reads a cookie.
  */
 async function verifyToken(
   request: Request
 ): Promise<{ claims: AccessTokenClaims } | Response> {
+  const context = await auth.$context;
+  const issuer = context.baseURL;
+  if (!issuer) throw new Error("The auth instance has no base URL");
   let claims: AccessTokenClaims | undefined;
-  const response = await requireMcpAuth(
-    auth,
+  const response = await createMcpProtectedRequestHandler(
+    {
+      // The in-process key source requireMcpAuth uses (no JWKS request; its
+      // fields are internal to the handler's options type), else the same
+      // JWKS URL it falls back to.
+      jwksUrl:
+        context.getPlugin("jwt")?.options?.jwks?.remoteUrl ?? `${issuer}/jwks`,
+      // Menara's auth instance is narrower than the generic AuthContext.
+      ...getLocalJwksSource(
+        context as unknown as Parameters<typeof getLocalJwksSource>[0],
+        request
+      ),
+      issuer,
+      audience: MCP_RESOURCE,
+      jwtVerifyOptions: { typ: "at+jwt", requiredClaims: ["azp"] },
+      requiredScopes: ["read"],
+      dpop: NO_DPOP,
+    },
     (_request, verified) => {
       claims = verified;
       return new Response(null, { status: 204 });
-    },
-    {
-      resource: MCP_RESOURCE,
-      requiredScopes: ["read"],
-      dpop: NO_DPOP,
     }
   )(request);
   return claims ? { claims } : response;

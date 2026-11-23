@@ -1,6 +1,10 @@
 import { asc, eq } from "drizzle-orm";
+import {
+  type AccessScope,
+  accessScopeFromSession,
+  requireProjectPermissionIn,
+} from "@/lib/access-scope";
 import { requireSession } from "@/lib/auth-session";
-import { requireProjectPermission } from "@/lib/authz";
 import { db } from "@/lib/db";
 import { issueLabels, type Label, labels } from "@/lib/db/schema";
 
@@ -20,7 +24,16 @@ export async function setIssueLabels(
   issueId: string,
   labelIds: string[]
 ): Promise<{ success: boolean }> {
-  await requireProjectPermission({ issueId }, { issue: ["write"] });
+  return setIssueLabelsFor(await accessScopeFromSession(), issueId, labelIds);
+}
+
+/** setIssueLabels for a scope (the session's, or an MCP token's). */
+export async function setIssueLabelsFor(
+  scope: AccessScope,
+  issueId: string,
+  labelIds: string[]
+): Promise<{ success: boolean }> {
+  await requireProjectPermissionIn(scope, { issueId }, { issue: ["write"] });
   try {
     await db.transaction(async (tx) => {
       await tx.delete(issueLabels).where(eq(issueLabels.issueId, issueId));

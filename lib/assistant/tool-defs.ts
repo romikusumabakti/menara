@@ -1,6 +1,7 @@
 import type { ToolResultOutput } from "@ai-sdk/provider-utils";
 import { type FlexibleSchema, jsonSchema, type ToolSet, tool } from "ai";
 import { z } from "zod";
+import { errorSummary } from "@/lib/error-summary";
 import type { AttachmentRef } from "./attachment-refs";
 import type { UploadRef } from "./file-store";
 import type { ProviderOptions, StrictBudget } from "./providers";
@@ -596,7 +597,8 @@ export async function executeTool(
   } catch (error) {
     // Unexpected failures (DB down, corrupt snapshot): the message stays generic
     // so an internal error text never reaches the model.
-    console.error(`[assistant] tool ${name} failed`, error);
+    // Never the error object: a failed query carries its parameters.
+    console.error(`[assistant] tool ${name} failed: ${errorSummary(error)}`);
     return { ok: false, error: `${name} failed unexpectedly`, meta: {} };
   }
 }
@@ -625,7 +627,8 @@ async function executeDataTool(
       mode: ctx.mode,
     });
   } catch (error) {
-    console.error(`[assistant] tool ${name} failed`, error);
+    // Never the error object: a failed query carries its parameters.
+    console.error(`[assistant] tool ${name} failed: ${errorSummary(error)}`);
     return { ok: false, error: `${name} failed unexpectedly`, meta: {} };
   }
 }
@@ -654,7 +657,8 @@ async function executeDatabaseTool(
       mode: ctx.mode,
     });
   } catch (error) {
-    console.error(`[assistant] tool ${name} failed`, error);
+    // Never the error object: a failed query carries its parameters.
+    console.error(`[assistant] tool ${name} failed: ${errorSummary(error)}`);
     return { ok: false, error: `${name} failed unexpectedly`, meta: {} };
   }
 }

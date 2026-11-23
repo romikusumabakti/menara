@@ -621,6 +621,35 @@ describe("MCP write tools", () => {
     expect(JSON.stringify(crash)).not.toContain("secret");
   });
 
+  it("logs a failed query without its parameters (the tool input)", async () => {
+    const { DrizzleQueryError } = await import("drizzle-orm/errors");
+    const cause = Object.assign(new Error("connection refused"), {
+      code: "ECONNREFUSED",
+    });
+    issueCores.addCommentFor.mockRejectedValue(
+      new DrizzleQueryError(
+        "insert into issue_comments values ($1)",
+        ["private note"],
+        cause
+      )
+    );
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await call("add_issue_comment", { key: "ACME-12", body: "private note" });
+      const lines = logged.mock.calls.map((args) =>
+        args.map((a) => (a instanceof Error ? a.stack : String(a))).join(" ")
+      );
+      expect(lines.join("\n")).toContain("add_issue_comment");
+      expect(lines.join("\n")).toContain("ECONNREFUSED");
+      expect(lines.join("\n")).not.toContain("private note");
+      for (const args of logged.mock.calls) {
+        for (const arg of args) expect(arg).not.toBeInstanceOf(Error);
+      }
+    } finally {
+      logged.mockRestore();
+    }
+  });
+
   it("refuses an over-long comment before the core", async () => {
     const result = await call("add_issue_comment", {
       key: "ACME-12",

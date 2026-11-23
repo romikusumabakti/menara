@@ -9,6 +9,7 @@ import {
 import type { ToolResult } from "@/lib/assistant/tools/code";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
+import { errorSummary } from "@/lib/error-summary";
 import { effectiveTimeZone } from "@/lib/timezone";
 import type { McpCaller } from "./gate";
 import type { McpScope } from "./scopes";
@@ -106,7 +107,9 @@ export function registerReadTools(server: McpServer, caller: McpCaller): void {
         } catch (error) {
           // executeTool catches its own failures; this is the context
           // (projects, time zone) failing to load. Its text stays here.
-          console.error(`[mcp] tool ${entry.name} failed`, error);
+          console.error(
+            `[mcp] tool ${entry.name} failed: ${errorSummary(error)}`
+          );
           logCall(entry.name, caller, startedAt, "error");
           return toCallToolResult({
             ok: false,

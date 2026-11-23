@@ -11,6 +11,7 @@ import {
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { mcpGrantUsage, oauthClients, oauthConsents } from "@/lib/db/schema";
+import { errorSummary } from "@/lib/error-summary";
 import { isMcpEnabled, MCP_RESOURCE, type McpScope } from "./config";
 import { isMcpScope } from "./scopes";
 
@@ -163,7 +164,9 @@ function touchGrantUsage(userId: string, clientId: string): void {
     })
     .catch((error: unknown) => {
       lastTouched.delete(key);
-      console.error("[mcp] failed to record grant usage", error);
+      console.error(
+        `[mcp] failed to record grant usage: ${errorSummary(error)}`
+      );
     });
 }
 

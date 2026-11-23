@@ -15,6 +15,7 @@ import {
   users,
 } from "@/lib/db/schema";
 import { resolveEnvironmentBySlug } from "@/lib/environment-slug";
+import { errorSummary } from "@/lib/error-summary";
 import {
   issuePrioritySchema,
   issueStatusSchema,
@@ -139,7 +140,7 @@ function errorResult(tool: string, error: unknown): CallToolResult {
       error instanceof CodedHTTPException ? (error.params ?? {}) : {};
     return toolError(code, error.message || code, params);
   }
-  console.error(`[mcp] tool ${tool} failed`, error);
+  console.error(`[mcp] tool ${tool} failed: ${errorSummary(error)}`);
   return {
     isError: true,
     content: [{ type: "text", text: `${tool} failed unexpectedly` }],

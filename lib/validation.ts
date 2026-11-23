@@ -213,7 +213,7 @@ const environmentFields = z.object({
   // Purpose + owner of this deployment (both optional). The owner must be
   // eligible for the project (server/services/environments checks that); the
   // schema only shapes the id.
-  kind: z.enum(["qa", "dev", "release", "sandbox", "prod"]).nullish(),
+  kind: z.enum(["qa", "dev", "release", "sandbox", "prod", "demo"]).nullish(),
   ownerId: z.uuid().nullish(),
   // Where the deployed app opens in a browser. Absolute http(s) only, so the
   // link can never carry a `javascript:` or other scheme.

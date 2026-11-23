@@ -119,7 +119,7 @@ export const environmentSetupInputSchema = z
     // The URL name; left out, the name gives one. Only shaped here: the
     // setup refuses a bad or taken one at `slug` (requireAvailableEnvSlug).
     slug: z.string().trim().max(64).optional(),
-    kind: z.enum(["qa", "dev", "release", "sandbox", "prod"]).nullish(),
+    kind: z.enum(["qa", "dev", "release", "sandbox", "prod", "demo"]).nullish(),
     ownerId: z.uuid().nullish(),
     copyFromEnvironmentId: z.uuid().nullish(),
     server: z.object({ serverId: z.uuid() }).strict(),

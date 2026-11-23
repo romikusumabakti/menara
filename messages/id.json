@@ -2146,7 +2146,8 @@
     "dev": "Dev",
     "release": "Rilis",
     "sandbox": "Sandbox",
-    "prod": "Produksi"
+    "prod": "Produksi",
+    "demo": "Demo"
   },
   "projectOverview": {
     "newEnvironment": "Environment baru",

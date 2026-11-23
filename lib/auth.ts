@@ -16,6 +16,14 @@ import { isAllowedEmail } from "./branding";
 import { db } from "./db";
 import {
   accounts,
+  jwks,
+  oauthAccessTokens,
+  oauthClientAssertions,
+  oauthClientResources,
+  oauthClients,
+  oauthConsents,
+  oauthRefreshTokens,
+  oauthResources,
   passkeys,
   sessions,
   twoFactors,
@@ -71,6 +79,26 @@ const DEV_ORIGINS =
 // the passkey rpName at init, so a rename reaches these three after a restart.
 const INSTANCE_NAME = bootBrandName();
 
+// The tables better-auth writes, keyed the way the drizzle adapter looks a
+// model up with usePlural: the model name plus "s". The jwt plugin's model is
+// already named "jwks", so its key is "jwkss" (the table is still `jwks`).
+export const authSchema = {
+  users,
+  sessions,
+  accounts,
+  verifications,
+  passkeys,
+  twoFactors,
+  jwkss: jwks,
+  oauthClients,
+  oauthResources,
+  oauthClientResources,
+  oauthRefreshTokens,
+  oauthAccessTokens,
+  oauthConsents,
+  oauthClientAssertions,
+};
+
 export const auth = betterAuth({
   appName: INSTANCE_NAME,
   baseURL: BASE_URL,
@@ -79,14 +107,7 @@ export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
     usePlural: true,
-    schema: {
-      users,
-      sessions,
-      accounts,
-      verifications,
-      passkeys,
-      twoFactors,
-    },
+    schema: authSchema,
   }),
   emailAndPassword: {
     enabled: true,

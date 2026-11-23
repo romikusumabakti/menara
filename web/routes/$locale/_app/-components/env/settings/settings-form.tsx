@@ -34,7 +34,14 @@ export const SERVICE_TYPES = ["docker", "systemd", "kubernetes"] as const;
 export const DB_TYPES = ["postgres", "mssql", "mysql"] as const;
 // Engines Menara logs into over TCP, so they need a user + password.
 const TCP_AUTH_DB_TYPES = new Set<string>(["mssql", "mysql"]);
-export const ENV_KINDS = ["qa", "dev", "release", "sandbox", "prod"] as const;
+export const ENV_KINDS = [
+  "qa",
+  "dev",
+  "release",
+  "sandbox",
+  "prod",
+  "demo",
+] as const;
 const HTTP_URL = z.url({ protocol: /^https?$/ });
 
 type ServiceType = (typeof SERVICE_TYPES)[number];

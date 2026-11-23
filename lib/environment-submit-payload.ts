@@ -32,7 +32,7 @@ export type EnvironmentSubmitValues = DbFields &
   FrontendFields & {
     hasDatabase: boolean;
     hasFrontend: boolean;
-    kind: "qa" | "dev" | "release" | "sandbox" | "prod" | "";
+    kind: "qa" | "dev" | "release" | "sandbox" | "prod" | "demo" | "";
     ownerId: string;
     url: string;
     backendMockTimeApiUrl: string;

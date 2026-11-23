@@ -2146,7 +2146,8 @@
     "dev": "Dev",
     "release": "Release",
     "sandbox": "Sandbox",
-    "prod": "Producción"
+    "prod": "Producción",
+    "demo": "Demo"
   },
   "projectOverview": {
     "newEnvironment": "Nuevo entorno",

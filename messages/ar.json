@@ -2146,7 +2146,8 @@
     "dev": "تطوير",
     "release": "إصدار",
     "sandbox": "تجريبية",
-    "prod": "إنتاج"
+    "prod": "إنتاج",
+    "demo": "عرض توضيحي"
   },
   "projectOverview": {
     "newEnvironment": "بيئة جديدة",

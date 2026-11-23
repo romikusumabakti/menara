@@ -2146,7 +2146,8 @@
     "dev": "开发",
     "release": "发布",
     "sandbox": "沙盒",
-    "prod": "生产"
+    "prod": "生产",
+    "demo": "演示"
   },
   "projectOverview": {
     "newEnvironment": "新建环境",

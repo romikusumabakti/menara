@@ -10,7 +10,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export const ENV_KINDS = ["qa", "dev", "release", "sandbox", "prod"] as const;
+export const ENV_KINDS = [
+  "qa",
+  "dev",
+  "release",
+  "sandbox",
+  "prod",
+  "demo",
+] as const;
 export type EnvKind = (typeof ENV_KINDS)[number];
 const NONE = "__none";
 

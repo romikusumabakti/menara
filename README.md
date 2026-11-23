@@ -231,6 +231,8 @@ If the plan looks right, run it again without `--dry-run`.
   and how to implement it
 - [`docs/jira.md`](docs/jira.md): Jira sync
 - [`docs/microsoft-sign-in.md`](docs/microsoft-sign-in.md): Entra ID sign-in
+- [`docs/mcp.md`](docs/mcp.md): the MCP server, its scopes, client setup and
+  revocation
 - [`SECURITY.md`](SECURITY.md): threat model, audit trail, supply chain, known
   gaps
 

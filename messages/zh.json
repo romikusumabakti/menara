@@ -1059,7 +1059,8 @@
       "profile": "个人资料",
       "security": "安全",
       "sessions": "会话",
-      "usage": "用量"
+      "usage": "用量",
+      "connectedApps": "已连接的应用"
     },
     "profile": {
       "title": "个人资料",
@@ -1707,7 +1708,8 @@
     "mcpEnvironmentReadOnly": "智能体只能在 dev、QA 和 sandbox 环境中部署和回滚。此环境请直接使用 {{APP_NAME}}。",
     "mcpRateLimited": "此智能体的请求过多。请在 {retryAfterSeconds} 秒后重试。",
     "buildNotFound": "该构建已不再适用于目标的分支。",
-    "noPreviousDeploy": "没有可回滚的上一次成功部署。"
+    "noPreviousDeploy": "没有可回滚的上一次成功部署。",
+    "mcpGrantNotFound": "此应用没有可撤销的访问权限。"
   },
   "unsavedChanges": {
     "title": "放弃未保存的更改？",
@@ -2481,7 +2483,10 @@
     },
     "assistantConfigured": "{actor} 更新了助手设置：{enabled, select, true {已启用} other {已停用}}，{model}，思考强度 {effort}，每位用户每日上限 {dailyCapUsd, number} USD{keyChanged, select, true {，API 密钥已更改} other {}}{providerChanged, select, true {，提供商已更改} other {}}{pricesChanged, select, true {，价格已更改} other {}}{orgContextChanged, select, true {，组织背景已更改} other {}}",
     "assistantDatabaseQuery": "{actor} 通过助手查询了 {environment} 的数据库：{sql} — {outcome, select, ok {{rows, plural, other {# 行}}} refused {已拒绝（{reason, select, notEnabled {未启用访问} multiple {多于一条语句} not_select {不是只读 SELECT} wrapped_sensitive {敏感列被重命名或包装} limit {LIMIT 超过 100} other {无法解析}}）} other {失败}}",
-    "environmentAssistantDbAccess": "{actor} {enabled, select, true {允许助手查询 {environment} 的数据库（只读）} other {关闭了助手对 {environment} 数据库的访问}}"
+    "environmentAssistantDbAccess": "{actor} {enabled, select, true {允许助手查询 {environment} 的数据库（只读）} other {关闭了助手对 {environment} 数据库的访问}}",
+    "mcpGrantApproved": "{actor} 允许 {client} 通过 MCP 使用其账户",
+    "mcpGrantRevoked": "{actor} 撤销了 {client} 对 {userName} 的访问权限",
+    "instanceMcpToggled": "{enabled, select, true {{actor} 在此实例上允许了 MCP 客户端} other {{actor} 在此实例上关闭了 MCP 客户端}}"
   },
   "jira": {
     "title": "Jira",
@@ -3670,6 +3675,7 @@
     "tabUpdates": "更新",
     "tabSshKey": "SSH 密钥",
     "tabBranding": "品牌",
+    "tabMcp": "MCP",
     "branding": {
       "title": "品牌",
       "description": "此实例如何命名和展示自身：侧边栏、登录页、邮件和浏览器标签页。",
@@ -4278,5 +4284,49 @@
     "deny": "拒绝",
     "errorTitle": "此请求无法继续",
     "failed": "无法发送你的选择，请重试。"
+  },
+  "connectedApps": {
+    "title": "已连接的应用",
+    "description": "你允许通过 MCP 使用你的 {{APP_NAME}} 账户的代理。",
+    "disabled": "此实例已关闭 MCP",
+    "disabledAdminLink": "打开 管理 › 实例 › MCP",
+    "emptyTitle": "没有已连接的应用",
+    "emptyDescription": "你允许代理使用你的账户后，它会显示在这里。",
+    "approved": "{time}批准",
+    "lastUsed": "最近使用：{time}",
+    "lastUsedNever": "从未使用",
+    "revoke": "撤销",
+    "revokeTitle": "撤销 {client} 的访问权限？",
+    "revokeDescription": "它会立即停止工作。",
+    "revoked": "已撤销访问权限",
+    "setupTitle": "连接代理",
+    "setupDescription": "将 MCP 客户端指向此服务器。首次使用时会打开 {{APP_NAME}}，供你登录并批准。",
+    "serverUrl": "服务器 URL",
+    "setupCommand": "在终端中运行：",
+    "setupJson": "添加到设置中的 context_servers 下：",
+    "setupConnector": "Settings › Connectors › Add custom connector，URL {url}"
+  },
+  "instanceMcp": {
+    "title": "MCP 服务器",
+    "description": "允许代理（例如编程助手）以批准它们的用户身份使用 {{APP_NAME}}，且仅限每位用户授予的范围。",
+    "enabled": "允许 MCP 客户端",
+    "enabledDescription": "关闭后，MCP 端点及其登录流程将不可用，所有已连接的应用会立即停止工作。授权会保留。",
+    "turnedOn": "已允许 MCP 客户端",
+    "turnedOff": "已关闭 MCP 客户端",
+    "resourceUrl": "资源 URL",
+    "grantsTitle": "已连接的应用",
+    "grantsDescription": "此实例上所有用户的授权。",
+    "grantsEmpty": "还没有人连接应用。",
+    "user": "用户",
+    "client": "应用",
+    "scopes": "范围",
+    "lastUsed": "最近使用",
+    "never": "从未",
+    "revoke": "撤销",
+    "revokeTitle": "撤销 {client} 的访问权限？",
+    "revokeDescription": "{user} 的访问会立即停止。",
+    "revoked": "已撤销访问权限",
+    "proxyTitle": "位于访问代理之后",
+    "proxyNote": "如果此实例位于访问代理之后，请放行以下路径：/api/mcp、/.well-known/oauth-protected-resource*、/.well-known/oauth-authorization-server*、/api/auth/oauth2/token、/api/auth/oauth2/revoke、/api/auth/jwks。/api/auth/oauth2/authorize 和 /oauth/consent 仍应留在代理之后。"
   }
 }

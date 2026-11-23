@@ -59,6 +59,9 @@ import { applyBranding } from "@/i18n/branding";
 import { AttentionList } from "../web/routes/$locale/_app/-components/home/attention-list";
 import { Route } from "../web/routes/$locale/_app/admin.instance";
 
+// The page is rendered without a router: no `?tab=`, so the Backups tab.
+vi.spyOn(Route, "useSearch").mockReturnValue({});
+
 const messages = applyBranding(enMessages, {
   appName: "Menara",
   companyName: null,

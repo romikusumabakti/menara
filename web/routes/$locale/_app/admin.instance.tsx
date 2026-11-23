@@ -11,13 +11,24 @@ import { requireOrgRole } from "@/web/project-guard";
 import { loaderQuery } from "@/web/query-client";
 import { BackupsTab } from "./-components/admin/instance/backups-tab";
 import { BrandingTab } from "./-components/admin/instance/branding-tab";
+import { McpTab } from "./-components/admin/instance/mcp-tab";
 import { SshKeyTab } from "./-components/admin/instance/ssh-key-tab";
 import { UpdatesTab } from "./-components/admin/instance/updates-tab";
 import { ListPending } from "./-components/list-pending";
 
-// Admin → Instance: this instance's own backups, updates, SSH key and branding. The SSH key
-// tab's routes check org server:manage, which every instance:manage role has.
+const TABS = ["backups", "updates", "ssh-key", "branding", "mcp"] as const;
+type InstanceTab = (typeof TABS)[number];
+
+// Admin → Instance: this instance's own backups, updates, SSH key, branding
+// and MCP server. The SSH key tab's routes check org server:manage, which
+// every instance:manage role has. `?tab=` opens a tab (Account › Connected
+// apps links to the MCP one).
 export const Route = createFileRoute("/$locale/_app/admin/instance")({
+  validateSearch: (search: Record<string, unknown>): { tab?: InstanceTab } => ({
+    tab: TABS.includes(search.tab as InstanceTab)
+      ? (search.tab as InstanceTab)
+      : undefined,
+  }),
   beforeLoad: async ({ context: { queryClient } }) => {
     await requireOrgRole(queryClient, { instance: ["manage"] });
   },
@@ -33,15 +44,17 @@ export const Route = createFileRoute("/$locale/_app/admin/instance")({
 
 function InstancePage() {
   const t = useTranslations("instance");
+  const { tab } = Route.useSearch();
   return (
     <>
       <PageHeader title={t("title")} subtitle={t("subtitle")} />
-      <Tabs defaultValue="backups" className="w-full">
+      <Tabs defaultValue={tab ?? "backups"} className="w-full">
         <TabsList>
           <TabsTrigger value="backups">{t("tabBackups")}</TabsTrigger>
           <TabsTrigger value="updates">{t("tabUpdates")}</TabsTrigger>
           <TabsTrigger value="ssh-key">{t("tabSshKey")}</TabsTrigger>
           <TabsTrigger value="branding">{t("tabBranding")}</TabsTrigger>
+          <TabsTrigger value="mcp">{t("tabMcp")}</TabsTrigger>
         </TabsList>
         <TabsContent value="backups">
           <BackupsTab />
@@ -59,6 +72,11 @@ function InstancePage() {
         <TabsContent value="branding">
           <Suspense fallback={<ListPending />}>
             <BrandingTab />
+          </Suspense>
+        </TabsContent>
+        <TabsContent value="mcp">
+          <Suspense fallback={<ListPending />}>
+            <McpTab />
           </Suspense>
         </TabsContent>
       </Tabs>

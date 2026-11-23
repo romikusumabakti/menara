@@ -1059,7 +1059,8 @@
       "profile": "Perfil",
       "security": "Seguridad",
       "sessions": "Sesiones",
-      "usage": "Uso"
+      "usage": "Uso",
+      "connectedApps": "Apps conectadas"
     },
     "profile": {
       "title": "Perfil",
@@ -1707,7 +1708,8 @@
     "mcpEnvironmentReadOnly": "Los agentes solo pueden desplegar y revertir en entornos dev, QA y sandbox. Usa {{APP_NAME}} directamente para este.",
     "mcpRateLimited": "Demasiadas solicitudes de este agente. Inténtalo de nuevo en {retryAfterSeconds} segundos.",
     "buildNotFound": "Esta build ya no está disponible para la rama del destino.",
-    "noPreviousDeploy": "No hay un despliegue correcto anterior al que revertir."
+    "noPreviousDeploy": "No hay un despliegue correcto anterior al que revertir.",
+    "mcpGrantNotFound": "Esta app no tiene acceso que revocar."
   },
   "unsavedChanges": {
     "title": "¿Descartar los cambios sin guardar?",
@@ -2481,7 +2483,10 @@
     },
     "assistantConfigured": "{actor} actualizó los ajustes del asistente: {enabled, select, true {activado} other {desactivado}}, {model}, esfuerzo {effort}, límite de {dailyCapUsd, number} USD por usuario al día{keyChanged, select, true {, clave de API cambiada} other {}}{providerChanged, select, true {, proveedor cambiado} other {}}{pricesChanged, select, true {, precios cambiados} other {}}{orgContextChanged, select, true {, contexto de la organización cambiado} other {}}",
     "assistantDatabaseQuery": "{actor} consultó la base de datos de {environment} con el asistente: {sql} — {outcome, select, ok {{rows, plural, one {# fila} other {# filas}}} refused {rechazada ({reason, select, notEnabled {acceso no activado} multiple {más de una sentencia} not_select {no es un SELECT de solo lectura} wrapped_sensitive {columna sensible renombrada o envuelta} limit {LIMIT superior a 100} other {no se pudo analizar}})} other {falló}}",
-    "environmentAssistantDbAccess": "{actor} {enabled, select, true {permitió que el asistente consulte la base de datos de {environment} (solo lectura)} other {desactivó el acceso del asistente a la base de datos de {environment}}}"
+    "environmentAssistantDbAccess": "{actor} {enabled, select, true {permitió que el asistente consulte la base de datos de {environment} (solo lectura)} other {desactivó el acceso del asistente a la base de datos de {environment}}}",
+    "mcpGrantApproved": "{actor} permitió a {client} usar su cuenta por MCP",
+    "mcpGrantRevoked": "{actor} revocó el acceso de {client} para {userName}",
+    "instanceMcpToggled": "{enabled, select, true {{actor} permitió los clientes MCP en esta instancia} other {{actor} desactivó los clientes MCP en esta instancia}}"
   },
   "jira": {
     "title": "Jira",
@@ -3670,6 +3675,7 @@
     "tabUpdates": "Actualizaciones",
     "tabSshKey": "Clave SSH",
     "tabBranding": "Marca",
+    "tabMcp": "MCP",
     "branding": {
       "title": "Marca",
       "description": "Cómo se llama y se muestra esta instancia: en la barra lateral, en la página de inicio de sesión, en los correos y en la pestaña del navegador.",
@@ -4278,5 +4284,49 @@
     "deny": "Denegar",
     "errorTitle": "Esta solicitud no puede continuar",
     "failed": "No se pudo enviar tu respuesta. Inténtalo de nuevo."
+  },
+  "connectedApps": {
+    "title": "Apps conectadas",
+    "description": "Agentes a los que permitiste usar tu cuenta de {{APP_NAME}} por MCP.",
+    "disabled": "MCP está desactivado en esta instancia",
+    "disabledAdminLink": "Abrir Admin › Instancia › MCP",
+    "emptyTitle": "No hay apps conectadas",
+    "emptyDescription": "Cuando permitas a un agente usar tu cuenta, aparecerá aquí.",
+    "approved": "Aprobada {time}",
+    "lastUsed": "Último uso {time}",
+    "lastUsedNever": "Sin usar todavía",
+    "revoke": "Revocar",
+    "revokeTitle": "¿Revocar el acceso de {client}?",
+    "revokeDescription": "Deja de funcionar al instante.",
+    "revoked": "Acceso revocado",
+    "setupTitle": "Conectar un agente",
+    "setupDescription": "Apunta un cliente MCP a este servidor. La primera vez abre {{APP_NAME}} para que inicies sesión y lo apruebes.",
+    "serverUrl": "URL del servidor",
+    "setupCommand": "Ejecuta en una terminal:",
+    "setupJson": "Añade bajo context_servers en tu configuración:",
+    "setupConnector": "Settings › Connectors › Add custom connector, URL {url}"
+  },
+  "instanceMcp": {
+    "title": "Servidor MCP",
+    "description": "Permite que agentes, como asistentes de programación, usen {{APP_NAME}} como los usuarios que los aprueban, solo con los permisos que cada usuario concede.",
+    "enabled": "Permitir clientes MCP",
+    "enabledDescription": "Si está desactivado, el endpoint MCP y su inicio de sesión desaparecen y todas las apps conectadas dejan de funcionar al instante. Los permisos se conservan.",
+    "turnedOn": "Clientes MCP permitidos",
+    "turnedOff": "Clientes MCP desactivados",
+    "resourceUrl": "URL del recurso",
+    "grantsTitle": "Apps conectadas",
+    "grantsDescription": "Los permisos de todos los usuarios en esta instancia.",
+    "grantsEmpty": "Nadie ha conectado una app todavía.",
+    "user": "Usuario",
+    "client": "App",
+    "scopes": "Permisos",
+    "lastUsed": "Último uso",
+    "never": "Nunca",
+    "revoke": "Revocar",
+    "revokeTitle": "¿Revocar el acceso de {client}?",
+    "revokeDescription": "Deja de funcionar al instante para {user}.",
+    "revoked": "Acceso revocado",
+    "proxyTitle": "Detrás de un proxy de acceso",
+    "proxyNote": "Si esta instancia está detrás de un proxy de acceso, deja pasar estas rutas: /api/mcp, /.well-known/oauth-protected-resource*, /.well-known/oauth-authorization-server*, /api/auth/oauth2/token, /api/auth/oauth2/revoke, /api/auth/jwks. Mantén /api/auth/oauth2/authorize y /oauth/consent detrás de él."
   }
 }

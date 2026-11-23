@@ -1059,7 +1059,8 @@
       "profile": "Profil",
       "security": "Keamanan",
       "sessions": "Sesi",
-      "usage": "Penggunaan"
+      "usage": "Penggunaan",
+      "connectedApps": "Aplikasi terhubung"
     },
     "profile": {
       "title": "Profil",
@@ -1707,7 +1708,8 @@
     "mcpEnvironmentReadOnly": "Agent hanya boleh deploy dan rollback di environment dev, QA, dan sandbox. Gunakan {{APP_NAME}} langsung untuk environment ini.",
     "mcpRateLimited": "Terlalu banyak permintaan dari agent ini. Coba lagi dalam {retryAfterSeconds} detik.",
     "buildNotFound": "Build ini sudah tidak tersedia untuk branch target.",
-    "noPreviousDeploy": "Tidak ada deploy sukses sebelumnya untuk di-rollback."
+    "noPreviousDeploy": "Tidak ada deploy sukses sebelumnya untuk di-rollback.",
+    "mcpGrantNotFound": "Aplikasi ini tidak memiliki akses untuk dicabut."
   },
   "unsavedChanges": {
     "title": "Buang perubahan yang belum disimpan?",
@@ -2481,7 +2483,10 @@
     },
     "assistantConfigured": "{actor} memperbarui pengaturan asisten: {enabled, select, true {aktif} other {nonaktif}}, {model}, effort {effort}, batas {dailyCapUsd, number} USD per pengguna per hari{keyChanged, select, true {, API key diubah} other {}}{providerChanged, select, true {, penyedia diubah} other {}}{pricesChanged, select, true {, harga diubah} other {}}{orgContextChanged, select, true {, konteks organisasi diubah} other {}}",
     "assistantDatabaseQuery": "{actor} mengkueri basis data {environment} melalui Asisten: {sql} — {outcome, select, ok {{rows, plural, other {# baris}}} refused {ditolak ({reason, select, notEnabled {akses belum diaktifkan} multiple {lebih dari satu pernyataan} not_select {bukan SELECT baca-saja} wrapped_sensitive {kolom sensitif diganti nama atau dibungkus} limit {LIMIT di atas 100} other {tidak dapat diurai}})} other {gagal}}",
-    "environmentAssistantDbAccess": "{actor} {enabled, select, true {mengizinkan Asisten mengkueri basis data {environment} (baca-saja)} other {menonaktifkan akses Asisten ke basis data {environment}}}"
+    "environmentAssistantDbAccess": "{actor} {enabled, select, true {mengizinkan Asisten mengkueri basis data {environment} (baca-saja)} other {menonaktifkan akses Asisten ke basis data {environment}}}",
+    "mcpGrantApproved": "{actor} mengizinkan {client} memakai akunnya lewat MCP",
+    "mcpGrantRevoked": "{actor} mencabut akses {client} untuk {userName}",
+    "instanceMcpToggled": "{enabled, select, true {{actor} mengizinkan klien MCP di instans ini} other {{actor} mematikan klien MCP di instans ini}}"
   },
   "jira": {
     "title": "Jira",
@@ -3670,6 +3675,7 @@
     "tabUpdates": "Pembaruan",
     "tabSshKey": "SSH key",
     "tabBranding": "Branding",
+    "tabMcp": "MCP",
     "branding": {
       "title": "Branding",
       "description": "Cara instans ini menamai dan menampilkan dirinya: di sidebar, di halaman masuk, di email, dan di tab browser.",
@@ -4278,5 +4284,49 @@
     "deny": "Tolak",
     "errorTitle": "Permintaan ini tidak bisa dilanjutkan",
     "failed": "Jawaban Anda gagal dikirim. Coba lagi."
+  },
+  "connectedApps": {
+    "title": "Aplikasi terhubung",
+    "description": "Agen yang Anda izinkan memakai akun {{APP_NAME}} Anda lewat MCP.",
+    "disabled": "MCP dimatikan di instans ini",
+    "disabledAdminLink": "Buka Admin › Instans › MCP",
+    "emptyTitle": "Belum ada aplikasi terhubung",
+    "emptyDescription": "Agen yang Anda izinkan memakai akun Anda muncul di sini.",
+    "approved": "Disetujui {time}",
+    "lastUsed": "Terakhir dipakai {time}",
+    "lastUsedNever": "Belum pernah dipakai",
+    "revoke": "Cabut",
+    "revokeTitle": "Cabut akses {client}?",
+    "revokeDescription": "Akses langsung berhenti.",
+    "revoked": "Akses dicabut",
+    "setupTitle": "Hubungkan agen",
+    "setupDescription": "Arahkan klien MCP ke server ini. Saat pertama dipakai, klien membuka {{APP_NAME}} agar Anda bisa masuk dan menyetujuinya.",
+    "serverUrl": "URL server",
+    "setupCommand": "Jalankan di terminal:",
+    "setupJson": "Tambahkan di bawah context_servers pada pengaturan Anda:",
+    "setupConnector": "Settings › Connectors › Add custom connector, URL {url}"
+  },
+  "instanceMcp": {
+    "title": "Server MCP",
+    "description": "Mengizinkan agen, misalnya asisten koding, memakai {{APP_NAME}} sebagai pengguna yang menyetujuinya, hanya dengan cakupan yang diberikan tiap pengguna.",
+    "enabled": "Izinkan klien MCP",
+    "enabledDescription": "Saat mati, endpoint MCP dan alur masuknya tidak tersedia dan semua aplikasi terhubung langsung berhenti. Izin tetap disimpan.",
+    "turnedOn": "Klien MCP diizinkan",
+    "turnedOff": "Klien MCP dimatikan",
+    "resourceUrl": "URL resource",
+    "grantsTitle": "Aplikasi terhubung",
+    "grantsDescription": "Semua izin pengguna di instans ini.",
+    "grantsEmpty": "Belum ada yang menghubungkan aplikasi.",
+    "user": "Pengguna",
+    "client": "Aplikasi",
+    "scopes": "Cakupan",
+    "lastUsed": "Terakhir dipakai",
+    "never": "Belum pernah",
+    "revoke": "Cabut",
+    "revokeTitle": "Cabut akses {client}?",
+    "revokeDescription": "Akses {user} langsung berhenti.",
+    "revoked": "Akses dicabut",
+    "proxyTitle": "Di balik proxy akses",
+    "proxyNote": "Jika instans ini berada di balik proxy akses, loloskan path berikut: /api/mcp, /.well-known/oauth-protected-resource*, /.well-known/oauth-authorization-server*, /api/auth/oauth2/token, /api/auth/oauth2/revoke, /api/auth/jwks. Biarkan /api/auth/oauth2/authorize dan /oauth/consent tetap di balik proxy."
   }
 }

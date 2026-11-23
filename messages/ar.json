@@ -1059,7 +1059,8 @@
       "profile": "الملف الشخصي",
       "security": "الأمان",
       "sessions": "الجلسات",
-      "usage": "الاستخدام"
+      "usage": "الاستخدام",
+      "connectedApps": "التطبيقات المتصلة"
     },
     "profile": {
       "title": "الملف الشخصي",
@@ -1707,7 +1708,8 @@
     "mcpEnvironmentReadOnly": "لا يمكن للوكلاء النشر والتراجع إلا في بيئات dev وQA وsandbox. استخدم {{APP_NAME}} مباشرةً لهذه البيئة.",
     "mcpRateLimited": "طلبات كثيرة جدًا من هذا الوكيل. حاول مرة أخرى بعد {retryAfterSeconds} ثانية.",
     "buildNotFound": "لم تعد هذه البنية متاحة لفرع الهدف.",
-    "noPreviousDeploy": "لا يوجد نشر ناجح سابق للتراجع إليه."
+    "noPreviousDeploy": "لا يوجد نشر ناجح سابق للتراجع إليه.",
+    "mcpGrantNotFound": "لا يملك هذا التطبيق وصولًا لإلغائه."
   },
   "unsavedChanges": {
     "title": "تجاهل التغييرات غير المحفوظة؟",
@@ -2481,7 +2483,10 @@
     },
     "assistantConfigured": "قام {actor} بتحديث إعدادات المساعد: {enabled, select, true {مفعّل} other {معطّل}}، {model}، مستوى الجهد {effort}، الحد {dailyCapUsd, number} USD لكل مستخدم يوميًا{keyChanged, select, true {، تم تغيير مفتاح API} other {}}{providerChanged, select, true {، تم تغيير المزوّد} other {}}{pricesChanged, select, true {، تم تغيير الأسعار} other {}}{orgContextChanged, select, true {، تم تغيير سياق المؤسسة} other {}}",
     "assistantDatabaseQuery": "استعلم {actor} في قاعدة بيانات {environment} عبر المساعد: {sql} — {outcome, select, ok {{rows, plural, zero {لا صفوف} one {صف واحد} two {صفان} few {# صفوف} many {# صفًا} other {# صف}}} refused {مرفوض ({reason, select, notEnabled {الوصول غير مفعّل} multiple {أكثر من عبارة واحدة} not_select {ليس SELECT للقراءة فقط} wrapped_sensitive {عمود حساس أُعيدت تسميته أو غُلّف} limit {LIMIT أكبر من 100} other {تعذّر التحليل}})} other {فشل}}",
-    "environmentAssistantDbAccess": "{actor} {enabled, select, true {سمح للمساعد بالاستعلام في قاعدة بيانات {environment} (قراءة فقط)} other {أوقف وصول المساعد إلى قاعدة بيانات {environment}}}"
+    "environmentAssistantDbAccess": "{actor} {enabled, select, true {سمح للمساعد بالاستعلام في قاعدة بيانات {environment} (قراءة فقط)} other {أوقف وصول المساعد إلى قاعدة بيانات {environment}}}",
+    "mcpGrantApproved": "سمح {actor} لـ {client} باستخدام حسابه عبر MCP",
+    "mcpGrantRevoked": "ألغى {actor} وصول {client} للمستخدم {userName}",
+    "instanceMcpToggled": "{enabled, select, true {سمح {actor} بعملاء MCP على هذا المثيل} other {أوقف {actor} عملاء MCP على هذا المثيل}}"
   },
   "jira": {
     "title": "Jira",
@@ -3670,6 +3675,7 @@
     "tabUpdates": "التحديثات",
     "tabSshKey": "مفتاح SSH",
     "tabBranding": "الهوية",
+    "tabMcp": "MCP",
     "branding": {
       "title": "الهوية",
       "description": "كيف تُسمّي هذه النسخة نفسها وتظهر: في الشريط الجانبي وصفحة تسجيل الدخول والرسائل وعلامة تبويب المتصفح.",
@@ -4278,5 +4284,49 @@
     "deny": "رفض",
     "errorTitle": "لا يمكن متابعة هذا الطلب",
     "failed": "تعذّر إرسال ردّك. حاول مرة أخرى."
+  },
+  "connectedApps": {
+    "title": "التطبيقات المتصلة",
+    "description": "الوكلاء الذين سمحت لهم باستخدام حسابك في {{APP_NAME}} عبر MCP.",
+    "disabled": "MCP متوقف على هذا المثيل",
+    "disabledAdminLink": "افتح الإدارة › المثيل › MCP",
+    "emptyTitle": "لا توجد تطبيقات متصلة",
+    "emptyDescription": "عندما تسمح لوكيل باستخدام حسابك، يظهر هنا.",
+    "approved": "تمت الموافقة {time}",
+    "lastUsed": "آخر استخدام {time}",
+    "lastUsedNever": "لم يُستخدم بعد",
+    "revoke": "إلغاء",
+    "revokeTitle": "إلغاء وصول {client}؟",
+    "revokeDescription": "يتوقف عن العمل فورًا.",
+    "revoked": "تم إلغاء الوصول",
+    "setupTitle": "ربط وكيل",
+    "setupDescription": "وجّه عميل MCP إلى هذا الخادم. عند أول استخدام يفتح {{APP_NAME}} لتسجّل الدخول وتوافق عليه.",
+    "serverUrl": "رابط الخادم",
+    "setupCommand": "شغّل في الطرفية:",
+    "setupJson": "أضف ضمن context_servers في إعداداتك:",
+    "setupConnector": "Settings › Connectors › Add custom connector، الرابط {url}"
+  },
+  "instanceMcp": {
+    "title": "خادم MCP",
+    "description": "يسمح لوكلاء مثل مساعدي البرمجة باستخدام {{APP_NAME}} بصفة المستخدمين الذين يوافقون عليهم، وبالصلاحيات التي يمنحها كل مستخدم فقط.",
+    "enabled": "السماح بعملاء MCP",
+    "enabledDescription": "عند الإيقاف تختفي نقطة MCP وتدفق تسجيل الدخول الخاص بها، وتتوقف كل التطبيقات المتصلة فورًا. تبقى الأذونات محفوظة.",
+    "turnedOn": "تم السماح بعملاء MCP",
+    "turnedOff": "تم إيقاف عملاء MCP",
+    "resourceUrl": "رابط المورد",
+    "grantsTitle": "التطبيقات المتصلة",
+    "grantsDescription": "أذونات جميع المستخدمين على هذا المثيل.",
+    "grantsEmpty": "لم يربط أحد تطبيقًا بعد.",
+    "user": "المستخدم",
+    "client": "التطبيق",
+    "scopes": "الصلاحيات",
+    "lastUsed": "آخر استخدام",
+    "never": "أبدًا",
+    "revoke": "إلغاء",
+    "revokeTitle": "إلغاء وصول {client}؟",
+    "revokeDescription": "يتوقف عن العمل فورًا لـ {user}.",
+    "revoked": "تم إلغاء الوصول",
+    "proxyTitle": "خلف وكيل وصول",
+    "proxyNote": "إذا كان هذا المثيل خلف وكيل وصول، فاسمح بمرور هذه المسارات: /api/mcp و/.well-known/oauth-protected-resource* و/.well-known/oauth-authorization-server* و/api/auth/oauth2/token و/api/auth/oauth2/revoke و/api/auth/jwks. أبقِ /api/auth/oauth2/authorize و/oauth/consent خلفه."
   }
 }

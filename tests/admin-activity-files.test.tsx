@@ -435,4 +435,22 @@ describe("activity page instance events", () => {
     expect(text).not.toMatch(/branding, /);
     expect(text).toMatch(/updated the instance branding(?!:)/);
   });
+
+  it("renders the MCP grant and instance switch events", async () => {
+    const text = await renderEvents([
+      row("1", "mcp.grantApproved", { client: "Acme Agent" }),
+      row("2", "mcp.grantRevoked", {
+        client: "Acme Agent",
+        userName: "Annisa",
+      }),
+      row("3", "instance.mcpToggled", { enabled: "true" }),
+      row("4", "instance.mcpToggled", { enabled: "false" }),
+    ]);
+    expect(text).toContain(
+      "Rina allowed Acme Agent to use their account over MCP"
+    );
+    expect(text).toContain("Rina revoked the access of Acme Agent for Annisa");
+    expect(text).toContain("Rina allowed MCP clients on this instance");
+    expect(text).toContain("Rina turned off MCP clients on this instance");
+  });
 });

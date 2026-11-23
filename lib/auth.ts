@@ -43,6 +43,7 @@ import {
   MCP_RESOURCE,
   MCP_SCOPES,
 } from "./mcp/config";
+import { recordGrantApproved } from "./mcp/grants";
 import { nameTaken, pickFreeName } from "./people/names";
 import { orgAc, orgRoles } from "./permissions";
 import {
@@ -311,6 +312,28 @@ export const auth = betterAuth({
         if (row) void recordActivity(row);
       } catch (error) {
         console.error("Auth activity logging failed:", error);
+      }
+
+      // An approved MCP grant: better-auth stored the consent row, and its
+      // consent step has no callback of its own. A denial or a refusal is
+      // not logged.
+      if (
+        ctx.path === "/oauth2/consent" &&
+        !isAPIError(ctx.context.returned) &&
+        (ctx.body as { accept?: unknown } | undefined)?.accept === true
+      ) {
+        try {
+          const oauthQuery = (ctx.body as { oauth_query?: unknown })
+            .oauth_query;
+          const userId =
+            ctx.context.session?.user.id ??
+            (await getSessionFromCtx(ctx))?.user.id;
+          if (userId && typeof oauthQuery === "string") {
+            void recordGrantApproved(userId, oauthQuery);
+          }
+        } catch (error) {
+          console.error("MCP grant logging failed:", error);
+        }
       }
 
       if (!ctx.path.startsWith("/callback") || ctx.params?.id !== "microsoft")

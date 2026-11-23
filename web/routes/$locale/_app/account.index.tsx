@@ -5,6 +5,7 @@ import {
   KeyRound,
   Loader2,
   Monitor,
+  Plug,
   UserRound,
 } from "lucide-react";
 import { useTranslations } from "use-intl";
@@ -26,19 +27,26 @@ import { getAccountQuery } from "@/web/api/profile";
 import { useBootstrap, useMe } from "@/web/api/session";
 import { loaderQuery } from "@/web/query-client";
 import { ChangePasswordForm } from "./-components/account/change-password-form";
+import { ConnectedApps } from "./-components/account/connected-apps";
 import { PasskeysList } from "./-components/account/passkeys-list";
 import { ProfileForm } from "./-components/account/profile-form";
 import { SessionsList } from "./-components/account/sessions-list";
 import { TwoFactorCard } from "./-components/account/two-factor-card";
 import { UsageCard } from "./-components/account/usage-card";
 
-type AccountTab = "profile" | "security" | "sessions" | "usage";
+type AccountTab =
+  | "profile"
+  | "security"
+  | "sessions"
+  | "connected-apps"
+  | "usage";
 
 export const Route = createFileRoute("/$locale/_app/account/")({
   validateSearch: (search: Record<string, unknown>): { tab?: AccountTab } => ({
     tab:
       search.tab === "security" ||
       search.tab === "sessions" ||
+      search.tab === "connected-apps" ||
       search.tab === "usage"
         ? search.tab
         : undefined,
@@ -102,6 +110,10 @@ function AccountPage() {
           <TabsTrigger value="sessions">
             <Monitor className="size-4" />
             {t("tabs.sessions")}
+          </TabsTrigger>
+          <TabsTrigger value="connected-apps">
+            <Plug className="size-4" />
+            {t("tabs.connectedApps")}
           </TabsTrigger>
           {assistantEnabled && (
             <TabsTrigger value="usage">
@@ -185,6 +197,10 @@ function AccountPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="connected-apps" className="flex flex-col gap-6">
+          <ConnectedApps />
         </TabsContent>
 
         {assistantEnabled && (

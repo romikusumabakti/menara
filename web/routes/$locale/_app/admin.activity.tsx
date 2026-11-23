@@ -300,6 +300,19 @@ function message(
         fields: format.list(fields, { type: "conjunction" }),
       });
     }
+    // Admin › Instance › MCP: the instance switch.
+    case "instance.mcpToggled":
+      return t("instanceMcpToggled", { actor, enabled: String(d.enabled) });
+    // An MCP grant approved on the consent page, or revoked (by its user on
+    // Account › Connected apps, or by an admin).
+    case "mcp.grantApproved":
+      return t("mcpGrantApproved", { actor, client: String(d.client) });
+    case "mcp.grantRevoked":
+      return t("mcpGrantRevoked", {
+        actor,
+        client: String(d.client),
+        userName: String(d.userName),
+      });
     case "mailpit.configured":
       return t("mailpitConfigured", {
         actor,

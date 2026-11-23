@@ -3,12 +3,17 @@ import { describe, expect, it } from "vitest";
 
 // The assistant runs on whichever provider the admin configures, so no
 // tracked file names one vendor outside the provider module. The exceptions
-// are stored identifiers that cannot change (expand-only schema) and the
-// provider picker's label.
+// are stored identifiers that cannot change (expand-only schema), the
+// provider picker's label, and the MCP client setup: the module that names
+// the supported MCP clients (proper names, not copy), its test, and the MCP
+// guide, which walks through those clients.
 
 const EXCLUDED = [
   "lib/assistant/providers.ts",
   "tests/assistant-providers.test.ts",
+  "lib/mcp/client-setup.ts",
+  "tests/mcp-client-setup.test.ts",
+  "docs/mcp.md",
   "tests/no-vendor-names.test.ts",
   "drizzle/",
   // Checks the migration in drizzle/ that moved the old vendor key column.

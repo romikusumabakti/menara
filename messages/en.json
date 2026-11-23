@@ -1059,7 +1059,8 @@
       "profile": "Profile",
       "security": "Security",
       "sessions": "Sessions",
-      "usage": "Usage"
+      "usage": "Usage",
+      "connectedApps": "Connected apps"
     },
     "profile": {
       "title": "Profile",
@@ -1707,7 +1708,8 @@
     "mcpEnvironmentReadOnly": "Agents can deploy and roll back only on dev, QA and sandbox environments. Use {{APP_NAME}} itself for this one.",
     "mcpRateLimited": "Too many requests from this agent. Try again in {retryAfterSeconds} seconds.",
     "buildNotFound": "This build is no longer available for the target's branch.",
-    "noPreviousDeploy": "There is no previous successful deploy to roll back to."
+    "noPreviousDeploy": "There is no previous successful deploy to roll back to.",
+    "mcpGrantNotFound": "This app has no access to revoke."
   },
   "unsavedChanges": {
     "title": "Discard unsaved changes?",
@@ -2481,7 +2483,10 @@
     },
     "assistantConfigured": "{actor} updated the assistant settings: {enabled, select, true {enabled} other {disabled}}, {model}, effort {effort}, limit {dailyCapUsd, number} USD per user per day{keyChanged, select, true {, API key changed} other {}}{providerChanged, select, true {, provider changed} other {}}{pricesChanged, select, true {, prices changed} other {}}{orgContextChanged, select, true {, organisation context changed} other {}}",
     "assistantDatabaseQuery": "{actor} queried the database of {environment} through the Assistant: {sql} — {outcome, select, ok {{rows, plural, one {# row} other {# rows}}} refused {refused ({reason, select, notEnabled {access not enabled} multiple {more than one statement} not_select {not a read-only SELECT} wrapped_sensitive {sensitive column renamed or wrapped} limit {LIMIT above 100} other {could not be parsed}})} other {failed}}",
-    "environmentAssistantDbAccess": "{actor} {enabled, select, true {let the Assistant query the database of {environment} (read-only)} other {turned off the Assistant's access to the database of {environment}}}"
+    "environmentAssistantDbAccess": "{actor} {enabled, select, true {let the Assistant query the database of {environment} (read-only)} other {turned off the Assistant's access to the database of {environment}}}",
+    "mcpGrantApproved": "{actor} allowed {client} to use their account over MCP",
+    "mcpGrantRevoked": "{actor} revoked the access of {client} for {userName}",
+    "instanceMcpToggled": "{enabled, select, true {{actor} allowed MCP clients on this instance} other {{actor} turned off MCP clients on this instance}}"
   },
   "jira": {
     "title": "Jira",
@@ -3670,6 +3675,7 @@
     "tabUpdates": "Updates",
     "tabSshKey": "SSH key",
     "tabBranding": "Branding",
+    "tabMcp": "MCP",
     "branding": {
       "title": "Branding",
       "description": "How this instance names and shows itself: in the sidebar, on the sign-in page, in emails and in the browser tab.",
@@ -4278,5 +4284,49 @@
     "deny": "Deny",
     "errorTitle": "This request can't continue",
     "failed": "Your answer could not be sent. Try again."
+  },
+  "connectedApps": {
+    "title": "Connected apps",
+    "description": "Agents you allowed to use your {{APP_NAME}} account over MCP.",
+    "disabled": "MCP is turned off on this instance",
+    "disabledAdminLink": "Open Admin › Instance › MCP",
+    "emptyTitle": "No connected apps",
+    "emptyDescription": "When you allow an agent to use your account, it shows here.",
+    "approved": "Approved {time}",
+    "lastUsed": "Last used {time}",
+    "lastUsedNever": "Last used never",
+    "revoke": "Revoke",
+    "revokeTitle": "Revoke access for {client}?",
+    "revokeDescription": "It stops working at once.",
+    "revoked": "Access revoked",
+    "setupTitle": "Connect an agent",
+    "setupDescription": "Point an MCP client at this server. On first use it opens {{APP_NAME}} so you can sign in and approve it.",
+    "serverUrl": "Server URL",
+    "setupCommand": "Run in a terminal:",
+    "setupJson": "Add under context_servers in your settings:",
+    "setupConnector": "Settings › Connectors › Add custom connector, URL {url}"
+  },
+  "instanceMcp": {
+    "title": "MCP server",
+    "description": "Lets agents such as coding assistants use {{APP_NAME}} as the users who approve them, with only the scopes each user grants.",
+    "enabled": "Allow MCP clients",
+    "enabledDescription": "When off, the MCP endpoint and its sign-in flow are gone and every connected app stops at once. Grants are kept.",
+    "turnedOn": "MCP clients allowed",
+    "turnedOff": "MCP clients turned off",
+    "resourceUrl": "Resource URL",
+    "grantsTitle": "Connected apps",
+    "grantsDescription": "Every user's grants on this instance.",
+    "grantsEmpty": "No one has connected an app yet.",
+    "user": "User",
+    "client": "App",
+    "scopes": "Scopes",
+    "lastUsed": "Last used",
+    "never": "Never",
+    "revoke": "Revoke",
+    "revokeTitle": "Revoke access for {client}?",
+    "revokeDescription": "It stops working at once for {user}.",
+    "revoked": "Access revoked",
+    "proxyTitle": "Behind an access proxy",
+    "proxyNote": "If this instance sits behind an access proxy, let these paths through: /api/mcp, /.well-known/oauth-protected-resource*, /.well-known/oauth-authorization-server*, /api/auth/oauth2/token, /api/auth/oauth2/revoke, /api/auth/jwks. Keep /api/auth/oauth2/authorize and /oauth/consent behind it."
   }
 }

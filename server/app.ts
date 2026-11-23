@@ -39,6 +39,10 @@ import { labelsRouter } from "@/server/routes/labels";
 import { mailFilesRouter, mailRouter } from "@/server/routes/mail";
 import { mailpitSettingsRouter } from "@/server/routes/mailpit-settings";
 import { mcpRouter } from "@/server/routes/mcp";
+import {
+  connectedAppsRouter,
+  instanceMcpRouter,
+} from "@/server/routes/mcp-grants";
 import { milestonesCompatRouter } from "@/server/routes/milestones-compat";
 import { mockTimeRouter } from "@/server/routes/mock-time";
 import { notificationsRouter } from "@/server/routes/notifications";
@@ -126,6 +130,7 @@ export const app = createBaseApp()
   .route("/api/knowledge", knowledgeRouter)
   .route("/api/users", usersRouter)
   .route("/api/profile", profileRouter)
+  .route("/api/account/connected-apps", connectedAppsRouter)
   .route("/api/avatars", avatarsRouter)
   .route("/api/access", accessRouter)
   .route("/api/project-members", projectMembersRouter)
@@ -179,6 +184,7 @@ export const app = createBaseApp()
   // Before /api/instance: its instance:manage guard would answer first.
   .route("/api/instance/ssh-key", instanceSshKeyRouter)
   .route("/api/instance/environment-archives", environmentArchivesRouter)
+  .route("/api/instance/mcp", instanceMcpRouter)
   .route("/api/instance", instanceRouter)
   // The favicon keeps its pre-API path; the SPA's <link rel="icon"> uses it.
   .route("/brand", brandRouter);

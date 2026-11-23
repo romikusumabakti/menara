@@ -226,10 +226,12 @@ export function ConsentCard({
 }
 
 /**
- * The page title, which names the client: its registered name, else the host
- * its client_id lives at.
+ * The page title, which names the client: its registered name, else (none,
+ * or a blank one) the host its client_id lives at.
  */
 export function ConsentTitle({ info }: { info: ConsentInfo }) {
   const t = useTranslations("oauthConsent");
-  return t("title", { client: info.client.name ?? info.client.host ?? "" });
+  return t("title", {
+    client: info.client.name?.trim() || info.client.host || "",
+  });
 }

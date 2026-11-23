@@ -176,6 +176,22 @@ describe("ConsentCard", () => {
     expect(container?.querySelector("img")).toBeNull();
   });
 
+  it("names the host when the client's name is empty", async () => {
+    for (const name of ["", "   "]) {
+      await render(
+        info(["read"], {
+          client: { name, host: "agent.example.com", logoUrl: null },
+        })
+      );
+      expect(document.querySelector("h1")?.textContent).toBe(
+        "Allow agent.example.com to use your Acme Ops account?"
+      );
+      act(() => root?.unmount());
+      container?.remove();
+      root = container = undefined;
+    }
+  });
+
   it("sends accept:false on Deny", async () => {
     await render(info(["read", "issues:write"]));
     await click(button("Deny"));

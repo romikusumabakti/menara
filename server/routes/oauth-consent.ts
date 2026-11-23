@@ -73,7 +73,8 @@ export const oauthConsentRouter = sessionRouter().get(
     c.header("Cache-Control", "private, no-store");
     return c.json({
       client: {
-        name: client.client_name ?? null,
+        // A blank name is no name: the page falls back to the host.
+        name: client.client_name?.trim() || null,
         host: hostOf(clientId),
         logoUrl: null,
       },

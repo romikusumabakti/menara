@@ -72,6 +72,28 @@ What the design defends against:
   are masked, and log lines have emails, NIK, NPWP, phone and card numbers
   replaced, all best effort. Don't enable database access on an environment
   with real participant data.
+- **An AI agent connected over MCP.** Menara is its own OAuth 2.1
+  authorization server for agents ([`docs/mcp.md`](docs/mcp.md)). An agent acts for the
+  user who approved it, with that user's live permissions (a role change or
+  ban applies to its next call), and only within the scopes the user ticked;
+  deploys and rollbacks are limited to dev, QA and sandbox environments.
+  `/api/mcp` accepts only a bearer access token (a JWT for that resource,
+  `typ: at+jwt`), never a session cookie, so it and the two endpoints agents
+  call from their own process (`/api/auth/oauth2/token` and `/revoke`) are
+  the only paths exempt from the `Origin` check. Agents register through
+  their client metadata document only (no dynamic registration, no
+  user-created clients). Fetching that document is a server-side request to
+  a URL the agent picks, so the fetcher refuses hosts that resolve to
+  loopback, private, link-local or other special-purpose addresses, pins the
+  checked address against DNS rebinding, follows no redirect, and caps the
+  body (5 KB) and time (5 s). DPoP is not offered; tokens are bearer tokens,
+  one hour long. Every call re-checks the grant: revoking one (Account ›
+  Connected apps, or an admin in Admin › Instance › MCP) deletes it, revokes
+  its refresh tokens and stops a still-valid access token at once, also after
+  the user approves the agent again; turning **Allow MCP clients** off stops
+  every agent and hides the OAuth endpoints. Calls are rate-limited per user
+  and agent, writes name the agent in the activity log, and logs never hold
+  tokens, tool input or output.
 
 What it does not defend against:
 

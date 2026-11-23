@@ -9,7 +9,7 @@ import { releaseNotesUrl, UPSTREAM_REPO_URL } from "@/lib/upstream";
 import enMessages from "../messages/en.json";
 
 const state = vi.hoisted(() => ({
-  bootstrap: { appName: "Kestrel Panel", companyName: "PT Kestrel Osprey" } as {
+  bootstrap: { appName: "Kestrel Ops", companyName: "PT Kestrel Osprey" } as {
     appName: string;
     companyName: string | null;
   },
@@ -79,7 +79,7 @@ describe("releaseNotesUrl", () => {
 
 describe("Copyright", () => {
   it("credits Menara with a link to its repository on a rebranded instance", async () => {
-    state.bootstrap = { appName: "Kestrel Panel", companyName: "PT Kestrel" };
+    state.bootstrap = { appName: "Kestrel Ops", companyName: "PT Kestrel" };
     await render(<Copyright />);
     const year = new Date().getFullYear();
     expect(container?.textContent).toBe(
@@ -110,13 +110,13 @@ describe("AboutDialog", () => {
   }
 
   it("names Menara, the instance, the version and the upstream links", async () => {
-    state.bootstrap = { appName: "Kestrel Panel", companyName: "PT Kestrel" };
+    state.bootstrap = { appName: "Kestrel Ops", companyName: "PT Kestrel" };
     state.version = "1.2.3";
     await render(<AboutDialog open onOpenChange={() => {}} />);
     const dialog = document.querySelector('[role="dialog"]');
     expect(dialog?.querySelector("h2")?.textContent).toBe("Menara");
     expect(dialog?.textContent).toContain(
-      "Kestrel Panel runs on Menara, open-source software."
+      "Kestrel Ops runs on Menara, open-source software."
     );
     expect(dialog?.textContent).toContain("MIT");
     expect(links()).toEqual([

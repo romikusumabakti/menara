@@ -38,6 +38,7 @@ import { knowledgeRouter } from "@/server/routes/knowledge";
 import { labelsRouter } from "@/server/routes/labels";
 import { mailFilesRouter, mailRouter } from "@/server/routes/mail";
 import { mailpitSettingsRouter } from "@/server/routes/mailpit-settings";
+import { mcpRouter } from "@/server/routes/mcp";
 import { milestonesCompatRouter } from "@/server/routes/milestones-compat";
 import { mockTimeRouter } from "@/server/routes/mock-time";
 import { notificationsRouter } from "@/server/routes/notifications";
@@ -102,6 +103,8 @@ export const app = createBaseApp()
   // better-auth owns everything under /api/auth and sets its cookies on the
   // Response it returns, so it gets the raw request and nothing else.
   .on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw))
+  // The MCP endpoint: bearer tokens only, no session (lib/mcp/gate).
+  .route("/api/mcp", mcpRouter)
   .get("/api/health", (c) => c.json({ ok: true, version: MENARA_VERSION }))
   // One chain, so AppType carries every route for the typed client. Each
   // module router is mounted at /api/<module>; the extra mounts keep the paths

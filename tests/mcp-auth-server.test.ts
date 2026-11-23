@@ -51,6 +51,7 @@ vi.mock("@/lib/db", async () => {
     const rows = async () =>
       table === schema.instanceSettings ? [{ enabled: state.mcpEnabled }] : [];
     const query = {
+      innerJoin: () => query,
       where: () => query,
       limit: () => query,
       // biome-ignore lint/suspicious/noThenProperty: a drizzle query is thenable.
@@ -383,6 +384,23 @@ describe("MCP authorization server", () => {
     expect(claims.aud).toBe(MCP_RESOURCE);
     expect(claims.iss).toBe(ISSUER);
     expect(claims.azp).toBe(AGENT_ID);
+
+    // The MCP endpoint verifies this real token against the in-process keys
+    // (signature, issuer, audience): it gets as far as the grant lookup,
+    // which the stubbed db answers with no consent row.
+    const mcp = await app.request(MCP_RESOURCE, {
+      method: "POST",
+      headers: {
+        Host: new URL(MCP_RESOURCE).host,
+        Authorization: `Bearer ${tokens.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: "{}",
+    });
+    expect(mcp.status).toBe(401);
+    expect(mcp.headers.get("www-authenticate")).toContain(
+      'error_description="the grant is no longer active"'
+    );
   });
 });
 

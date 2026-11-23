@@ -1106,6 +1106,9 @@ describe("API routers reach a guard", () => {
       "GET /oauth-authorization-server/api/auth",
       "GET /oauth-authorization-server",
     ],
+    // The MCP endpoint authenticates every request by OAuth bearer token
+    // (lib/mcp/gate), never by session; GET and DELETE only answer 405.
+    "server/routes/mcp.ts": ["POST /", "GET /", "DELETE /"],
   };
   // A router's routes: from its factory call up to the next exported router.
   function routesOf(source: string, factory: string): string[] {

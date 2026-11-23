@@ -2346,6 +2346,7 @@
     "issueJiraCreateUnlinked": "{actor} creó {jiraKey} en Jira a partir de un borrador del asistente, pero no se pudo guardar en {{APP_NAME}}",
     "issueStatusChanged": "{actor} movió {key} a {status}",
     "issueCommented": "{actor} comentó en {key}",
+    "issueLabelsChanged": "{actor} cambió las etiquetas de {key}",
     "deployRequested": "{actor} solicitó desplegar {tag} en {target} de {environment}",
     "deployRollbackRequested": "{actor} solicitó revertir {target} de {environment} a {tag}",
     "viaClient": "{message} mediante {client}",

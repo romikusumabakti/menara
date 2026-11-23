@@ -2346,6 +2346,7 @@
     "issueJiraCreateUnlinked": "{actor} 根据助手草稿在 Jira 中创建了 {jiraKey}，但未能保存到 {{APP_NAME}} 中",
     "issueStatusChanged": "{actor} 将 {key} 移动到 {status}",
     "issueCommented": "{actor} 评论了 {key}",
+    "issueLabelsChanged": "{actor} 更改了 {key} 的标签",
     "deployRequested": "{actor} 请求将 {tag} 部署到 {environment} 中的 {target}",
     "deployRollbackRequested": "{actor} 请求将 {environment} 中的 {target} 回滚到 {tag}",
     "viaClient": "{message}（通过 {client}）",

@@ -410,6 +410,26 @@ describe.skipIf(!enabled)("issue writes on Postgres", () => {
     });
   });
 
+  describe("setIssueLabels", () => {
+    it("replaces the label set and records issue.labelsChanged", async () => {
+      const { setIssueLabels } = await import("@/server/services/labels");
+      as(ADMIN, "admin");
+      const id = await seedIssue(ids.project, 30);
+      expect(await setIssueLabels(id, [ids.uiLabel])).toEqual({
+        success: true,
+      });
+      const attached = await d
+        .select({ labelId: schema.issueLabels.labelId })
+        .from(schema.issueLabels)
+        .where(eq(schema.issueLabels.issueId, id));
+      expect(attached.map((a) => a.labelId)).toEqual([ids.uiLabel]);
+      const rows = await activityFor(id);
+      expect(rows.map((r) => [r.action, r.actorId, r.data])).toEqual([
+        ["issue.labelsChanged", ADMIN, { key: "ACME-30" }],
+      ]);
+    });
+  });
+
   describe("createIssue with status, labels and parent", () => {
     it("creates everything in one request", async () => {
       const { createIssue } = await import("@/server/services/issues");

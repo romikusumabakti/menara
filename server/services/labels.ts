@@ -4,6 +4,7 @@ import {
   accessScopeFromSession,
   requireProjectPermissionIn,
 } from "@/lib/access-scope";
+import { recordActivity, type WriteVia } from "@/lib/activity";
 import { requireSession } from "@/lib/auth-session";
 import { db } from "@/lib/db";
 import { issueLabels, type Label, labels } from "@/lib/db/schema";
@@ -27,11 +28,15 @@ export async function setIssueLabels(
   return setIssueLabelsFor(await accessScopeFromSession(), issueId, labelIds);
 }
 
-/** setIssueLabels for a scope (the session's, or an MCP token's). */
+/**
+ * setIssueLabels for a scope (the session's, or an MCP token's). Records
+ * `issue.labelsChanged`, naming the client when an MCP tool made the change.
+ */
 export async function setIssueLabelsFor(
   scope: AccessScope,
   issueId: string,
-  labelIds: string[]
+  labelIds: string[],
+  via?: WriteVia
 ): Promise<{ success: boolean }> {
   await requireProjectPermissionIn(scope, { issueId }, { issue: ["write"] });
   try {
@@ -43,9 +48,26 @@ export async function setIssueLabelsFor(
           .values(labelIds.map((labelId) => ({ issueId, labelId })));
       }
     });
-    return { success: true };
   } catch (error) {
     console.error("Failed to set issue labels:", error);
     return { success: false };
   }
+  const issue = await db.query.issues.findFirst({
+    where: { id: issueId },
+    columns: { number: true },
+    with: { project: { columns: { key: true } } },
+  });
+  if (issue?.project) {
+    await recordActivity({
+      actorId: scope.userId,
+      action: "issue.labelsChanged",
+      entityType: "issue",
+      entityId: issueId,
+      data: {
+        key: `${issue.project.key}-${issue.number}`,
+        ...(via && { viaClient: via.client, viaClientId: via.clientId }),
+      },
+    });
+  }
+  return { success: true };
 }

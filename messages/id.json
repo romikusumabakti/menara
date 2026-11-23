@@ -2346,6 +2346,7 @@
     "issueJiraCreateUnlinked": "{actor} membuat {jiraKey} di Jira dari draf asisten, tetapi issue itu gagal disimpan di {{APP_NAME}}",
     "issueStatusChanged": "{actor} memindah {key} ke {status}",
     "issueCommented": "{actor} mengomentari {key}",
+    "issueLabelsChanged": "{actor} mengubah label {key}",
     "deployRequested": "{actor} meminta deploy {tag} ke {target} di {environment}",
     "deployRollbackRequested": "{actor} meminta rollback {target} di {environment} ke {tag}",
     "viaClient": "{message} melalui {client}",

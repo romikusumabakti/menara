@@ -584,7 +584,8 @@ describe("MCP write tools", () => {
     expect(labelCores.setIssueLabelsFor).toHaveBeenCalledWith(
       expect.objectContaining({ userId: USER_ID }),
       ISSUE_ID,
-      [LABEL_INFRA]
+      [LABEL_INFRA],
+      { client: "Acme Agent", clientId: CLIENT_ID }
     );
   });
 

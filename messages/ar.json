@@ -2346,6 +2346,7 @@
     "issueJiraCreateUnlinked": "أنشأ {actor} {jiraKey} في Jira من مسودة المساعد، لكن تعذّر حفظها في {{APP_NAME}}",
     "issueStatusChanged": "نقل {actor} {key} إلى {status}",
     "issueCommented": "علّق {actor} على {key}",
+    "issueLabelsChanged": "غيّر {actor} تسميات {key}",
     "deployRequested": "طلب {actor} نشر {tag} على {target} في {environment}",
     "deployRollbackRequested": "طلب {actor} إرجاع {target} في {environment} إلى {tag}",
     "viaClient": "{message} عبر {client}",

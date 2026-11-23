@@ -454,3 +454,18 @@ describe("activity page instance events", () => {
     expect(text).toContain("Rina turned off MCP clients on this instance");
   });
 });
+
+describe("activity page issue label events", () => {
+  it("renders issue.labelsChanged, with the client an agent used", async () => {
+    const text = await renderEvents([
+      row("1", "issue.labelsChanged", { key: "ACME-7" }),
+      row("2", "issue.labelsChanged", {
+        key: "ACME-8",
+        viaClient: "Acme Agent",
+        viaClientId: "https://example.com/client",
+      }),
+    ]);
+    expect(text).toContain("Rina changed the labels of ACME-7");
+    expect(text).toContain("Rina changed the labels of ACME-8 via Acme Agent");
+  });
+});

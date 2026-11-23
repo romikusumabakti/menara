@@ -503,7 +503,12 @@ export function registerWriteTools(server: McpServer, caller: McpCaller): void {
           summary = issueSummary(issue.key, response.data);
         }
         if (labelIds) {
-          const labelled = await setIssueLabelsFor(scope, issue.id, labelIds);
+          const labelled = await setIssueLabelsFor(
+            scope,
+            issue.id,
+            labelIds,
+            via
+          );
           if (!labelled.success) {
             throw new ToolRefusal(
               "labelsNotSaved",

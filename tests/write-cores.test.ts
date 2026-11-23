@@ -86,7 +86,11 @@ vi.mock("@/lib/db", async () => {
     insert: () => ({
       values: () => ({ returning: async () => [{ id: "comment-1" }] }),
     }),
-    transaction: async (fn: (tx: unknown) => unknown) => fn({}),
+    transaction: async (fn: (tx: unknown) => unknown) =>
+      fn({
+        delete: () => ({ where: async () => {} }),
+        insert: () => ({ values: async () => {} }),
+      }),
     query: {
       issues: {
         findFirst: async () => ({
@@ -118,6 +122,9 @@ vi.mock("@/server/services/deployments", () => deployments);
 
 const { createIssue, createIssueFor, addCommentFor } = await import(
   "@/server/services/issues"
+);
+const { setIssueLabels, setIssueLabelsFor } = await import(
+  "@/server/services/labels"
 );
 const { deployTag, deployTagFor, rollbackTargetFor } = await import(
   "@/server/services/deploys"
@@ -237,6 +244,41 @@ describe("issue write cores", () => {
   });
 });
 
+describe("label write core", () => {
+  it("setIssueLabelsFor records issue.labelsChanged with viaClient", async () => {
+    expect(
+      await setIssueLabelsFor(engineerScope, ISSUE_ID, ["label-1"], via)
+    ).toEqual({ success: true });
+    expect(activity.rows).toEqual([
+      {
+        actorId: USER_ID,
+        action: "issue.labelsChanged",
+        entityType: "issue",
+        entityId: ISSUE_ID,
+        data: {
+          key: "ACME-7",
+          viaClient: "Acme Agent",
+          viaClientId: "https://example.com/client",
+        },
+      },
+    ]);
+    expect(session.calls).toBe(0);
+  });
+
+  it("the HTTP wrapper records the same row without a client", async () => {
+    expect(await setIssueLabels(ISSUE_ID, [])).toEqual({ success: true });
+    expect(activity.rows).toEqual([
+      {
+        actorId: USER_ID,
+        action: "issue.labelsChanged",
+        entityType: "issue",
+        entityId: ISSUE_ID,
+        data: { key: "ACME-7" },
+      },
+    ]);
+  });
+});
+
 describe("deploy write cores", () => {
   it("deployTagFor refuses a locked environment with the lock message", async () => {
     repo.getDeployLock.mockResolvedValue({
@@ -340,7 +382,7 @@ describe("deploy write cores", () => {
 });
 
 describe("activity feed", () => {
-  it("the activity feed renders deploy.requested, deploy.rollbackRequested, issue.commented and the via suffix", () => {
+  it("the activity feed renders deploy.requested, deploy.rollbackRequested, issue.commented, issue.labelsChanged and the via suffix", () => {
     const page = readFileSync(
       "web/routes/$locale/_app/admin.activity.tsx",
       "utf8"
@@ -354,6 +396,9 @@ describe("activity feed", () => {
     expect(page).toMatch(
       /case "issue\.commented":\s*return t\("issueCommented"/
     );
+    expect(page).toMatch(
+      /case "issue\.labelsChanged":\s*return t\("issueLabelsChanged"/
+    );
     expect(page).toMatch(/t\("viaClient", \{/);
     for (const locale of ["ar", "en", "es", "id", "zh"]) {
       const messages = JSON.parse(
@@ -363,6 +408,7 @@ describe("activity feed", () => {
         "deployRequested",
         "deployRollbackRequested",
         "issueCommented",
+        "issueLabelsChanged",
         "viaClient",
       ]) {
         expect(messages[key], `${locale} activity.${key}`).toBeTruthy();

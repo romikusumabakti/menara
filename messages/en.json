@@ -2346,6 +2346,7 @@
     "issueJiraCreateUnlinked": "{actor} created {jiraKey} in Jira from an assistant draft, but it could not be stored in {{APP_NAME}}",
     "issueStatusChanged": "{actor} moved {key} to {status}",
     "issueCommented": "{actor} commented on {key}",
+    "issueLabelsChanged": "{actor} changed the labels of {key}",
     "deployRequested": "{actor} requested a deploy of {tag} to {target} in {environment}",
     "deployRollbackRequested": "{actor} requested a rollback of {target} in {environment} to {tag}",
     "viaClient": "{message} via {client}",

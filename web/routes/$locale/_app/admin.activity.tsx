@@ -87,6 +87,8 @@ function message(
       });
     case "issue.commented":
       return t("issueCommented", { actor, key: String(d.key) });
+    case "issue.labelsChanged":
+      return t("issueLabelsChanged", { actor, key: String(d.key) });
     case "issue.status_changed":
       return t("issueStatusChanged", {
         actor,

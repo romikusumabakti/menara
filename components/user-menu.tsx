@@ -14,6 +14,7 @@ import {
 import * as React from "react";
 import { useTransition } from "react";
 import { useLocale, useTranslations } from "use-intl";
+import { AboutDialog } from "@/components/about-dialog";
 import { AccentDot } from "@/components/accent-dot";
 import { useAccent } from "@/components/accent-provider";
 import { MotifInfoDialog } from "@/components/motif-info";
@@ -85,6 +86,8 @@ export function UserMenu({
   const { theme, setTheme } = useTheme();
   const [pending, startTransition] = useTransition();
   const [statusOpen, setStatusOpen] = React.useState(false);
+  const [aboutOpen, setAboutOpen] = React.useState(false);
+  const tAbout = useTranslations("about");
 
   function motifLabel(p: MotifPreference): string {
     if (p === "daily") return tMotif("daily");
@@ -298,6 +301,11 @@ export function UserMenu({
             </DropdownMenuPortal>
           </DropdownMenuSub>
           <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setAboutOpen(true)}>
+            <Info />
+            {tAbout("menuItem")}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={onSignOut}>
             <LogOut />
             {t("signOut")}
@@ -311,6 +319,7 @@ export function UserMenu({
         current={user.status}
         timeZone={user.timeZone}
       />
+      <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
       {motif ? (
         <MotifInfoDialog
           slug={motif}

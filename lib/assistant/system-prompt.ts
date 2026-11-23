@@ -1,4 +1,5 @@
 import type { OrgRole } from "@/lib/permissions";
+import { UPSTREAM_REPO_URL } from "@/lib/upstream";
 import { callName } from "@/lib/user-display";
 import { MENARA_VERSION, parseVersion } from "@/lib/version";
 import type { StoredQuestionContext } from "./context";
@@ -181,9 +182,6 @@ ${lines.join("\n")}
 Do not offer what they cannot do. The role shapes tone and defaults only; it never grants access.
 ${style}`;
 }
-
-/** Where Menara's source code lives (the open-source upstream). */
-export const UPSTREAM_REPO_URL = "https://github.com/romikusumabakti/menara";
 
 /**
  * What this instance is: a Menara instance named `appName`, the running

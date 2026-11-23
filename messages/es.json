@@ -1041,6 +1041,17 @@
     "accent": "Color de acento",
     "language": "Idioma"
   },
+  "about": {
+    "menuItem": "Acerca de Menara",
+    "tagline": "Despliegue y operaciones autoalojados para equipos que ejecutan los mismos productos para muchos clientes.",
+    "runsOn": "{{APP_NAME}} funciona con Menara, software de código abierto.",
+    "version": "Versión",
+    "devBuild": "Compilación de desarrollo",
+    "license": "Licencia",
+    "sourceCode": "Código fuente",
+    "reportIssue": "Informar de un problema",
+    "poweredBy": "Con la tecnología de <link>Menara</link>"
+  },
   "account": {
     "title": "Cuenta",
     "subtitle": "Gestiona tu perfil, tu seguridad y tus sesiones activas.",

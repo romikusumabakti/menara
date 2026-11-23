@@ -2,14 +2,14 @@
 // called without credentials (60 requests an hour per IP), so the result is
 // cached for an hour and a refusal (403 rate limit) keeps the last one known.
 import { z } from "zod";
+import { UPSTREAM_REPO_URL } from "@/lib/upstream";
 import { compareVersions, parseVersion } from "@/lib/version";
 import { RELEASE_VERSION_RE } from "./request";
 
 export const RELEASES_API =
   "https://api.github.com/repos/romikusumabakti/menara/releases";
 /** Where update.sh downloads release.json from too. */
-export const RELEASE_DOWNLOAD_BASE =
-  "https://github.com/romikusumabakti/menara/releases/download";
+export const RELEASE_DOWNLOAD_BASE = `${UPSTREAM_REPO_URL}/releases/download`;
 export const UPDATE_CHECK_TTL_MS = 60 * 60 * 1000;
 
 export type UpdateChannel = "stable" | "beta";

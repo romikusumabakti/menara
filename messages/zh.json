@@ -1041,6 +1041,17 @@
     "accent": "强调色",
     "language": "语言"
   },
+  "about": {
+    "menuItem": "关于 Menara",
+    "tagline": "自托管的部署与运维工具，面向为众多客户运行相同产品的团队。",
+    "runsOn": "{{APP_NAME}} 基于开源软件 Menara 运行。",
+    "version": "版本",
+    "devBuild": "开发版本",
+    "license": "许可证",
+    "sourceCode": "源代码",
+    "reportIssue": "报告问题",
+    "poweredBy": "由 <link>Menara</link> 驱动"
+  },
   "account": {
     "title": "账户",
     "subtitle": "管理您的个人资料、安全性和活跃会话。",

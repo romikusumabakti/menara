@@ -1041,6 +1041,17 @@
     "accent": "Accent color",
     "language": "Language"
   },
+  "about": {
+    "menuItem": "About Menara",
+    "tagline": "Self-hosted deployment and operations for teams that run the same products for many clients.",
+    "runsOn": "{{APP_NAME}} runs on Menara, open-source software.",
+    "version": "Version",
+    "devBuild": "Development build",
+    "license": "License",
+    "sourceCode": "Source code",
+    "reportIssue": "Report an issue",
+    "poweredBy": "Powered by <link>Menara</link>"
+  },
   "account": {
     "title": "Account",
     "subtitle": "Manage your profile, security, and active sessions.",

@@ -48,7 +48,12 @@ test("admin sets the name and uploads a logo; sign-in shows both", async ({
   await expect(lightSlot.locator('img[src^="/brand/logo"]')).toBeVisible();
 
   // A visitor with no session sees the new name and logo.
-  const context = await browser.newContext({ baseURL });
+  // An empty storage state: the file's `test.use` session would otherwise
+  // carry over, and the visitor would land in the app shell, not on sign-in.
+  const context = await browser.newContext({
+    baseURL,
+    storageState: { cookies: [], origins: [] },
+  });
   try {
     const visitor = await context.newPage();
     await visitor.goto("/en/sign-in");
@@ -57,6 +62,14 @@ test("admin sets the name and uploads a logo; sign-in shows both", async ({
       visitor.locator('img[src^="/brand/logo"]').first()
     ).toBeVisible();
     await expect(visitor).toHaveTitle(NAME);
+    // The renamed instance still credits Menara, without its version.
+    const powered = visitor.getByRole("link", { name: "Menara" });
+    await expect(powered).toHaveAttribute(
+      "href",
+      "https://github.com/romikusumabakti/menara"
+    );
+    await expect(visitor.getByText("Powered by")).toBeVisible();
+    await visitor.screenshot({ path: "test-results/sign-in-footer.png" });
 
     const logo = await context.request.get("/brand/logo");
     expect(logo.ok()).toBe(true);
@@ -67,4 +80,27 @@ test("admin sets the name and uploads a logo; sign-in shows both", async ({
   } finally {
     await context.close();
   }
+});
+
+test("About Menara names the product behind a renamed instance", async ({
+  page,
+}) => {
+  await page.goto("/en");
+  await page.getByRole("button", { name: "User menu" }).first().click();
+  await page.getByRole("menuitem", { name: "About Menara" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("heading", { name: "Menara" })).toBeVisible();
+  await expect(dialog.getByText(`${NAME} runs on Menara`)).toBeVisible();
+  // The e2e build has no release version.
+  await expect(dialog.getByText("Development build")).toBeVisible();
+  await expect(
+    dialog.getByRole("link", { name: "Source code" })
+  ).toHaveAttribute("href", "https://github.com/romikusumabakti/menara");
+  await expect(
+    dialog.getByRole("link", { name: "Report an issue" })
+  ).toHaveAttribute("href", "https://github.com/romikusumabakti/menara/issues");
+  await dialog.screenshot({
+    path: "test-results/about-dialog.png",
+    animations: "disabled",
+  });
 });

@@ -7,6 +7,7 @@ import { onError } from "@/server/errors";
 import { csrfGuard } from "@/server/middleware/csrf";
 import { locale } from "@/server/middleware/locale";
 import { securityHeaders } from "@/server/middleware/security-headers";
+import { aboutRouter } from "@/server/routes/about";
 import { accessRouter } from "@/server/routes/access";
 import { activityRouter } from "@/server/routes/activity";
 import { assistantRouter } from "@/server/routes/assistant";
@@ -98,6 +99,7 @@ export const app = createBaseApp()
   // of handlers ported from app/api (/api/issues/..., /api/avatars/...,
   // /api/environments/:id/mail/..., /api/runs/:id/stream).
   .route("/api", sessionInfoRouter)
+  .route("/api/about", aboutRouter)
   .route("/api/onboarding", onboardingRouter)
   .route("/api/issues", issuesRouter)
   .route("/api/issues", issueAttachmentFilesRouter)

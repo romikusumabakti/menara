@@ -1041,6 +1041,17 @@
     "accent": "Warna aksen",
     "language": "Bahasa"
   },
+  "about": {
+    "menuItem": "Tentang Menara",
+    "tagline": "Deployment dan operasional self-hosted untuk tim yang menjalankan produk yang sama bagi banyak klien.",
+    "runsOn": "{{APP_NAME}} berjalan di atas Menara, perangkat lunak open source.",
+    "version": "Versi",
+    "devBuild": "Build pengembangan",
+    "license": "Lisensi",
+    "sourceCode": "Kode sumber",
+    "reportIssue": "Laporkan masalah",
+    "poweredBy": "Didukung oleh <link>Menara</link>"
+  },
   "account": {
     "title": "Akun",
     "subtitle": "Kelola profil, keamanan, dan sesi aktif Anda.",

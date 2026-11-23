@@ -427,7 +427,26 @@ describe.skipIf(!enabled)("MCP OAuth flow on Postgres", () => {
     const denied = await rawCall(third.access_token, "list_issues", {});
     expect(denied.status).toBe(401);
     expect(denied.headers.get("www-authenticate")).toContain("invalid_token");
+    // Revocation marks the refresh tokens revoked (a replay of one then
+    // deletes the whole family, so look before replaying).
+    const revokedRows = await refreshRows();
+    expect(revokedRows.length).toBeGreaterThan(0);
+    expect(revokedRows.every((r) => r.revoked !== null)).toBe(true);
     await refusedRefresh(third.refresh_token ?? "");
-    expect((await refreshRows()).every((r) => r.revoked !== null)).toBe(true);
+
+    // 8. Approving the agent again makes a new grant; the JWT of the revoked
+    // one stays dead. The approval is stored at second precision, so step
+    // past the second the old token was issued in.
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    const again = await authorize(
+      cookie,
+      "offline_access read",
+      "offline_access read"
+    );
+    const fourth = await redeem(again.code, again.verifier);
+    const stale = await rawCall(third.access_token, "list_issues", {});
+    expect(stale.status).toBe(401);
+    expect(stale.headers.get("www-authenticate")).toContain("invalid_token");
+    expect(await toolNames(fourth.access_token)).toContain("list_issues");
   });
 });

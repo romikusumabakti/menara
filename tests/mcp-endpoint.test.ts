@@ -31,7 +31,12 @@ const ACME_ID = "01900000-0000-7000-8000-000000000001";
 const BETA_ID = "01900000-0000-7000-8000-000000000002";
 const ENV_ID = "01900000-0000-7000-8000-000000001001";
 
-type Grant = { scopes: string[]; clientName: string | null; disabled: boolean };
+type Grant = {
+  scopes: string[];
+  clientName: string | null;
+  disabled: boolean;
+  approvedAt: Date;
+};
 
 const state = vi.hoisted(() => ({
   mcpEnabled: true,
@@ -263,6 +268,8 @@ beforeEach(() => {
     scopes: ["read", "database:read", "offline_access"],
     clientName: "Acme Agent",
     disabled: false,
+    // Approved well before any token the tests sign.
+    approvedAt: new Date("2026-01-01T00:00:00Z"),
   };
   state.serviceLog = "";
   state.usageWrites = [];
@@ -632,6 +639,29 @@ describe("MCP endpoint authentication", () => {
     expect(response.headers.get("www-authenticate")).toContain(
       'error="invalid_token"'
     );
+  });
+
+  it("refuses a token issued before the grant was approved again", async () => {
+    // Revoked, then approved anew: the consent row is a new one, and a JWT
+    // from the old grant must not ride on it.
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    state.grant = {
+      ...(state.grant as Grant),
+      approvedAt: new Date((nowSeconds + 60) * 1000),
+    };
+    const old = await post({ authorization: `Bearer ${await token()}` });
+    expect(old.status).toBe(401);
+    expect(old.headers.get("www-authenticate")).toContain(
+      'error="invalid_token"'
+    );
+    // better-auth stores the approval at second precision: a token issued
+    // in the same second as the approval is the new grant's own.
+    state.grant = {
+      ...(state.grant as Grant),
+      approvedAt: new Date(nowSeconds * 1000),
+    };
+    const fresh = await post({ authorization: `Bearer ${await token()}` });
+    expect(fresh.status).toBe(200);
   });
 
   it("refuses a grant of a disabled client", async () => {

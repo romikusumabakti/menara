@@ -35,7 +35,12 @@ const NO_DPOP = {
 };
 
 /** The verified access-token claims the gate reads. */
-type AccessTokenClaims = { sub?: string; azp?: unknown; scope?: unknown };
+type AccessTokenClaims = {
+  sub?: string;
+  azp?: unknown;
+  scope?: unknown;
+  iat?: unknown;
+};
 
 /** A JSON-RPC 401/403 carrying the RFC 6750/9728 challenge for `error`. */
 function challengeResponse(error: unknown, request: Request): Response {
@@ -109,11 +114,16 @@ async function verifyToken(
   return claims ? { claims } : response;
 }
 
-/** The grant (user, client) as it stands now: its scopes and the client's name. */
+/**
+ * The grant (user, client) as it stands now: its scopes, the client's name,
+ * and when it was approved (the consent row's creation; a scope change
+ * updates the row, a revocation deletes it).
+ */
 async function loadGrant(userId: string, clientId: string) {
   const [row] = await db
     .select({
       scopes: oauthConsents.scopes,
+      approvedAt: oauthConsents.createdAt,
       clientName: oauthClients.name,
       disabled: oauthClients.disabled,
     })
@@ -168,8 +178,10 @@ export function resetGrantUsageThrottle(): void {
  *   1. the instance switch: off → 404, as if Menara had no MCP server;
  *   2. the bearer token (verifyToken): 401 with a resource_metadata
  *      challenge, or 403 insufficient_scope without `read`;
- *   3. the grant: a consent row for (sub, azp) of an enabled client, else 401
- *      invalid_token — a revoked grant stops a still-valid JWT;
+ *   3. the grant: a consent row for (sub, azp) of an enabled client,
+ *      approved no later than the token was issued, else 401 invalid_token —
+ *      a revoked grant stops a still-valid JWT, also once the user approves
+ *      the agent again (a new consent row);
  *   4. the user: loadAssistantViewer(sub), so a ban, a role or a membership
  *      change applies to this very call; unknown or banned → 401
  *      invalid_token;
@@ -196,6 +208,12 @@ export async function authenticateMcpRequest(
   const grant = await loadGrant(userId, clientId);
   if (!grant || grant.disabled === true) {
     return invalidToken(request, "the grant is no longer active");
+  }
+  // better-auth writes the consent's createdAt from a whole-second iat, so a
+  // token minted in the second of the approval still compares equal.
+  const approvedAtSeconds = Math.floor(grant.approvedAt.getTime() / 1000);
+  if (typeof claims.iat !== "number" || claims.iat < approvedAtSeconds) {
+    return invalidToken(request, "the token predates the grant");
   }
 
   let viewer: AssistantViewer;

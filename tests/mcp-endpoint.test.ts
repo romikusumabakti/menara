@@ -589,11 +589,36 @@ describe("MCP endpoint authentication", () => {
       });
     await batch(3);
     expect(counted(counts, "write")).toBe(3);
-    expect(counted(counts, "read")).toBe(0);
+    // The batch's read call counts as a read.
+    expect(counted(counts, "read")).toBe(1);
     // 3 + 18 = 21 > 20: the whole batch is refused.
     const limited = await batch(18);
     expect(limited.status).toBe(429);
     expect(limited.headers.get("retry-after")).toBeTruthy();
+  });
+
+  it("counts every message of a legacy read batch", async () => {
+    const counts = useFakeValkey();
+    const bearer = await token();
+    const batch = (n: number) =>
+      app.request(RESOURCE, {
+        method: "POST",
+        headers: {
+          host: HOST,
+          authorization: `Bearer ${bearer}`,
+          "content-type": "application/json",
+          accept: "application/json, text/event-stream",
+        },
+        body: JSON.stringify(
+          Array.from({ length: n }, (_, i) => callBody("list_issues", i + 1))
+        ),
+      });
+    await batch(5);
+    expect(counted(counts, "read")).toBe(5);
+    expect(counted(counts, "write")).toBe(0);
+    // 5 + 116 = 121 > 120: refused whole.
+    const limited = await batch(116);
+    expect(limited.status).toBe(429);
   });
 
   it("refuses a token signed with another key", async () => {

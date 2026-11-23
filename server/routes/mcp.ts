@@ -100,25 +100,43 @@ function calledToolOf(body: unknown): string | undefined {
  * What the request costs against the quota, read from the body (a copy;
  * the handler parses its own) and never from `Mcp-Name`: the SDK compares
  * that header with the body only on 2026-07-28 traffic and accepts it
- * Base64-encoded, so it cannot decide alone. A 2025-era batch costs one
- * write per write call in it; anything else costs one read (a body that
- * does not parse is refused by the handler).
+ * Base64-encoded, so it cannot decide alone. Every message of a 2025-era
+ * batch counts: one write per write call, one read per other message; a
+ * single request (or a body that does not parse, which the handler then
+ * refuses) costs one unit.
  */
 async function quotaCostOf(
   request: Request
-): Promise<{ kind: McpCallKind; units: number }> {
+): Promise<Record<McpCallKind, number>> {
   const body: unknown = await request
     .clone()
     .json()
     .catch(() => undefined);
   const messages = Array.isArray(body) ? body : [body];
-  const writes = messages.filter((message) => {
+  const write = messages.filter((message) => {
     const name = calledToolOf(message);
     return name !== undefined && isWriteTool(name);
   }).length;
-  return writes > 0
-    ? { kind: "write", units: writes }
-    : { kind: "read", units: 1 };
+  const read = messages.length - write;
+  return { write, read: write > 0 ? read : Math.max(1, read) };
+}
+
+/** Takes the request's cost from each quota; the first one over refuses it. */
+async function consumeQuotas(
+  caller: McpCaller,
+  cost: Record<McpCallKind, number>
+): Promise<{ ok: true } | { ok: false; retryAfterSeconds: number }> {
+  for (const kind of ["write", "read"] as const) {
+    if (cost[kind] === 0) continue;
+    const quota = await consumeMcpQuota(
+      caller.viewer.userId,
+      caller.clientId,
+      kind,
+      cost[kind]
+    );
+    if (!quota.ok) return quota;
+  }
+  return { ok: true };
 }
 
 /** Mounted at /api/mcp. */
@@ -134,13 +152,7 @@ export const mcpRouter = publicRouter()
     async (c) => {
       const caller = await authenticateMcpRequest(c.req.raw);
       if (caller instanceof Response) return caller;
-      const cost = await quotaCostOf(c.req.raw);
-      const quota = await consumeMcpQuota(
-        caller.viewer.userId,
-        caller.clientId,
-        cost.kind,
-        cost.units
-      );
+      const quota = await consumeQuotas(caller, await quotaCostOf(c.req.raw));
       if (!quota.ok) {
         return jsonRpcError(
           c,

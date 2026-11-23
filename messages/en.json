@@ -4327,6 +4327,6 @@
     "revokeDescription": "It stops working at once for {user}.",
     "revoked": "Access revoked",
     "proxyTitle": "Behind an access proxy",
-    "proxyNote": "If this instance sits behind an access proxy, let these paths through: /api/mcp, /.well-known/oauth-protected-resource*, /.well-known/oauth-authorization-server*, /api/auth/oauth2/token, /api/auth/oauth2/revoke, /api/auth/jwks. Keep /api/auth/oauth2/authorize and /oauth/consent behind it."
+    "proxyNote": "If this instance sits behind an access proxy, let these paths through: /api/mcp, /.well-known/oauth-protected-resource*, /.well-known/oauth-authorization-server*, /api/auth/.well-known/oauth-authorization-server, /api/auth/oauth2/token, /api/auth/oauth2/revoke, /api/auth/jwks. Keep /api/auth/oauth2/authorize and the consent page (/oauth/consent and its localized /*/oauth/consent) behind it."
   }
 }

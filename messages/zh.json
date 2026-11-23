@@ -4327,6 +4327,6 @@
     "revokeDescription": "{user} 的访问会立即停止。",
     "revoked": "已撤销访问权限",
     "proxyTitle": "位于访问代理之后",
-    "proxyNote": "如果此实例位于访问代理之后，请放行以下路径：/api/mcp、/.well-known/oauth-protected-resource*、/.well-known/oauth-authorization-server*、/api/auth/oauth2/token、/api/auth/oauth2/revoke、/api/auth/jwks。/api/auth/oauth2/authorize 和 /oauth/consent 仍应留在代理之后。"
+    "proxyNote": "如果此实例位于访问代理之后，请放行以下路径：/api/mcp、/.well-known/oauth-protected-resource*、/.well-known/oauth-authorization-server*、/api/auth/.well-known/oauth-authorization-server、/api/auth/oauth2/token、/api/auth/oauth2/revoke、/api/auth/jwks。/api/auth/oauth2/authorize 和授权同意页面（/oauth/consent 及其本地化路径 /*/oauth/consent）仍应留在代理之后。"
   }
 }

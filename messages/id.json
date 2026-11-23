@@ -4327,6 +4327,6 @@
     "revokeDescription": "Akses {user} langsung berhenti.",
     "revoked": "Akses dicabut",
     "proxyTitle": "Di balik proxy akses",
-    "proxyNote": "Jika instans ini berada di balik proxy akses, loloskan path berikut: /api/mcp, /.well-known/oauth-protected-resource*, /.well-known/oauth-authorization-server*, /api/auth/oauth2/token, /api/auth/oauth2/revoke, /api/auth/jwks. Biarkan /api/auth/oauth2/authorize dan /oauth/consent tetap di balik proxy."
+    "proxyNote": "Jika instans ini berada di balik proxy akses, loloskan path berikut: /api/mcp, /.well-known/oauth-protected-resource*, /.well-known/oauth-authorization-server*, /api/auth/.well-known/oauth-authorization-server, /api/auth/oauth2/token, /api/auth/oauth2/revoke, /api/auth/jwks. Biarkan /api/auth/oauth2/authorize dan halaman persetujuan (/oauth/consent beserta versi berbahasanya /*/oauth/consent) tetap di balik proxy."
   }
 }

@@ -26,7 +26,7 @@ back on restores them. A switch reaches every app process within 5 seconds.
 
 Read tools (scope `read`, always granted) mirror the Assistant's own tools, on
 the same code, with the same per-person scoping, secret and personal-data
-filters and limits: projects, issues and their attachments, the overview,
+filters and limits: projects, issues, the overview,
 people, recent activity, environments and their status, builds and deploys,
 servers and service logs, code (list, read, search) and knowledge.
 
@@ -89,12 +89,15 @@ sign-in. Let these through:
 - `/api/mcp`
 - `/.well-known/oauth-protected-resource*`
 - `/.well-known/oauth-authorization-server*`
+- `/api/auth/.well-known/oauth-authorization-server`
 - `/api/auth/oauth2/token`
 - `/api/auth/oauth2/revoke`
 - `/api/auth/jwks`
 
-Keep `/api/auth/oauth2/authorize` and `/oauth/consent` behind the proxy: a
-person opens those in a browser, signed in to the proxy already.
+Keep `/api/auth/oauth2/authorize` and the consent page behind the proxy: a
+person opens those in a browser, signed in to the proxy already. The
+authorization server sends the browser to `/oauth/consent`, which the app
+serves as `/<locale>/oauth/consent` (for example `/en/oauth/consent`).
 
 ## Revoking access
 
@@ -106,5 +109,6 @@ person opens those in a browser, signed in to the proxy already.
 A revoke deletes the grant, revokes the app's refresh tokens and deletes its
 stored access tokens in one transaction. Access tokens are short-lived JWTs
 (one hour), but the endpoint checks the grant on every call, so the app stops
-at its very next request. Approving and revoking are recorded in the activity
+at its very next request. Approving the app again makes a new grant: tokens
+issued under the revoked one stay refused. Approving and revoking are recorded in the activity
 log, and so is the instance switch.

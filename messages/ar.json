@@ -4327,6 +4327,6 @@
     "revokeDescription": "يتوقف عن العمل فورًا لـ {user}.",
     "revoked": "تم إلغاء الوصول",
     "proxyTitle": "خلف وكيل وصول",
-    "proxyNote": "إذا كان هذا المثيل خلف وكيل وصول، فاسمح بمرور هذه المسارات: /api/mcp و/.well-known/oauth-protected-resource* و/.well-known/oauth-authorization-server* و/api/auth/oauth2/token و/api/auth/oauth2/revoke و/api/auth/jwks. أبقِ /api/auth/oauth2/authorize و/oauth/consent خلفه."
+    "proxyNote": "إذا كان هذا المثيل خلف وكيل وصول، فاسمح بمرور هذه المسارات: /api/mcp و/.well-known/oauth-protected-resource* و/.well-known/oauth-authorization-server* و/api/auth/.well-known/oauth-authorization-server و/api/auth/oauth2/token و/api/auth/oauth2/revoke و/api/auth/jwks. أبقِ /api/auth/oauth2/authorize وصفحة الموافقة (/oauth/consent ونسختها المحلية /*/oauth/consent) خلفه."
   }
 }

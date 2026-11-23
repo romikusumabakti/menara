@@ -4327,6 +4327,6 @@
     "revokeDescription": "Deja de funcionar al instante para {user}.",
     "revoked": "Acceso revocado",
     "proxyTitle": "Detrás de un proxy de acceso",
-    "proxyNote": "Si esta instancia está detrás de un proxy de acceso, deja pasar estas rutas: /api/mcp, /.well-known/oauth-protected-resource*, /.well-known/oauth-authorization-server*, /api/auth/oauth2/token, /api/auth/oauth2/revoke, /api/auth/jwks. Mantén /api/auth/oauth2/authorize y /oauth/consent detrás de él."
+    "proxyNote": "Si esta instancia está detrás de un proxy de acceso, deja pasar estas rutas: /api/mcp, /.well-known/oauth-protected-resource*, /.well-known/oauth-authorization-server*, /api/auth/.well-known/oauth-authorization-server, /api/auth/oauth2/token, /api/auth/oauth2/revoke, /api/auth/jwks. Mantén /api/auth/oauth2/authorize y la página de consentimiento (/oauth/consent y su versión localizada /*/oauth/consent) detrás de él."
   }
 }

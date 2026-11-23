@@ -29,7 +29,26 @@ export default defineConfig({
     // bundle carries one class-joining implementation.
     alias: { clsx: "cn" },
   },
-  build: { outDir: "dist/client" },
+  build: {
+    outDir: "dist/client",
+    rolldownOptions: {
+      output: {
+        // Zod and web/zod-config share one chunk, so `jitless` is set as soon
+        // as Zod loads. Imported first in main.tsx is not enough: a shared
+        // chunk that builds schemas at its top level (lib/validation) runs
+        // before the entry chunk's body, and Zod would probe `new Function`
+        // (a CSP violation) before the config ran. e2e/csp.spec.ts covers it.
+        codeSplitting: {
+          groups: [
+            {
+              name: "zod",
+              test: /[\\/]node_modules[\\/]zod[\\/]|[\\/]web[\\/]zod-config\.ts$/,
+            },
+          ],
+        },
+      },
+    },
+  },
   server: {
     proxy: {
       "/api": api,

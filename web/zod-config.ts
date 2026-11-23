@@ -5,6 +5,8 @@ import { z } from "zod";
 // eval, so the probe would be reported as a violation even though Zod catches
 // the failure. `jitless` skips the probe and uses the interpreted parsers.
 //
-// Imported first in main.tsx: it must run before any schema is built, and ES
-// imports evaluate in order.
+// It must run before any schema is built. Imported first in main.tsx, and
+// vite.config.ts bundles it into Zod's own chunk: chunking does not keep the
+// entry's import order, so that is what makes it run before other chunks
+// build their schemas.
 z.config({ jitless: true });

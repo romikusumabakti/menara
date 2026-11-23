@@ -306,6 +306,32 @@ describe("MCP authorization server", () => {
     ).not.toContain("Acme Tool");
   });
 
+  it("closes better-auth's consent-management endpoints", async () => {
+    // Grants are listed and revoked by lib/mcp/grants (which also revokes
+    // the tokens and logs it); these would bypass all of that.
+    const cookie = await signIn();
+    const calls: [string, string][] = [
+      ["GET", "/api/auth/oauth2/get-consents"],
+      ["GET", "/api/auth/oauth2/get-consent?id=x"],
+      ["POST", "/api/auth/oauth2/update-consent"],
+      ["POST", "/api/auth/oauth2/delete-consent"],
+    ];
+    for (const [method, path] of calls) {
+      const res = await app.request(path, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Origin: BASE,
+          Cookie: cookie,
+        },
+        ...(method === "POST" && {
+          body: JSON.stringify({ id: "x", update: { scopes: ["read"] } }),
+        }),
+      });
+      expect(res.status, path).toBe(404);
+    }
+  });
+
   it("issues tokens over the full code flow and refuses DPoP with a 400, not a 500", async () => {
     const cookie = await signIn();
     const redirectUri = "http://127.0.0.1:61000/callback";

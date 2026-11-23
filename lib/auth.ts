@@ -116,8 +116,17 @@ export const auth = betterAuth({
   trustedOrigins: DEV_ORIGINS,
   secret: process.env.BETTER_AUTH_SECRET,
   // The jwt plugin's own /token mints a JWT for any signed-in session; MCP
-  // access tokens come only from /oauth2/token.
-  disabledPaths: ["/token"],
+  // access tokens come only from /oauth2/token. The oauth-provider's
+  // consent-management endpoints are closed too: grants are listed and
+  // revoked by lib/mcp/grants, which also revokes the tokens and logs it,
+  // and the consent page reads its request from server/routes/oauth-consent.
+  disabledPaths: [
+    "/token",
+    "/oauth2/get-consent",
+    "/oauth2/get-consents",
+    "/oauth2/update-consent",
+    "/oauth2/delete-consent",
+  ],
   database: drizzleAdapter(db, {
     provider: "pg",
     usePlural: true,
@@ -232,9 +241,13 @@ export const auth = betterAuth({
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
       // The OAuth provider exists for MCP agents only, so while an admin has
-      // the MCP server switched off its endpoints are absent. (The discovery
-      // documents are answered before hooks run; server/routes/well-known.ts
-      // applies the same switch to them.)
+      // the MCP server switched off its endpoints are absent. The discovery
+      // documents never reach this hook: better-auth answers the ones it
+      // serves (path-inserted and path-appended) from plugin onRequest
+      // handlers, before any hook, and the root authorization server
+      // document is built by server/routes/well-known.ts itself. That router,
+      // mounted ahead of better-auth for /.well-known and
+      // /api/auth/.well-known, applies the same switch to every one of them.
       if (ctx.path.startsWith("/oauth2/") && !(await isMcpEnabled())) {
         throw APIError.from("NOT_FOUND", {
           message: "Not found",
@@ -445,7 +458,9 @@ export const auth = betterAuth({
       loginPage: "/sign-in",
       consentPage: MCP_CONSENT_PATH,
       scopes: ["offline_access", ...MCP_SCOPES],
-      // Rotated refresh tokens are single-use: a replay revokes the grant.
+      // Rotated refresh tokens are single-use: replaying a spent one deletes
+      // its whole refresh-token family (and the access tokens minted from
+      // it). The grant (consent) stays; revoking it is lib/mcp/grants' job.
       refreshTokenReuseInterval: 0,
       accessTokenExpiresIn: 3600,
       // An agent acts for the user who approved it; no machine-to-machine

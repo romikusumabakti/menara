@@ -17,6 +17,7 @@ import {
 } from "ai";
 import { getBranding } from "@/lib/instance-branding";
 import { type AttachmentRef, parseAttachmentRefs } from "./attachment-refs";
+import { projectAccess, snapshotSources, storedSource } from "./auto-context";
 import { type AssistantRuntime, loadAssistantRuntime } from "./client";
 import type { UploadSummary } from "./file-store";
 import { CHARS_PER_TOKEN, estimateUsage } from "./pricing";
@@ -32,7 +33,6 @@ import {
 import {
   ensureSnapshot as defaultEnsureSnapshot,
   type Snapshot,
-  SnapshotUnavailableError,
 } from "./snapshot";
 import {
   type AssistantSource,
@@ -50,7 +50,6 @@ import { generateConversationTitle } from "./title";
 import {
   buildTools,
   capabilityGaps,
-  type ListedProject,
   type ToolContext,
   type ToolExecutor,
 } from "./tool-defs";
@@ -465,53 +464,6 @@ async function resolveQuestionSources(
   }
 }
 
-/**
- * Downloads (or finds in the cache) the snapshot of each source, in
- * parallel, keeping their order: the prompt line of each (with the commit
- * read, or why it is unavailable) and the snapshots the tools may read.
- */
-async function snapshotSources(
-  sources: AssistantSource[],
-  ensureSnapshot: SourceDeps["ensureSnapshot"]
-): Promise<{ prompt: PromptSource[]; snaps: SnapshotRef[] }> {
-  // Downloads run in parallel; the order of the sources is kept.
-  type Outcome =
-    | { source: AssistantSource; snap: Snapshot }
-    | { source: AssistantSource; reason: string };
-  const outcomes = await Promise.all(
-    sources.map(async (source): Promise<Outcome> => {
-      try {
-        return { source, snap: await ensureSnapshot(source) };
-      } catch (error) {
-        if (error instanceof SnapshotUnavailableError) {
-          return { source, reason: error.reason };
-        }
-        console.error(
-          `[assistant] snapshot of ${source.repoFullName}@${source.ref} failed`,
-          error
-        );
-        return { source, reason: "download-failed" };
-      }
-    })
-  );
-  const prompt: PromptSource[] = [];
-  const snaps: SnapshotRef[] = [];
-  for (const outcome of outcomes) {
-    const { source } = outcome;
-    if ("snap" in outcome) {
-      prompt.push({ ...source, commitSha: outcome.snap.commitSha });
-      snaps.push({
-        componentKey: source.componentKey,
-        dir: outcome.snap.dir,
-        commitSha: outcome.snap.commitSha,
-      });
-    } else {
-      prompt.push({ ...source, unavailableReason: outcome.reason });
-    }
-  }
-  return { prompt, snaps };
-}
-
 async function resolveSnapshots(
   turn: TurnContext,
   viewer: AssistantViewer,
@@ -521,132 +473,6 @@ async function resolveSnapshots(
   return {
     ...resolved,
     ...(await snapshotSources(resolved.sources, deps.ensureSnapshot)),
-  };
-}
-
-/** A source as stored on the answer: unavailable ones keep a null commit. */
-function storedSource({
-  unavailableReason,
-  ...source
-}: PromptSource): AssistantSource {
-  return unavailableReason ? { ...source, commitSha: null } : source;
-}
-
-/** Projects whose sources list_projects resolves at once. */
-const LIST_PROJECTS_CONCURRENCY = 4;
-
-/**
- * The cached promise for `key`, else a new one from `load`. A rejected
- * promise is dropped, so a transient failure can be retried in the turn.
- */
-function memoised<T>(
-  cache: Map<string, Promise<T>>,
-  key: string,
-  load: () => Promise<T>
-): Promise<T> {
-  const cached = cache.get(key);
-  if (cached) return cached;
-  const pending = load();
-  cache.set(key, pending);
-  pending.catch(() => {
-    if (cache.get(key) === pending) cache.delete(key);
-  });
-  return pending;
-}
-
-/** `fn` over `items` with at most `limit` running at once; order kept. */
-async function mapLimit<T, R>(
-  items: T[],
-  limit: number,
-  fn: (item: T) => Promise<R>
-): Promise<R[]> {
-  const results: R[] = new Array(items.length);
-  let next = 0;
-  const worker = async () => {
-    while (next < items.length) {
-      const index = next++;
-      results[index] = await fn(items[index] as T);
-    }
-  };
-  await Promise.all(
-    Array.from({ length: Math.min(limit, items.length) }, worker)
-  );
-  return results;
-}
-
-/**
- * The automatic context's project access for one turn. A key resolves only
- * against the viewer's visible projects (`projects`, already filtered); each
- * project's sources are resolved, and its snapshots fetched, once per turn
- * however many calls name it. The sources of every project opened are
- * written to the answer as they are opened, tagged with their project, so
- * the answer lists what was read even if the turn fails later; a read waits
- * for that write.
- */
-function projectAccess(
-  messageId: string,
-  projects: ProjectEntry[],
-  deps: SourceDeps,
-  stop: TurnStop
-): Pick<
-  Extract<ToolContext, { mode: "auto" }>,
-  "snapshotsFor" | "listProjects"
-> {
-  const byKey = new Map(projects.map((p) => [p.key, p]));
-  const sourcesOf = new Map<string, Promise<AssistantSource[]>>();
-  const snapsOf = new Map<string, Promise<SnapshotRef[]>>();
-  let opened: AssistantSource[] = [];
-  let saving: Promise<void> = Promise.resolve();
-
-  const sources = (project: ProjectEntry) =>
-    memoised(sourcesOf, project.id, () =>
-      deps.resolveProjectSources(project.id)
-    );
-
-  const open = async (project: ProjectEntry): Promise<SnapshotRef[]> => {
-    const { prompt, snaps } = await snapshotSources(
-      await sources(project),
-      deps.ensureSnapshot
-    );
-    const tagged = prompt.map((source) => ({
-      ...storedSource(source),
-      projectKey: project.key,
-      projectName: project.name,
-    }));
-    // Chained, so writes run one at a time and each extends the last list
-    // written. A project joins the list only once its write succeeded: a
-    // failed write fails its own read, and the retried load adds it again
-    // without a duplicate.
-    const write = saving
-      .catch(() => {})
-      .then(async () => {
-        const next = [...opened, ...tagged];
-        stop.check(await saveSources(messageId, next));
-        opened = next;
-      });
-    saving = write;
-    await write;
-    return snaps;
-  };
-
-  return {
-    snapshotsFor: (projectKey) => {
-      const project = byKey.get(projectKey);
-      if (!project) return Promise.resolve({ error: "unknown_project" });
-      return memoised(snapsOf, project.id, () => open(project));
-    },
-    listProjects: () =>
-      mapLimit(
-        projects,
-        LIST_PROJECTS_CONCURRENCY,
-        async (project): Promise<ListedProject> => ({
-          key: project.key,
-          name: project.name,
-          group: project.group,
-          description: project.description,
-          components: (await sources(project)).map((s) => s.componentKey),
-        })
-      ),
   };
 }
 
@@ -1083,7 +909,9 @@ async function runClaimedTurn(
       ? {
           mode: "auto",
           ...shared,
-          ...projectAccess(turn.messageId, resolved.projects, sourceDeps, stop),
+          ...projectAccess(resolved.projects, sourceDeps, async (opened) => {
+            stop.check(await saveSources(turn.messageId, opened));
+          }),
         }
       : { mode: "pinned", snaps: resolved.snaps, ...shared };
   // Set by prepareStep for the step about to run.

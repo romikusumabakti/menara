@@ -274,6 +274,47 @@ export function capabilityGaps(viewer: AssistantViewer): CapabilityGap[] {
   return gaps;
 }
 
+/** One read tool as the MCP server registers it. */
+export type CatalogEntry = {
+  name: ToolName;
+  description: string;
+  input: z.ZodType;
+};
+
+/**
+ * The auto-mode tools offered to a viewer, for the MCP server: the same
+ * names, order and descriptions as buildTools, with executeTool's own
+ * validation schemas as inputs (not the strict model-facing ones). Left out:
+ * read_upload (no chat) and read_attachment (its core reads only attachments
+ * ticked on a chat message, so it can never succeed without one).
+ */
+export function autoToolCatalog(viewer: AssistantViewer): CatalogEntry[] {
+  const own = Object.entries(AUTO_DEFINITIONS)
+    .filter(([name]) => name !== "read_attachment")
+    .map(
+      ([name, definition]): CatalogEntry => ({
+        name: name as ToolName,
+        description: definition.description,
+        input: AUTO_INPUTS[name as keyof typeof AUTO_INPUTS],
+      })
+    );
+  const data = dataDefinitions(viewer).map(
+    ([name, definition]): CatalogEntry => ({
+      name,
+      description: definition.description,
+      input: DATA_INPUTS[name] as z.ZodType,
+    })
+  );
+  const database = databaseDefinitions(viewer).map(
+    ([name, definition]): CatalogEntry => ({
+      name,
+      description: definition.description,
+      input: DATABASE_INPUTS[name],
+    })
+  );
+  return [...own, ...data, ...database];
+}
+
 /**
  * The tools for one turn. Each call runs through `execute` (executeTool by
  * default) and is then passed to `record` for the audit trail; a failing

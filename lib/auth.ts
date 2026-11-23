@@ -1,3 +1,5 @@
+import { cimd } from "@better-auth/cimd";
+import { mcp } from "@better-auth/mcp";
 import { passkey } from "@better-auth/passkey";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -7,6 +9,7 @@ import {
   getSessionFromCtx,
   isAPIError,
 } from "better-auth/api";
+import { jwt } from "better-auth/plugins";
 import { admin } from "better-auth/plugins/admin";
 import { twoFactor } from "better-auth/plugins/two-factor";
 import { eq } from "drizzle-orm";
@@ -33,6 +36,13 @@ import {
 import { sendResetPasswordEmail } from "./email/send";
 import { MICROSOFT_AUTH_ENABLED } from "./env";
 import { bootBrandName } from "./instance-branding";
+import { fetchClientMetadataSafely } from "./mcp/cimd-fetch";
+import {
+  isMcpEnabled,
+  MCP_CONSENT_PATH,
+  MCP_RESOURCE,
+  MCP_SCOPES,
+} from "./mcp/config";
 import { nameTaken, pickFreeName } from "./people/names";
 import { orgAc, orgRoles } from "./permissions";
 import {
@@ -104,6 +114,9 @@ export const auth = betterAuth({
   baseURL: BASE_URL,
   trustedOrigins: DEV_ORIGINS,
   secret: process.env.BETTER_AUTH_SECRET,
+  // The jwt plugin's own /token mints a JWT for any signed-in session; MCP
+  // access tokens come only from /oauth2/token.
+  disabledPaths: ["/token"],
   database: drizzleAdapter(db, {
     provider: "pg",
     usePlural: true,
@@ -217,6 +230,16 @@ export const auth = betterAuth({
   },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
+      // The OAuth provider exists for MCP agents only, so while an admin has
+      // the MCP server switched off its endpoints are absent. (The discovery
+      // documents are answered before hooks run; server/routes/well-known.ts
+      // applies the same switch to them.)
+      if (ctx.path.startsWith("/oauth2/") && !(await isMcpEnabled())) {
+        throw APIError.from("NOT_FOUND", {
+          message: "Not found",
+          code: "mcp_disabled",
+        });
+      }
       // Name and image are written only by actions/profile.ts and
       // lib/avatars, which validate, keep names unique and only ever store
       // our own /api/avatars URL. better-auth's generic user-update endpoints
@@ -389,6 +412,38 @@ export const auth = betterAuth({
         residentKey: "preferred",
         userVerification: "preferred",
       },
+    }),
+    // Menara as the OAuth 2.1 authorization server for MCP agents (spec
+    // 2026-07-28). jwt signs the access tokens (RFC 9068, aud = the MCP
+    // resource) and serves /jwks; its session-JWT header is off.
+    jwt({ disableSettingJwtHeader: true }),
+    mcp({
+      resource: MCP_RESOURCE,
+      loginPage: "/sign-in",
+      consentPage: MCP_CONSENT_PATH,
+      scopes: ["offline_access", ...MCP_SCOPES],
+      // Rotated refresh tokens are single-use: a replay revokes the grant.
+      refreshTokenReuseInterval: 0,
+      accessTokenExpiresIn: 3600,
+      // An agent acts for the user who approved it; no machine-to-machine
+      // client_credentials tokens.
+      grantTypes: ["authorization_code", "refresh_token"],
+      // Agents register only through their client metadata document (cimd
+      // below). No signed-in user may create, list, change or delete OAuth
+      // clients through /oauth2/*-client; the plugin's default lets any
+      // session do so.
+      clientPrivileges: () => false,
+      // DPoP is not offered. better-auth records each proof's jti in
+      // `verifications` under a base64url id, which our uuid id column
+      // refuses (a 500). With no accepted algorithm every DPoP proof is
+      // refused as invalid_dpop_proof (400) before that write, and
+      // server/routes/well-known.ts drops the then-empty
+      // dpop_signing_alg_values_supported from the discovery documents.
+      dpop: { signingAlgorithms: [] },
+    }),
+    cimd({
+      fetchClientMetadataResource: fetchClientMetadataSafely,
+      metadataProfile: "mcp-2026-07-28",
     }),
   ],
 });

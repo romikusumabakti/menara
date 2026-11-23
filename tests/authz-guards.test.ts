@@ -1088,6 +1088,15 @@ describe("API routers reach a guard", () => {
     // The instance logo and favicon, shown by the signed-out sign-in, 404
     // and error pages; sandbox CSP + nosniff on every answer.
     "server/routes/brand.ts": ["GET /logo", "GET /icon.svg", "GET /icon.png"],
+    // The OAuth discovery documents MCP agents read before they hold a
+    // token; built by better-auth, 404 while the MCP switch is off.
+    "server/routes/well-known.ts": [
+      "GET /oauth-protected-resource",
+      "GET /oauth-protected-resource/api/mcp",
+      "GET /oauth-authorization-server",
+      "GET /oauth-authorization-server/api/auth",
+      "GET /oauth-authorization-server",
+    ],
   };
   // A router's routes: from its factory call up to the next exported router.
   function routesOf(source: string, factory: string): string[] {

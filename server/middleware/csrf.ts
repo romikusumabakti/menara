@@ -1,4 +1,4 @@
-import type { Context } from "hono";
+import type { Context, MiddlewareHandler } from "hono";
 import { csrf } from "hono/csrf";
 
 // Cross-site request forgery guard for every state-changing request.
@@ -45,4 +45,17 @@ function isAppOrigin(origin: string, c: Context): boolean {
   return origin === configuredOrigin(configured);
 }
 
-export const csrfGuard = csrf({ origin: isAppOrigin });
+// OAuth endpoints an MCP agent calls itself, from its own process or server,
+// with a form-encoded body and no Menara cookie: the agent authenticates with
+// its PKCE verifier or its token, not a session, so there is nothing for a
+// forged request to borrow. A browser-based agent sends its own Origin.
+const CSRF_EXEMPT = new Set([
+  "/api/auth/oauth2/token",
+  "/api/auth/oauth2/revoke",
+  "/api/mcp",
+]);
+
+const guard = csrf({ origin: isAppOrigin });
+
+export const csrfGuard: MiddlewareHandler = (c, next) =>
+  CSRF_EXEMPT.has(c.req.path) ? next() : guard(c, next);

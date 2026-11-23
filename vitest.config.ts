@@ -12,5 +12,9 @@ export default defineConfig({
     execArgv: ["--no-env-file"],
     setupFiles: ["tests/setup.ts"],
     include: ["tests/**/*.test.{ts,tsx}"],
+    // Loaded through Vitest rather than natively, so a test's vi.mock of
+    // node:dns/promises and node:https reaches its Node transport
+    // (tests/mcp-cimd-fetch.test.ts).
+    server: { deps: { inline: ["@better-auth/cimd"] } },
   },
 });

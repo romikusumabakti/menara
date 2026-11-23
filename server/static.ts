@@ -26,8 +26,9 @@ type StaticOptions = {
   publicDir?: string;
 };
 
-// Never pages: the API, the favicon route and the built assets.
-const NOT_PAGES = /^\/(api|brand|assets)(?=\/|$)/;
+// Never pages: the API, the favicon route, the built assets and the
+// /.well-known discovery documents.
+const NOT_PAGES = /^\/(api|brand|assets|\.well-known)(?=\/|$)/;
 
 // Content-hashed by Vite, so a URL's bytes never change.
 const IMMUTABLE = "public, max-age=31536000, immutable";

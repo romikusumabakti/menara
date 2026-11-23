@@ -69,6 +69,10 @@ import {
   environmentVariablesRouter,
   variableTemplatesRouter,
 } from "@/server/routes/variables";
+import {
+  authWellKnownRouter,
+  wellKnownRouter,
+} from "@/server/routes/well-known";
 
 /**
  * A Hono instance with the stack every request goes through. Order matters:
@@ -90,6 +94,10 @@ export function createBaseApp() {
 }
 
 export const app = createBaseApp()
+  // The OAuth discovery documents for MCP agents. Here, ahead of better-auth
+  // and of the SPA fallback mountStatic adds after every route.
+  .route("/.well-known", wellKnownRouter)
+  .route("/api/auth/.well-known", authWellKnownRouter)
   // better-auth owns everything under /api/auth and sets its cookies on the
   // Response it returns, so it gets the raw request and nothing else.
   .on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw))

@@ -1,9 +1,6 @@
 import { readFileSync } from "node:fs";
-import { cimd } from "@better-auth/cimd";
-import { mcp } from "@better-auth/mcp";
 import type { BetterAuthOptions } from "better-auth";
 import { getAuthTables } from "better-auth/db";
-import { jwt } from "better-auth/plugins";
 import { getTableColumns, type Table } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
 
@@ -17,36 +14,9 @@ const { environmentKindEnum, instanceSettings } = await import(
   "@/lib/db/schema"
 );
 
-// The plugin set lib/auth registers for the MCP server, with the same options.
-function mcpPlugins() {
-  return [
-    jwt({ disableSettingJwtHeader: true }),
-    mcp({
-      resource: "https://x.example/api/mcp",
-      loginPage: "/sign-in",
-      consentPage: "/oauth/consent",
-      scopes: [
-        "offline_access",
-        "read",
-        "database:read",
-        "issues:write",
-        "deploys:write",
-      ],
-    }),
-    cimd({
-      fetchClientMetadataResource: fetch,
-      metadataProfile: "mcp-2026-07-28",
-    }),
-  ];
-}
-
 describe("the MCP schema", () => {
   it("maps every better-auth model the MCP plugins need to a Drizzle table", () => {
-    const options = {
-      ...auth.options,
-      plugins: [...(auth.options.plugins ?? []), ...mcpPlugins()],
-    } as BetterAuthOptions;
-    const tables = getAuthTables(options);
+    const tables = getAuthTables(auth.options as BetterAuthOptions);
     const schema = authSchema as Record<string, Table>;
 
     for (const [key, model] of Object.entries(tables)) {

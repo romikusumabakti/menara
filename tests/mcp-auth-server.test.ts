@@ -14,7 +14,7 @@ import {
 // Menara as an OAuth 2.1 authorization server for MCP clients (better-auth's
 // jwt + mcp + cimd plugins, lib/auth.ts): the discovery documents, the
 // instance switch, the CSRF exemption for the token endpoint, the loopback
-// redirects Claude Code uses, and DPoP being refused cleanly.
+// redirects native agent clients use, and DPoP being refused cleanly.
 //
 // The real app runs through `app.request`. better-auth's tables live in its
 // in-memory adapter instead of Postgres; Menara's own tables (the MCP switch
@@ -86,7 +86,7 @@ const { invalidateMcpEnabled, MCP_RESOURCE } = await import("@/lib/mcp/config");
 const BASE = new URL(process.env.BETTER_AUTH_URL || "http://localhost").origin;
 const ISSUER = `${BASE}/api/auth`;
 
-// The shape of Claude Code's own client metadata document, under a neutral
+// The shape of a native agent client's metadata document, under a neutral
 // URL: loopback redirects with no port, a public client.
 const AGENT_ID = "https://agent.example.com/oauth/client-metadata";
 const AGENT_DOCUMENT = {
@@ -234,7 +234,7 @@ describe("MCP authorization server", () => {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        Origin: "https://claude.ai",
+        Origin: "https://agent.example",
       },
       body: new URLSearchParams({
         grant_type: "authorization_code",
@@ -263,7 +263,7 @@ describe("MCP authorization server", () => {
     expect(res.status).toBe(403);
   });
 
-  it("accepts Claude Code's loopback redirects on any port", async () => {
+  it("accepts a native agent client's loopback redirects on any port", async () => {
     for (const redirect of [
       "http://localhost:53124/callback",
       "http://127.0.0.1:61000/callback",

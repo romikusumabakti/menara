@@ -366,7 +366,12 @@ export function SignInForm({
     setMicrosoftPending(true);
 
     // Both URLs are plain browser redirects that load the app afresh, so
-    // they carry the locale the user is reading in.
+    // they carry the locale the user is reading in. An MCP agent's
+    // authorization needs no callbackURL of its own: on a page carrying the
+    // signed OAuth query, the oauth-provider client plugin sends it as
+    // `oauth_query`, better-auth keeps it in the Microsoft state, and the
+    // callback goes on to the consent page instead of `callbackURL`
+    // (tests/mcp-flow-scratch.test.ts).
     const { error } = await authClient.signIn.social({
       provider: "microsoft",
       callbackURL: localizeHref(redirectTo || "/", locale),

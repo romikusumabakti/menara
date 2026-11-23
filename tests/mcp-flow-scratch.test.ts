@@ -17,8 +17,9 @@ import * as schema from "@/lib/db/schema";
 // rotates its refresh token, and loses everything once the grant is revoked.
 // Same setup as issue-writes-scratch.test.ts: the local menara-postgres
 // container, a scratch database migrated with `menara migrate` and dropped
-// afterwards. Only the CIMD transport (no network), the job queue and Valkey
-// (REDIS_URL empty: the quota fails open) are stand-ins.
+// afterwards. Only the CIMD transport (no network), the job queue, Valkey
+// (REDIS_URL empty: the quota fails open) and Entra's token endpoint (for the
+// Microsoft sign-in resume) are stand-ins.
 //
 //   MCP_SCRATCH_DB=1 env -u SECRETS_KEY bun --bun vitest run tests/mcp-flow-scratch.test.ts
 const enabled = process.env.MCP_SCRATCH_DB === "1";
@@ -70,6 +71,8 @@ function psql(db: string, args: string[]) {
 }
 
 const ADMIN = "00000000-0000-7000-8000-00000000f001";
+const MS_TENANT = "00000000-0000-4000-8000-00000000aaaa";
+const MS_OID = "00000000-0000-4000-8000-00000000bbbb";
 const EMAIL = "admin@example.com";
 const PASSWORD = "correct horse battery";
 // The document lists the port-less loopback redirect; any port is accepted.
@@ -124,6 +127,10 @@ describe.skipIf(!enabled)("MCP OAuth flow on Postgres", () => {
     process.env.DATABASE_URL = url;
     // No Valkey: the MCP quota fails open.
     vi.stubEnv("REDIS_URL", "");
+    // Microsoft sign-in on, against a stubbed Entra token endpoint (below).
+    vi.stubEnv("MICROSOFT_CLIENT_ID", "acme-client");
+    vi.stubEnv("MICROSOFT_CLIENT_SECRET", "acme-secret");
+    vi.stubEnv("MICROSOFT_TENANT_ID", MS_TENANT);
     client = postgres(url, {
       max: 1,
       onnotice: () => {},
@@ -161,6 +168,7 @@ describe.skipIf(!enabled)("MCP OAuth flow on Postgres", () => {
   });
 
   afterAll(async () => {
+    vi.restoreAllMocks();
     vi.unstubAllEnvs();
     await client?.end();
     if (previousUrl === undefined) delete process.env.DATABASE_URL;
@@ -448,5 +456,102 @@ describe.skipIf(!enabled)("MCP OAuth flow on Postgres", () => {
     expect(stale.status).toBe(401);
     expect(stale.headers.get("www-authenticate")).toContain("invalid_token");
     expect(await toolNames(fourth.access_token)).toContain("list_issues");
+  });
+
+  it("resumes the authorization after a Microsoft sign-in", async () => {
+    // Entra's token endpoint answers with an (unverified, as in the code
+    // flow) ID token for the existing user; any other request fails.
+    const realFetch = globalThis.fetch;
+    const idToken = [
+      { alg: "none", typ: "JWT" },
+      {
+        oid: MS_OID,
+        tid: MS_TENANT,
+        sub: MS_OID,
+        email: EMAIL,
+        name: "Admin",
+        aud: "acme-client",
+      },
+    ]
+      .map((part) => Buffer.from(JSON.stringify(part)).toString("base64url"))
+      .concat("")
+      .join(".");
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.startsWith(`https://login.microsoftonline.com/${MS_TENANT}/`)) {
+        return Response.json({
+          access_token: "ms-access",
+          id_token: idToken,
+          token_type: "Bearer",
+          expires_in: 3600,
+        });
+      }
+      if (url.startsWith("https://")) {
+        return new Response("not found", { status: 404 });
+      }
+      return realFetch(input, init);
+    });
+
+    // Signed out: the authorize URL sends the browser to the sign-in page
+    // with the signed query. The scopes go beyond the standing grant, so
+    // the consent page must follow.
+    const query = new URLSearchParams({
+      response_type: "code",
+      client_id: CLIENT_ID,
+      redirect_uri: REDIRECT_URI,
+      scope: "offline_access read issues:write",
+      state: "ms-state",
+      code_challenge: createHash("sha256")
+        .update("v".repeat(43))
+        .digest("base64url"),
+      code_challenge_method: "S256",
+      resource: config.MCP_RESOURCE,
+    });
+    const start = await app.request(`/api/auth/oauth2/authorize?${query}`);
+    expect(start.status).toBe(302);
+    const signInUrl = new URL(start.headers.get("location") ?? "", base);
+    expect(signInUrl.pathname).toBe("/sign-in");
+
+    // The sign-in form's call, as the oauth-provider client plugin sends it
+    // from that page: the signed query rides along as `oauth_query`.
+    const social = await app.request("/api/auth/sign-in/social", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: base },
+      body: JSON.stringify({
+        provider: "microsoft",
+        callbackURL: "/en",
+        errorCallbackURL: "/en/sign-in",
+        oauth_query: signInUrl.search.slice(1),
+      }),
+    });
+    expect(social.status).toBe(200);
+    const { url } = (await social.json()) as { url: string };
+    const entra = new URL(url);
+    expect(entra.host).toBe("login.microsoftonline.com");
+    const stateCookie = social.headers
+      .getSetCookie()
+      .map((c) => c.split(";")[0])
+      .join("; ");
+
+    // Entra sends the browser back to the callback; better-auth signs the
+    // user in and, instead of the callbackURL, goes on with the authorize
+    // request: the consent page.
+    const callback = await app.request(
+      `/api/auth/callback/microsoft?code=ms-code&state=${encodeURIComponent(
+        entra.searchParams.get("state") ?? ""
+      )}`,
+      {
+        headers: {
+          Cookie: stateCookie,
+          "sec-fetch-mode": "navigate",
+          accept: "text/html",
+        },
+      }
+    );
+    expect(callback.status).toBe(302);
+    const next = new URL(callback.headers.get("location") ?? "", base);
+    expect(next.pathname).toBe("/oauth/consent");
+    expect(next.searchParams.get("client_id")).toBe(CLIENT_ID);
+    expect(next.searchParams.get("sig")).toBeTruthy();
   });
 });

@@ -12,6 +12,7 @@ import {
 } from "jose";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AccessScope } from "@/lib/access-scope";
+import { MCP_RESOURCE } from "@/lib/mcp/config";
 
 // The MCP endpoint (/api/mcp) on the production middleware stack: the bearer
 // gate (lib/mcp/gate), the per-request viewer and the read tools
@@ -22,9 +23,13 @@ import type { AccessScope } from "@/lib/access-scope";
 // service modules, so the Assistant's tool code, scoping and filters run as
 // they do in production.
 
-const ISSUER = "https://app.example.net/api/auth";
-const RESOURCE = "https://app.example.net/api/mcp";
-const HOST = "app.example.net";
+// Derived from the instance URL (BETTER_AUTH_URL), so the Host/Origin checks
+// and the token audience hold under any configured base URL, including a
+// localhost one with a port.
+const RESOURCE = MCP_RESOURCE;
+const ORIGIN = new URL(RESOURCE).origin;
+const HOST = new URL(RESOURCE).host;
+const ISSUER = `${RESOURCE.replace(/\/api\/mcp$/, "")}/api/auth`;
 const CLIENT_ID = "https://agent.example.com/oauth/client.json";
 const USER_ID = "01900000-0000-7000-8000-0000000000a1";
 const ACME_ID = "01900000-0000-7000-8000-000000000001";
@@ -421,7 +426,7 @@ describe("MCP endpoint authentication", () => {
     const response = await post({});
     expect(response.status).toBe(401);
     expect(response.headers.get("www-authenticate")).toContain(
-      'resource_metadata="https://app.example.net/.well-known/oauth-protected-resource/api/mcp"'
+      `resource_metadata="${ORIGIN}/.well-known/oauth-protected-resource/api/mcp"`
     );
   });
 
@@ -753,7 +758,7 @@ describe("MCP endpoint authentication", () => {
     expect(foreign.status).toBe(403);
     const sameSite = await post({
       authorization: `Bearer ${bearer}`,
-      origin: "https://app.example.net",
+      origin: ORIGIN,
     });
     expect(sameSite.status).toBe(200);
     const wrongHost = await post({

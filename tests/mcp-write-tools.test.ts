@@ -5,6 +5,7 @@ import {
 import { type CryptoKey, exportJWK, generateKeyPair, SignJWT } from "jose";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AccessScope } from "@/lib/access-scope";
+import { MCP_RESOURCE } from "@/lib/mcp/config";
 
 // The MCP write tools (lib/mcp/write-tools) through /api/mcp: listed only
 // with their scope, names resolved inside the viewer's scope, the agent
@@ -14,9 +15,12 @@ import type { AccessScope } from "@/lib/access-scope";
 // stubbed deploy repository, so their permission checks and refusals are the
 // ones the UI gets.
 
-const ISSUER = "https://app.example.net/api/auth";
-const RESOURCE = "https://app.example.net/api/mcp";
-const HOST = "app.example.net";
+// Derived from the instance URL (BETTER_AUTH_URL), so the Host/Origin checks
+// and the token audience hold under any configured base URL, including a
+// localhost one with a port.
+const RESOURCE = MCP_RESOURCE;
+const HOST = new URL(RESOURCE).host;
+const ISSUER = `${RESOURCE.replace(/\/api\/mcp$/, "")}/api/auth`;
 const CLIENT_ID = "https://agent.example.com/oauth/client.json";
 const USER_ID = "01900000-0000-7000-8000-0000000000a1";
 const ASSIGNEE_ID = "01900000-0000-7000-8000-0000000000a2";

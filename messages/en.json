@@ -4303,9 +4303,13 @@
     "setupTitle": "Connect an agent",
     "setupDescription": "Point an MCP client at this server. On first use it opens {{APP_NAME}} so you can sign in and approve it.",
     "serverUrl": "Server URL",
-    "setupCommand": "Run in a terminal:",
-    "setupJson": "Add under context_servers in your settings:",
-    "setupConnector": "Settings › Connectors › Add custom connector, URL {url}"
+    "steps": {
+      "addCommand": "Add the server to all your projects:",
+      "loginCommand": "Sign in:",
+      "addRemoteServer": "Open Settings › AI › MCP Servers › Add Server › Add Remote Server and replace the template with:",
+      "addConnector": "In Customize › Connectors, choose + Add › Add custom connector, name it {name} and paste this URL. On Team or Enterprise plans an owner adds it first under Organization settings › Connectors.",
+      "approve": "The browser opens {{APP_NAME}}: sign in, keep only the access you need, then choose Allow."
+    }
   },
   "instanceMcp": {
     "title": "MCP server",

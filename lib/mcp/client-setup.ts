@@ -15,42 +15,66 @@ export function mcpServerName(appName: string): string {
   return slug || "mcp";
 }
 
+/** One numbered step; its wording is `connectedApps.steps.<text>`. */
+export type McpSetupStep = {
+  text:
+    | "addCommand"
+    | "loginCommand"
+    | "addRemoteServer"
+    | "addConnector"
+    | "approve";
+  /** What the step's copy button copies; absent when there is nothing to paste. */
+  snippet?: string;
+};
+
 export type McpClientSetup = {
   id: "claude-code" | "zed" | "claude-desktop";
   /** The client's own name. */
   label: string;
-  /**
-   * command: a shell command; json: a settings fragment; connector: steps in
-   * the client's settings, with the URL to paste (`value`).
-   */
-  kind: "command" | "json" | "connector";
-  /** What the copy button copies. */
-  value: string;
+  steps: McpSetupStep[];
 };
 
-/** The setup snippets for the server named `serverName` at `url` (MCP_RESOURCE). */
+/**
+ * The steps for the server named `serverName` at `url` (MCP_RESOURCE). Each
+ * client's own way in: Claude Code's CLI (user scope, so the server is there
+ * in every project, then `claude mcp login`), Zed's Add Remote Server dialog
+ * (it takes the same `{ name: { url } }` it writes to `context_servers`), and
+ * the claude.ai custom connector. None needs a token: each opens the browser
+ * for OAuth, which ends in the shared `approve` step.
+ */
 export function mcpClientSetups(
   serverName: string,
   url: string
 ): McpClientSetup[] {
+  const approve: McpSetupStep = { text: "approve" };
   return [
     {
       id: "claude-code",
       label: "Claude Code",
-      kind: "command",
-      value: `claude mcp add --transport http ${serverName} ${url}`,
+      steps: [
+        {
+          text: "addCommand",
+          snippet: `claude mcp add --scope user --transport http ${serverName} ${url}`,
+        },
+        { text: "loginCommand", snippet: `claude mcp login ${serverName}` },
+        approve,
+      ],
     },
     {
       id: "zed",
       label: "Zed",
-      kind: "json",
-      value: JSON.stringify({ [serverName]: { url } }, null, 2),
+      steps: [
+        {
+          text: "addRemoteServer",
+          snippet: JSON.stringify({ [serverName]: { url } }, null, 2),
+        },
+        approve,
+      ],
     },
     {
       id: "claude-desktop",
       label: "claude.ai / Claude Desktop",
-      kind: "connector",
-      value: url,
+      steps: [{ text: "addConnector", snippet: url }, approve],
     },
   ];
 }

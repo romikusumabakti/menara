@@ -4303,9 +4303,13 @@
     "setupTitle": "ربط وكيل",
     "setupDescription": "وجّه عميل MCP إلى هذا الخادم. عند أول استخدام يفتح {{APP_NAME}} لتسجّل الدخول وتوافق عليه.",
     "serverUrl": "رابط الخادم",
-    "setupCommand": "شغّل في الطرفية:",
-    "setupJson": "أضف ضمن context_servers في إعداداتك:",
-    "setupConnector": "Settings › Connectors › Add custom connector، الرابط {url}"
+    "steps": {
+      "addCommand": "أضف الخادم إلى جميع مشاريعك:",
+      "loginCommand": "سجّل الدخول:",
+      "addRemoteServer": "افتح Settings › AI › MCP Servers › Add Server › Add Remote Server واستبدل القالب بما يلي:",
+      "addConnector": "في Customize › Connectors اختر + Add › Add custom connector، وسمّه {name} والصق هذا الرابط. في خطط Team أو Enterprise يضيفه المالك أولًا من Organization settings › Connectors.",
+      "approve": "يفتح المتصفح {{APP_NAME}}: سجّل الدخول، وأبقِ فقط الصلاحيات التي تحتاجها، ثم اختر سماح."
+    }
   },
   "instanceMcp": {
     "title": "خادم MCP",

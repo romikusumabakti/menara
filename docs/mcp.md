@@ -62,23 +62,35 @@ the server. On first use the client opens Menara in the browser: sign in as
 usual (password + authenticator, passkey or Microsoft), then approve. You can
 untick every scope except `read`.
 
-Account › Connected apps shows these snippets with the instance's own URL,
-ready to copy. `<name>` is the instance name, slugged (`menara` by default).
+Account › Connected apps shows these steps with the instance's own URL, each
+snippet ready to copy. `<name>` is the instance name, slugged (`menara` by
+default). No client needs a token: each one opens the browser for the sign-in
+and approval above.
 
-- **Claude Code**:
+- **Claude Code**: add the server at user scope, so it is there in every
+  project, then sign in:
 
   ```sh
-  claude mcp add --transport http <name> https://<your instance>/api/mcp
+  claude mcp add --scope user --transport http <name> https://<your instance>/api/mcp
+  claude mcp login <name>
   ```
 
-- **Zed**: add under `context_servers` in `settings.json`:
+  (`/mcp` inside a session does the same sign-in.)
+
+- **Zed**: Settings › AI › MCP Servers › Add Server › Add Remote Server, and
+  replace the template with the block below. Leave out `headers`: without an
+  `Authorization` header Zed runs the OAuth flow. The same block also works
+  under `context_servers` in `settings.json`.
 
   ```json
   { "<name>": { "url": "https://<your instance>/api/mcp" } }
   ```
 
-- **claude.ai / Claude Desktop**: Settings › Connectors › Add custom
-  connector, with the URL `https://<your instance>/api/mcp`.
+- **claude.ai / Claude Desktop**: Customize › Connectors › + Add › Add custom
+  connector, with the name `<name>` and the URL
+  `https://<your instance>/api/mcp`. On Team and Enterprise plans an owner adds
+  it first under Organization settings › Connectors; members then choose
+  Connect.
 
 ## Behind an access proxy
 

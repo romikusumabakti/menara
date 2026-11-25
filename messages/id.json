@@ -4303,9 +4303,13 @@
     "setupTitle": "Hubungkan agen",
     "setupDescription": "Arahkan klien MCP ke server ini. Saat pertama dipakai, klien membuka {{APP_NAME}} agar Anda bisa masuk dan menyetujuinya.",
     "serverUrl": "URL server",
-    "setupCommand": "Jalankan di terminal:",
-    "setupJson": "Tambahkan di bawah context_servers pada pengaturan Anda:",
-    "setupConnector": "Settings › Connectors › Add custom connector, URL {url}"
+    "steps": {
+      "addCommand": "Tambahkan server untuk semua project:",
+      "loginCommand": "Masuk:",
+      "addRemoteServer": "Buka Settings › AI › MCP Servers › Add Server › Add Remote Server, lalu ganti isinya dengan:",
+      "addConnector": "Di Customize › Connectors, pilih + Add › Add custom connector, beri nama {name}, lalu tempel URL ini. Di paket Team atau Enterprise, owner menambahkannya dulu lewat Organization settings › Connectors.",
+      "approve": "Browser membuka {{APP_NAME}}: masuk, centang hanya akses yang diperlukan, lalu pilih Izinkan."
+    }
   },
   "instanceMcp": {
     "title": "Server MCP",

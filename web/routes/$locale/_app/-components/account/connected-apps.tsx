@@ -189,7 +189,8 @@ function GrantTimes({ t, grant }: { t: T; grant: McpGrantRow }) {
 function SetupCard({ url }: { url: string }) {
   const t = useTranslations("connectedApps");
   const { appName } = useBootstrap();
-  const setups = mcpClientSetups(mcpServerName(appName), url);
+  const name = mcpServerName(appName);
+  const setups = mcpClientSetups(name, url);
   return (
     <Card>
       <CardHeader>
@@ -202,41 +203,39 @@ function SetupCard({ url }: { url: string }) {
           <Snippet value={url} />
         </div>
         {setups.map((setup) => (
-          <SetupRow key={setup.id} t={t} setup={setup} url={url} />
+          <SetupSteps key={setup.id} t={t} setup={setup} name={name} />
         ))}
       </CardContent>
     </Card>
   );
 }
 
-function SetupRow({
+/** One client's numbered steps, each with its snippet to copy. */
+function SetupSteps({
   t,
   setup,
-  url,
+  name,
 }: {
   t: T;
   setup: McpClientSetup;
-  url: string;
+  name: string;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-sm font-medium">{setup.label}</span>
-      {setup.kind === "connector" ? (
-        <div className="flex items-center justify-between gap-2 rounded-lg bg-muted px-3 py-2 text-sm">
-          <span className="min-w-0 break-all">
-            {t("setupConnector", { url })}
-          </span>
-          <CopyButton value={setup.value} />
-        </div>
-      ) : (
-        <>
-          <span className="text-sm text-muted-foreground">
-            {setup.kind === "command" ? t("setupCommand") : t("setupJson")}
-          </span>
-          <Snippet value={setup.value} />
-        </>
-      )}
-    </div>
+    <section className="flex flex-col gap-2">
+      <h3 className="text-sm font-medium">{setup.label}</h3>
+      <ol className="flex list-decimal flex-col gap-2 ps-5 text-sm marker:text-muted-foreground">
+        {setup.steps.map((step) => (
+          <li key={step.text} className="ps-1">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-muted-foreground">
+                {t(`steps.${step.text}`, { name })}
+              </span>
+              {step.snippet && <Snippet value={step.snippet} />}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 

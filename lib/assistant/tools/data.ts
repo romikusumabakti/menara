@@ -407,7 +407,7 @@ const ALWAYS = {
     }),
   },
   list_people: {
-    description: `People in Menara as the People page shows them (at most ${MAX_PEOPLE}): name, what they like to be called, email, title, job role and the projects they can see.`,
+    description: `People in Menara as the People page shows them (at most ${MAX_PEOPLE}): name, what they like to be called, email, title, job role and the keys of the projects they can see (the top-level projects list gives each key's name and url).`,
     inputSchema: z.strictObject({
       project: nullable(
         z.string(),
@@ -1066,22 +1066,30 @@ async function listPeopleTool(
     ? people.filter((p) => personMatchesQuery(p, query))
     : people;
   const shown = matching.slice(0, MAX_PEOPLE);
+  // Each project's key, name and url once at the top; a person lists keys.
+  const referenced = new Map<string, ReturnType<typeof projectRef>>();
+  const keysOf = (ids: string[]) =>
+    ids.flatMap((id) => {
+      const ref = projectOf.get(id);
+      if (!ref) return [];
+      referenced.set(ref.key, ref);
+      return [ref.key];
+    });
+  const shownPeople = shown.map((p) =>
+    compact({
+      ...personRef(p),
+      callName: callName(p) === p.name ? null : callName(p),
+      email: p.email,
+      title: p.title,
+      role: p.role,
+      projects: keysOf(p.projectIds),
+      deactivated: p.deactivated || null,
+    })
+  );
   return ok(
     compact({
-      people: shown.map((p) =>
-        compact({
-          ...personRef(p),
-          callName: callName(p) === p.name ? null : callName(p),
-          email: p.email,
-          title: p.title,
-          role: p.role,
-          projects: p.projectIds.flatMap((id) => {
-            const ref = projectOf.get(id);
-            return ref ? [ref] : [];
-          }),
-          deactivated: p.deactivated || null,
-        })
-      ),
+      people: shownPeople,
+      projects: [...referenced.values()],
       more:
         matching.length > shown.length ? matching.length - shown.length : null,
     }),

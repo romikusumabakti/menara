@@ -2156,11 +2156,6 @@
     "sourcesDescription": "The services this project deploys and the branch each starts on in a new environment. Each environment keeps its own branch, set in its Source & Deploy settings."
   },
   "homePage": {
-    "askExamples": {
-      "first": "Which services changed most this week?",
-      "second": "What is running on staging right now?",
-      "third": "Summarize the open issues for my project"
-    },
     "askRecent": "Recent chats",
     "title": "Home",
     "greeting": {
@@ -4230,7 +4225,27 @@
     "recentChats": "Recent",
     "pinChat": "Pin",
     "unpinChat": "Unpin",
-    "editQuestion": "Edit question"
+    "editQuestion": "Edit question",
+    "suggestions": {
+      "failedRun": "Why did the {runKind} on {environment} fail?",
+      "myIssues": "{count, plural, one {Summarize my # open issue, starting with {firstKey}} other {Summarize my # open issues, starting with {firstKey}}}",
+      "environment": "What is running on {environment} right now?",
+      "general": {
+        "changedToday": "What changed today?",
+        "failedDeploysThisWeek": "Which deploys failed this week?"
+      },
+      "runKind": {
+        "backup": "backup",
+        "restore": "restore",
+        "mock_time": "mock time change",
+        "test": "test run",
+        "deploy": "deploy",
+        "provision": "provisioning",
+        "teardown": "teardown",
+        "release": "release",
+        "other": "run"
+      }
+    }
   },
   "oauthConsent": {
     "title": "Allow {client} to use your {{APP_NAME}} account?",

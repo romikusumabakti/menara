@@ -73,6 +73,7 @@ import {
   useDraftGeneration,
 } from "./draft-panel";
 import { useAssistantErrorText } from "./error-text";
+import { SuggestionChips } from "./suggestion-chips";
 
 const LARGE = "(min-width: 64rem)"; // Tailwind `lg`
 
@@ -592,6 +593,9 @@ export function AssistantWorkspace({
             userId={userId}
             context={context}
           />
+          {emptyChat && !temporary && !conversation?.temporary && (
+            <SuggestionChips draftKey={draftKey} />
+          )}
           {emptyChat && (
             <p className="text-center text-xs text-muted-foreground">
               {t("shortcutHint", {

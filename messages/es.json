@@ -2156,11 +2156,6 @@
     "sourcesDescription": "Los servicios que despliega este proyecto y la rama con la que arranca cada uno en un entorno nuevo. Cada entorno conserva su propia rama, definida en sus ajustes de Source & Deploy."
   },
   "homePage": {
-    "askExamples": {
-      "first": "¿Qué servicios cambiaron más esta semana?",
-      "second": "¿Qué se está ejecutando ahora en staging?",
-      "third": "Resume las incidencias abiertas de mi proyecto"
-    },
     "askRecent": "Chats recientes",
     "title": "Inicio",
     "greeting": {
@@ -4230,7 +4225,27 @@
     "recentChats": "Recientes",
     "pinChat": "Fijar",
     "unpinChat": "Desfijar",
-    "editQuestion": "Editar pregunta"
+    "editQuestion": "Editar pregunta",
+    "suggestions": {
+      "failedRun": "¿Por qué falló {runKind} en {environment}?",
+      "myIssues": "{count, plural, one {Resume mi # incidencia abierta, empezando por {firstKey}} other {Resume mis # incidencias abiertas, empezando por {firstKey}}}",
+      "environment": "¿Qué se está ejecutando ahora en {environment}?",
+      "general": {
+        "changedToday": "¿Qué cambió hoy?",
+        "failedDeploysThisWeek": "¿Qué despliegues fallaron esta semana?"
+      },
+      "runKind": {
+        "backup": "la copia de seguridad",
+        "restore": "la restauración",
+        "mock_time": "el cambio de hora simulada",
+        "test": "la prueba",
+        "deploy": "el despliegue",
+        "provision": "el aprovisionamiento",
+        "teardown": "el desmontaje",
+        "release": "la publicación",
+        "other": "la ejecución"
+      }
+    }
   },
   "oauthConsent": {
     "title": "¿Permitir que {client} use tu cuenta de {{APP_NAME}}?",

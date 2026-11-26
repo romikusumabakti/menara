@@ -36,6 +36,8 @@ export const assistantSuggestionsQuery = () =>
   queryOptions({
     queryKey: ["assistant", "suggestions"],
     queryFn: getSuggestions,
+    // Not refetched on every composer mount.
+    staleTime: 60_000,
   });
 
 /**

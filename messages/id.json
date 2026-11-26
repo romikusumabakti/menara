@@ -2156,11 +2156,6 @@
     "sourcesDescription": "Service yang di-deploy proyek ini dan branch awal masing-masing di environment baru. Setiap environment menyimpan branch-nya sendiri, diatur di pengaturan Source & Deploy-nya."
   },
   "homePage": {
-    "askExamples": {
-      "first": "Layanan mana yang paling banyak berubah minggu ini?",
-      "second": "Apa yang sedang berjalan di staging saat ini?",
-      "third": "Ringkas issue yang masih terbuka di proyek saya"
-    },
     "askRecent": "Chat terbaru",
     "title": "Beranda",
     "greeting": {
@@ -4230,7 +4225,27 @@
     "recentChats": "Terbaru",
     "pinChat": "Sematkan",
     "unpinChat": "Lepas sematan",
-    "editQuestion": "Edit pertanyaan"
+    "editQuestion": "Edit pertanyaan",
+    "suggestions": {
+      "failedRun": "Mengapa {runKind} di {environment} gagal?",
+      "myIssues": "{count, plural, other {Ringkas # isu terbuka saya, mulai dari {firstKey}}}",
+      "environment": "Apa yang sedang berjalan di {environment} sekarang?",
+      "general": {
+        "changedToday": "Apa yang berubah hari ini?",
+        "failedDeploysThisWeek": "Deploy mana yang gagal minggu ini?"
+      },
+      "runKind": {
+        "backup": "backup",
+        "restore": "restore",
+        "mock_time": "perubahan mock time",
+        "test": "uji",
+        "deploy": "deploy",
+        "provision": "provisioning",
+        "teardown": "teardown",
+        "release": "rilis",
+        "other": "proses"
+      }
+    }
   },
   "oauthConsent": {
     "title": "Izinkan {client} memakai akun {{APP_NAME}} Anda?",

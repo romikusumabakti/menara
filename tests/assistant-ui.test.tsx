@@ -65,6 +65,10 @@ vi.mock("@/web/api/assistant", () => ({
     queryKey: ["assistant", "getConversation", [id]],
     queryFn: () => conversationFetch.get(id)?.() ?? new Promise(() => {}),
   }),
+  assistantSuggestionsQuery: () => ({
+    queryKey: ["assistant", "suggestions"],
+    queryFn: () => new Promise(() => {}),
+  }),
   listConversationsQuery: (query?: string) => ({
     queryKey: query
       ? ["assistant", "listConversations", { query }]
@@ -4217,6 +4221,22 @@ describe("context picker", () => {
       expect(dock()?.dataset.composerDock).toBe("bottom");
       expect(container.querySelector("textarea")).toBe(before);
       expect(document.activeElement).toBe(before);
+    });
+
+    it("shows suggestion chips on an empty new chat, but not in a temporary one", async () => {
+      queryClient.setQueryData(["assistant", "suggestions"], {
+        items: [
+          {
+            kind: "general",
+            params: { question: "changedToday" },
+            context: null,
+          },
+        ],
+      });
+      await renderWorkspace();
+      expect(dock()?.querySelectorAll("[data-suggestion]")).toHaveLength(1);
+      await act(async () => button(t.temporaryChat)?.click());
+      expect(dock()?.querySelectorAll("[data-suggestion]")).toHaveLength(0);
     });
 
     it("the temporary toggle makes the next new chat temporary, and says what that means", async () => {

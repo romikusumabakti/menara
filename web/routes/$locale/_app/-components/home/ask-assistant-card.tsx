@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import * as React from "react";
 import { useTranslations } from "use-intl";
 import { RelativeTime } from "@/components/relative-time";
-import { Button } from "@/components/ui/button";
 import { Link, useRouter } from "@/i18n/navigation";
 import type { AttachmentRef } from "@/lib/assistant/attachment-refs";
 import type { QuestionContextInput } from "@/lib/assistant/context";
@@ -13,7 +12,6 @@ import {
   sendMessage,
 } from "@/web/api/assistant";
 import { listProjectsQuery } from "@/web/api/project-catalog";
-import { ASSISTANT_COMPOSER_ID } from "@/web/components/assistant/assistant-shortcut";
 import { Composer } from "@/web/components/assistant/composer";
 import {
   composerDrafts,
@@ -25,9 +23,9 @@ import {
   useContextOptions,
   visibleContext,
 } from "@/web/components/assistant/context-picker";
+import { SuggestionChips } from "@/web/components/assistant/suggestion-chips";
 
 const AUTO: QuestionContextInput = { kind: "auto" };
-const EXAMPLE_KEYS = ["first", "second", "third"] as const;
 const MAX_RECENTS = 3;
 
 /**
@@ -35,7 +33,7 @@ const MAX_RECENTS = 3;
  * New chat's, so what is typed, attached or picked here is the same draft
  * the Assistant shows under New chat (kept when leaving, cleared by a send).
  * The send creates the chat and opens it on /assistant. Below the box: the
- * latest chats, or example questions that fill the box. Hidden unless the
+ * latest chats, under starter-question chips that fill the box. Hidden unless the
  * assistant is on and the user sees a project.
  */
 export function AskAssistantCard() {
@@ -110,7 +108,8 @@ export function AskAssistantCard() {
         capResetsAt={capped ? allowance.resetsAt : null}
         readsImages={allowance.readsImages}
       />
-      {/* Nothing until the chats load: examples must not flash. */}
+      <SuggestionChips draftKey={NEW_CHAT} />
+      {/* Nothing until the chats load. */}
       {recents === undefined ? null : recents.length > 0 ? (
         <div className="flex flex-col gap-1">
           <h2 className="px-1 text-xs font-medium text-muted-foreground">
@@ -143,29 +142,7 @@ export function AskAssistantCard() {
             ))}
           </ul>
         </div>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {EXAMPLE_KEYS.map((key) => (
-            <Button
-              key={key}
-              data-example
-              variant="outline"
-              size="sm"
-              className="h-auto max-w-full whitespace-normal rounded-full py-1 text-start font-normal"
-              disabled={capped}
-              onClick={() => {
-                composerDrafts.update(NEW_CHAT, (d) => ({
-                  ...d,
-                  text: t(`askExamples.${key}`),
-                }));
-                document.getElementById(ASSISTANT_COMPOSER_ID)?.focus();
-              }}
-            >
-              {t(`askExamples.${key}`)}
-            </Button>
-          ))}
-        </div>
-      )}
+      ) : null}
     </section>
   );
 }

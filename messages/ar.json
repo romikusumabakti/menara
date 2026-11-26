@@ -2156,11 +2156,6 @@
     "sourcesDescription": "الخدمات التي ينشرها هذا المشروع والفرع الذي تبدأ منه كل خدمة في بيئة جديدة. تحتفظ كل بيئة بفرعها الخاص، ويُحدَّد في إعدادات Source & Deploy الخاصة بها."
   },
   "homePage": {
-    "askExamples": {
-      "first": "ما الخدمات الأكثر تغيّرًا هذا الأسبوع؟",
-      "second": "ما الذي يعمل الآن على staging؟",
-      "third": "لخّص القضايا المفتوحة في مشروعي"
-    },
     "askRecent": "الدردشات الأخيرة",
     "title": "الرئيسية",
     "greeting": {
@@ -4230,7 +4225,27 @@
     "recentChats": "الأخيرة",
     "pinChat": "تثبيت",
     "unpinChat": "إلغاء التثبيت",
-    "editQuestion": "تعديل السؤال"
+    "editQuestion": "تعديل السؤال",
+    "suggestions": {
+      "failedRun": "لماذا فشل {runKind} في {environment}؟",
+      "myIssues": "{count, plural, one {لخّص مشكلتي المفتوحة، بدءًا من {firstKey}} two {لخّص مشكلتيّ المفتوحتين، بدءًا من {firstKey}} few {لخّص مشاكلي المفتوحة الـ # ، بدءًا من {firstKey}} many {لخّص مشاكلي المفتوحة الـ # ، بدءًا من {firstKey}} other {لخّص مشاكلي المفتوحة (#)، بدءًا من {firstKey}}}",
+      "environment": "ما الذي يعمل الآن في {environment}؟",
+      "general": {
+        "changedToday": "ما الذي تغيّر اليوم؟",
+        "failedDeploysThisWeek": "أي عمليات نشر فشلت هذا الأسبوع؟"
+      },
+      "runKind": {
+        "backup": "النسخ الاحتياطي",
+        "restore": "الاستعادة",
+        "mock_time": "تغيير الوقت التجريبي",
+        "test": "الاختبار",
+        "deploy": "النشر",
+        "provision": "التهيئة",
+        "teardown": "الإزالة",
+        "release": "الإصدار",
+        "other": "التشغيل"
+      }
+    }
   },
   "oauthConsent": {
     "title": "هل تسمح لـ {client} باستخدام حسابك على {{APP_NAME}}؟",

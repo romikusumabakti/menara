@@ -1,7 +1,6 @@
 import { z } from "zod";
 import {
   getAttentionGroups,
-  getHomeAccess,
   listIssueProjects,
   listMyOpenIssues,
   listRecentEnvironments,
@@ -26,7 +25,6 @@ export const homeRouter = sessionRouter()
     c.json(await listRecentEnvironments())
   )
   .get("/issue-projects", async (c) => c.json(await listIssueProjects()))
-  .get("/access", async (c) => c.json(await getHomeAccess()))
   .get("/instance-backup-attention", async (c) =>
     c.json(await getInstanceBackupAttention())
   )

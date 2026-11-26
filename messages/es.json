@@ -2175,7 +2175,6 @@
     },
     "attention": {
       "title": "Necesita atención",
-      "allClear": "Todo en orden: sin fallos pendientes en los últimos 7 días.",
       "createIssue": "Incidencia",
       "acknowledge": "Reconocer",
       "acknowledged": "Reconocido",
@@ -3949,23 +3948,21 @@
     "markTitle": "Mark as release",
     "markDescription": "Keep {component} {tag} as a release you can download later.",
     "submit": "Mark as release",
-    "colComponent": "Component",
     "colSource": "Source",
     "testedOn": "Tested on",
-    "colBy": "Created by",
-    "colStatus": "Status",
-    "colSize": "Size",
     "download": "Download",
     "delete": "Delete",
     "deleteTitle": "Delete release {version}?",
     "deleteDescription": "The stored file of {component} is deleted too. This cannot be undone.",
     "deleted": "Release deleted",
-    "versionGroup": "Version {version}",
     "status": {
       "preparing": "Preparing",
       "ready": "Ready",
       "failed": "Failed"
-    }
+    },
+    "copyTag": "Copiar etiqueta",
+    "rowActions": "Acciones de {component} {version}",
+    "supersededLabel": "Reemplazada"
   },
   "personPicker": {
     "search": "Buscar por nombre o correo…",

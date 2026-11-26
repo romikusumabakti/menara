@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import * as React from "react";
 import { useTranslations } from "use-intl";
 import { RelativeTime } from "@/components/relative-time";
+import { Card, CardContent } from "@/components/ui/card";
 import { Link, useRouter } from "@/i18n/navigation";
 import type { AttachmentRef } from "@/lib/assistant/attachment-refs";
 import type { QuestionContextInput } from "@/lib/assistant/context";
@@ -95,55 +96,60 @@ export function AskAssistantCard() {
     : undefined;
 
   return (
-    <section className="flex flex-col gap-3">
-      <Composer
-        disabled={capped}
-        running={false}
-        onStop={() => {}}
-        onSend={send}
-        focusKey={NEW_CHAT}
-        autoFocus={false}
-        draftKey={NEW_CHAT}
-        userId={userId}
-        context={context}
-        capResetsAt={capped ? allowance.resetsAt : null}
-        readsImages={allowance.readsImages}
-      />
-      {!capped && <SuggestionChips draftKey={NEW_CHAT} />}
-      {/* Nothing until the chats load. */}
-      {recents === undefined ? null : recents.length > 0 ? (
-        <div className="flex flex-col gap-1">
-          <h2 className="px-1 text-xs font-medium text-muted-foreground">
-            {t("askRecent")}
-          </h2>
-          <ul className="flex flex-col">
-            {recents.map((c) => (
-              <li key={c.id}>
-                <Link
-                  data-recent
-                  href={`/assistant?c=${c.id}`}
-                  className="flex flex-col gap-0.5 rounded-lg px-2 py-1.5 text-sm outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
-                >
-                  <span className="truncate">
-                    {c.title || tAssistant("untitled")}
-                  </span>
-                  <span className="flex min-w-0 items-baseline gap-1.5 text-xs text-muted-foreground">
+    <Card>
+      <CardContent className="flex flex-col gap-3">
+        <Composer
+          disabled={capped}
+          running={false}
+          onStop={() => {}}
+          onSend={send}
+          focusKey={NEW_CHAT}
+          autoFocus={false}
+          draftKey={NEW_CHAT}
+          userId={userId}
+          context={context}
+          capResetsAt={capped ? allowance.resetsAt : null}
+          readsImages={allowance.readsImages}
+        />
+        {!capped && <SuggestionChips draftKey={NEW_CHAT} />}
+        {/* Nothing until the chats load. */}
+        {recents === undefined ? null : recents.length > 0 ? (
+          <div
+            data-recent-chats
+            className="-mx-1 flex flex-col gap-1 border-t pt-3"
+          >
+            <h2 className="px-1 text-xs font-medium text-muted-foreground">
+              {t("askRecent")}
+            </h2>
+            <ul className="flex flex-col">
+              {recents.map((c) => (
+                <li key={c.id}>
+                  <Link
+                    data-recent
+                    href={`/assistant?c=${c.id}`}
+                    className="flex flex-col gap-0.5 rounded-lg px-2 py-1.5 text-sm outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+                  >
                     <span className="truncate">
-                      {c.lastContextLabel === null
-                        ? tAssistant("contextAuto")
-                        : c.lastContextDeleted
-                          ? `${c.lastContextLabel} ${tAssistant("contextDeleted")}`
-                          : c.lastContextLabel}
+                      {c.title || tAssistant("untitled")}
                     </span>
-                    <span aria-hidden>·</span>
-                    <RelativeTime date={c.updatedAt} className="shrink-0" />
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-    </section>
+                    <span className="flex min-w-0 items-baseline gap-1.5 text-xs text-muted-foreground">
+                      <span className="truncate">
+                        {c.lastContextLabel === null
+                          ? tAssistant("contextAuto")
+                          : c.lastContextDeleted
+                            ? `${c.lastContextLabel} ${tAssistant("contextDeleted")}`
+                            : c.lastContextLabel}
+                      </span>
+                      <span aria-hidden>·</span>
+                      <RelativeTime date={c.updatedAt} className="shrink-0" />
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }

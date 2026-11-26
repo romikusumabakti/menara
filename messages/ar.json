@@ -2175,7 +2175,6 @@
     },
     "attention": {
       "title": "يحتاج انتباه",
-      "allClear": "كل شيء على ما يرام — لا إخفاقات غير معالجة في آخر 7 أيام.",
       "createIssue": "مشكلة",
       "acknowledge": "إقرار",
       "acknowledged": "تم الإقرار",
@@ -3949,23 +3948,21 @@
     "markTitle": "Mark as release",
     "markDescription": "Keep {component} {tag} as a release you can download later.",
     "submit": "Mark as release",
-    "colComponent": "Component",
     "colSource": "Source",
     "testedOn": "Tested on",
-    "colBy": "Created by",
-    "colStatus": "Status",
-    "colSize": "Size",
     "download": "Download",
     "delete": "Delete",
     "deleteTitle": "Delete release {version}?",
     "deleteDescription": "The stored file of {component} is deleted too. This cannot be undone.",
     "deleted": "Release deleted",
-    "versionGroup": "Version {version}",
     "status": {
       "preparing": "Preparing",
       "ready": "Ready",
       "failed": "Failed"
-    }
+    },
+    "copyTag": "نسخ الوسم",
+    "rowActions": "إجراءات {component} {version}",
+    "supersededLabel": "تم استبدالها"
   },
   "personPicker": {
     "search": "ابحث بالاسم أو البريد الإلكتروني…",

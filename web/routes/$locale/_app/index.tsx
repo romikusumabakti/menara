@@ -5,12 +5,12 @@ import { defaultIssueTarget } from "@/lib/home/layout";
 import { hasProjects } from "@/lib/permissions";
 import {
   getAttentionGroupsQuery,
-  getHomeAccessQuery,
   listIssueProjectsQuery,
   listMyOpenIssuesQuery,
   listRecentEnvironmentsQuery,
 } from "@/web/api/home";
 import { meQuery, useMe } from "@/web/api/session";
+import { AttentionStrip } from "./-components/home/attention-strip";
 import { HomeHeader } from "./-components/home/home-header";
 import { HomeIssueDialogProvider } from "./-components/home/home-issue-dialog";
 import { MainColumn } from "./-components/home/main-column";
@@ -31,7 +31,6 @@ export const Route = createFileRoute("/$locale/_app/")({
     if (!hasProjects(me?.orgRole)) return;
     void queryClient.prefetchQuery(getAttentionGroupsQuery());
     void queryClient.prefetchQuery(listMyOpenIssuesQuery());
-    void queryClient.prefetchQuery(getHomeAccessQuery());
     const results = await Promise.allSettled([
       queryClient.query(listIssueProjectsQuery()),
       queryClient.query(listRecentEnvironmentsQuery()),
@@ -53,8 +52,8 @@ function HomePage() {
   return hasProjects(me?.orgRole) ? <ProjectHome /> : <HomeHeader />;
 }
 
-// Main column: what needs the user (failures, their issues) — streamed, and
-// ordered by what it contains. Rail: context (live runs, recent environments).
+// Failures lead as a full-width strip (only when there are any). Main column:
+// the assistant, then the user's issues — streamed. Rail: context (live runs, recent environments).
 function ProjectHome() {
   const issueProjects = useQuery({
     ...listIssueProjectsQuery(),
@@ -72,6 +71,7 @@ function ProjectHome() {
   return (
     <HomeIssueDialogProvider projects={projects} defaultTarget={target}>
       <HomeHeader action={<NewIssueButton />} />
+      <AttentionStrip />
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="flex min-w-0 flex-col gap-4">
           <MainColumn />

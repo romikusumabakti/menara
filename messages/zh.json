@@ -2175,7 +2175,6 @@
     },
     "attention": {
       "title": "需要关注",
-      "allClear": "一切正常——过去 7 天内没有未处理的失败。",
       "createIssue": "事项",
       "acknowledge": "确认",
       "acknowledged": "已确认",
@@ -3949,23 +3948,21 @@
     "markTitle": "Mark as release",
     "markDescription": "Keep {component} {tag} as a release you can download later.",
     "submit": "Mark as release",
-    "colComponent": "Component",
     "colSource": "Source",
     "testedOn": "Tested on",
-    "colBy": "Created by",
-    "colStatus": "Status",
-    "colSize": "Size",
     "download": "Download",
     "delete": "Delete",
     "deleteTitle": "Delete release {version}?",
     "deleteDescription": "The stored file of {component} is deleted too. This cannot be undone.",
     "deleted": "Release deleted",
-    "versionGroup": "Version {version}",
     "status": {
       "preparing": "Preparing",
       "ready": "Ready",
       "failed": "Failed"
-    }
+    },
+    "copyTag": "复制标签",
+    "rowActions": "{component} {version} 的操作",
+    "supersededLabel": "已被取代"
   },
   "personPicker": {
     "search": "按姓名或邮箱搜索…",

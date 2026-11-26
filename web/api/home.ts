@@ -53,16 +53,6 @@ export const listIssueProjectsQuery = (
     queryFn: () => listIssueProjects(...args),
   });
 
-export async function getHomeAccess() {
-  return parseResponse(routes.access.$get());
-}
-
-export const getHomeAccessQuery = (...args: Parameters<typeof getHomeAccess>) =>
-  queryOptions({
-    queryKey: ["home", "getHomeAccess", args],
-    queryFn: () => getHomeAccess(...args),
-  });
-
 export async function getInstanceBackupAttention() {
   return parseResponse(routes["instance-backup-attention"].$get());
 }

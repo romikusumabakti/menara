@@ -104,4 +104,11 @@ describe("knowledge search", () => {
       expect(dialogs()).toHaveLength(1);
     }
   );
+
+  it("the hero trigger fills its column instead of capping at max-w-xl", async () => {
+    await render();
+    const hero = container.querySelector(".h-12") as HTMLElement;
+    expect([...hero.classList]).toContain("w-full");
+    expect([...hero.classList]).not.toContain("max-w-xl");
+  });
 });

@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/page-header";
 import { ProjectGroupsButton } from "@/components/project-groups-dialog";
 import { ProjectsEmpty } from "@/components/projects-empty";
 import type { SortKey } from "@/components/projects-overview";
-import { ProjectsOverview } from "@/components/projects-overview";
+import { ENV_ROW_GRID, ProjectsOverview } from "@/components/projects-overview";
 import { PageHeaderSkeleton } from "@/components/skeletons/page-header-skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -122,7 +122,7 @@ function ProjectsPage() {
   );
 }
 
-// Mirrors ProjectsOverview: search + sort row above a two-column card grid,
+// Mirrors ProjectsOverview: search + sort row above a one-column card list,
 // each card a project header over a divided list of its environments.
 const CARDS = 4;
 const ENVS_PER_CARD = 3;
@@ -136,7 +136,7 @@ function ProjectsPending() {
           <Skeleton className="h-9 w-full max-w-sm" />
           <Skeleton className="h-9 w-full sm:ms-auto sm:w-56" />
         </div>
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           {Array.from({ length: CARDS }, (_, c) => (
             <div
               key={`project-${c}`}
@@ -158,19 +158,25 @@ function ProjectsPending() {
                 {Array.from({ length: ENVS_PER_CARD }, (_, e) => (
                   <li
                     key={`env-${c}-${e}`}
-                    className="flex items-center gap-3 px-4 py-2.5"
+                    className={`flex items-center gap-3 px-4 py-2.5 ${ENV_ROW_GRID}`}
                   >
                     <Skeleton className="size-3.5 shrink-0 rounded-full" />
                     {/* Bar heights track the line boxes they stand in for —
                         `text-sm` name (20px) over `text-xs` detail (16px), with
                         the row's own `gap-0.5` — so the row does not grow when
-                        the real content lands. */}
-                    <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                        the real content lands. From xl the detail line becomes
+                        three cells in the row's grid, like the real row. */}
+                    <div className="flex flex-col gap-0.5 min-w-0 flex-1 xl:contents">
                       <Skeleton className="h-5 w-40" />
-                      <Skeleton className="h-4 w-28" />
+                      <Skeleton className="h-4 w-28 xl:hidden" />
+                      <Skeleton className="hidden h-4 w-14 xl:block" />
+                      <Skeleton className="hidden h-4 w-28 xl:block" />
+                      <Skeleton className="hidden h-4 w-24 xl:block" />
                     </div>
-                    <Skeleton className="h-3 w-16 shrink-0 hidden sm:block" />
-                    <Skeleton className="size-4 shrink-0" />
+                    <div className="contents xl:flex xl:items-center xl:justify-end xl:gap-3">
+                      <Skeleton className="h-3 w-16 shrink-0 hidden sm:block" />
+                      <Skeleton className="size-4 shrink-0" />
+                    </div>
                   </li>
                 ))}
               </ul>

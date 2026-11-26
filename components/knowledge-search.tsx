@@ -198,9 +198,7 @@ export function KnowledgeSearchTrigger({
     <InputGroup
       className={cn(
         "cursor-pointer",
-        variant === "hero"
-          ? "mx-auto h-12 w-full max-w-xl rounded-xl"
-          : "shrink-0"
+        variant === "hero" ? "mx-auto h-12 w-full rounded-xl" : "shrink-0"
       )}
     >
       <InputGroupAddon onClick={open}>

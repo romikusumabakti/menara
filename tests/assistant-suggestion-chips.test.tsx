@@ -128,6 +128,13 @@ describe("SuggestionChips", () => {
     expect(group?.querySelectorAll("[data-suggestion]")).toHaveLength(5);
   });
 
+  it("left-aligns the chips", async () => {
+    await render();
+    const group = container.querySelector('[role="group"]');
+    expect(group?.className).toContain("justify-start");
+    expect(group?.className).not.toContain("justify-center");
+  });
+
   it("renders nothing while loading", async () => {
     await render(null);
     expect(container.textContent).toBe("");

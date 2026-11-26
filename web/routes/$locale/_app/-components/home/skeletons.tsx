@@ -23,12 +23,7 @@ function CardSkeleton({ rows }: { rows: number }) {
 }
 
 export function MainColumnSkeleton() {
-  return (
-    <>
-      <CardSkeleton rows={3} />
-      <CardSkeleton rows={5} />
-    </>
-  );
+  return <CardSkeleton rows={5} />;
 }
 
 export function RailSkeleton() {

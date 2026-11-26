@@ -2234,10 +2234,7 @@
     },
     "recent": {
       "title": "Jump back in",
-      "empty": "No recent environments.",
-      "backup": "Backup",
-      "backupStarted": "Backup started",
-      "backupFailed": "Couldn't start the backup."
+      "empty": "No recent environments."
     },
     "error": {
       "load": "Couldn't load this section.",

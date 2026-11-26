@@ -2234,10 +2234,7 @@
     },
     "recent": {
       "title": "Lanjutkan",
-      "empty": "Belum ada environment terbaru.",
-      "backup": "Backup",
-      "backupStarted": "Backup dimulai",
-      "backupFailed": "Gagal memulai backup."
+      "empty": "Belum ada environment terbaru."
     },
     "error": {
       "load": "Gagal memuat bagian ini.",

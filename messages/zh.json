@@ -2234,10 +2234,7 @@
     },
     "recent": {
       "title": "快速返回",
-      "empty": "暂无最近环境。",
-      "backup": "备份",
-      "backupStarted": "备份已开始",
-      "backupFailed": "无法开始备份。"
+      "empty": "暂无最近环境。"
     },
     "error": {
       "load": "无法加载此部分。",

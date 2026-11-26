@@ -2234,10 +2234,7 @@
     },
     "recent": {
       "title": "Retomar",
-      "empty": "No hay entornos recientes.",
-      "backup": "Copia",
-      "backupStarted": "Copia de seguridad iniciada",
-      "backupFailed": "No se pudo iniciar la copia de seguridad."
+      "empty": "No hay entornos recientes."
     },
     "error": {
       "load": "No se pudo cargar esta sección.",

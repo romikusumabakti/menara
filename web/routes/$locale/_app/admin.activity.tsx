@@ -262,8 +262,19 @@ function message(
         environment: String(d.environment),
         hostname: String(d.hostname),
       });
-    // An environment's storage connections. An admin deleting an unassigned
-    // connection records an empty environment.
+    // An environment's one storage, saved or removed (field names only).
+    case "storage.configured":
+      return t("storageConfigured", {
+        actor,
+        environment: String(d.environment),
+      });
+    case "storage.removed":
+      return t("storageRemoved", {
+        actor,
+        environment: String(d.environment),
+      });
+    // Older history: an environment's storage connections. An admin deleting
+    // an unassigned connection records an empty environment.
     case "storage.created":
       return t("storageCreated", {
         actor,

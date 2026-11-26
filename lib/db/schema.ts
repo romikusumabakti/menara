@@ -2833,6 +2833,8 @@ export type EnvironmentSummaryWithOwner = EnvironmentSummary & {
 export type EnvironmentListItem = EnvironmentSummary & {
   key: string;
   hasMailpit: boolean;
+  // An environment_storage row exists (drives the sidebar's Storage entry).
+  hasStorage: boolean;
   // Roles of the services the environment has (backend always; db and
   // frontend optional). Drives which sidebar sections are shown.
   serviceRoles: ("db" | "backend" | "frontend")[];

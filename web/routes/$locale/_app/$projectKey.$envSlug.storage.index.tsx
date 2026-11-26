@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import { SECTION_PERMS } from "@/lib/nav-path";
 import { canProject } from "@/lib/permissions";
-import { environmentStorageQuery } from "@/web/api/environment-storage";
+import { environmentStorageRowsQuery } from "@/web/api/environment-storage";
 import { loaderQuery } from "@/web/query-client";
 import { StorageList } from "./-components/env/storage/storage-list";
 import { ListPending } from "./-components/list-pending";
@@ -18,7 +18,7 @@ export const Route = createFileRoute(
   "/$locale/_app/$projectKey/$envSlug/storage/"
 )({
   loader: async ({ context: { queryClient, environmentId } }) => {
-    await loaderQuery(queryClient, environmentStorageQuery(environmentId));
+    await loaderQuery(queryClient, environmentStorageRowsQuery(environmentId));
   },
   pendingComponent: () => <ListPending />,
   component: StoragePage,
@@ -29,7 +29,7 @@ function StoragePage() {
   const { environmentId, role } = Route.useRouteContext();
   const t = useTranslations("storage");
   const connections = useSuspenseQuery(
-    environmentStorageQuery(environmentId)
+    environmentStorageRowsQuery(environmentId)
   ).data;
   const basePath = `/${projectKey}/${envSlug}/storage`;
   const canManage = canProject(role, SECTION_PERMS.settings);

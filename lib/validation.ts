@@ -409,18 +409,18 @@ export const s3ConnectionUpdateSchema = s3ConnectionInputSchema
 
 export type S3ConnectionInput = z.infer<typeof s3ConnectionInputSchema>;
 
-// An environment's storage connection: the same fields plus the key prefix it
-// is confined to. The prefix is only bounded here; the service normalises it
-// (normalizeKeyPrefix) and answers a bad one with a coded 400.
-export const environmentStorageInputSchema = s3ConnectionInputSchema.extend({
-  keyPrefix: z.string().max(2048).nullish(),
-});
-export const environmentStorageUpdateSchema = s3ConnectionUpdateSchema.extend({
-  keyPrefix: z.string().max(2048).nullish(),
-});
-export type EnvironmentStorageInput = z.infer<
-  typeof environmentStorageInputSchema
->;
+// An environment's one storage (environment_storage): the connection fields
+// without a name, plus the key prefix it is confined to. The prefix is only
+// bounded here; the service normalises it (normalizeKeyPrefix) and answers a
+// bad one with a coded 400. A blank or omitted secret keeps the stored one,
+// which the service allows only while the location is unchanged.
+export const environmentStorageSchema = s3ConnectionInputSchema
+  .omit({ name: true })
+  .extend({
+    secretKey: z.string().max(1024).optional(),
+    keyPrefix: z.string().max(2048).nullish(),
+  });
+export type EnvironmentStorageInput = z.infer<typeof environmentStorageSchema>;
 
 // The longest key S3 accepts is 1024 bytes; a prefix must leave room for one.
 const MAX_KEY_PREFIX_BYTES = 1000;

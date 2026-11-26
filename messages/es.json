@@ -2434,6 +2434,8 @@
     "storageDeleted": "{actor} quitó el almacenamiento {name} de {environment}",
     "storageDeletedUnassigned": "{actor} eliminó el almacenamiento sin asignar {name}",
     "storageAssigned": "{actor} asignó el almacenamiento {name} a {environment}",
+    "storageConfigured": "{actor} configuró el almacenamiento de {environment}",
+    "storageRemoved": "{actor} quitó el almacenamiento de {environment}",
     "backupDestinationSet": "{actor} fijó el destino de las copias en {bucket} de {endpoint}",
     "backupDestinationCleared": "{actor} quitó el destino de las copias; se quedan en este servidor",
     "instanceBrandingChanged": "{actor} actualizó la imagen de marca de la instancia{hasFields, select, true {: {fields}} other {}}",

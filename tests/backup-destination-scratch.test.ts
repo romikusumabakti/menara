@@ -226,6 +226,7 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
       backup_s3_secret_key = null, backup_s3_force_path_style = true,
       backup_s3_key_prefix = null`;
     await sql`delete from s3_connections`;
+    await sql`delete from environment_storage`;
     const row = (
       id: string,
       name: string,
@@ -538,11 +539,19 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
       expect(
         await refusal(explorer.listEntries(src(CONN_SAME), ""))
       ).toMatchObject({ status: 403 });
+      // Nor probed as the environment's storage.
       expect(
         await refusal(
-          storage.updateEnvironmentStorage(ENV, CONN_SAME, { name: "x" })
+          storage.testEnvironmentStorage(ENV, {
+            endpoint: ENDPOINT,
+            region: "auto",
+            bucket: BUCKET,
+            accessKeyId: "AKSAME",
+            forcePathStyle: true,
+            keyPrefix: "acme/dumps/",
+          })
         )
-      ).toEqual({ status: 409, code: "s3BackupDestinationRestricted" });
+      ).toEqual({ status: 409, code: "s3BackupDestinationOverlap" });
       // Beside the destination's prefix, the same bucket is the environment's.
       expect(await explorer.listEntries(src(CONN_OTHER), "")).toMatchObject({
         success: true,
@@ -556,8 +565,7 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
       for (const keyPrefix of [null, "acme/", "acme/sub/"]) {
         expect(
           await refusal(
-            storage.createEnvironmentStorage(ENV, {
-              name: "Sneaky",
+            storage.saveEnvironmentStorage(ENV, {
               endpoint: `${ENDPOINT}/`,
               region: "auto",
               bucket: BUCKET,
@@ -572,14 +580,18 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
       }
       expect(
         await refusal(
-          storage.updateEnvironmentStorage(ENV, CONN_OTHER, {
+          storage.saveEnvironmentStorage(ENV, {
+            endpoint: ENDPOINT,
+            region: "auto",
+            bucket: BUCKET,
+            accessKeyId: "AKOTHER",
+            forcePathStyle: true,
             keyPrefix: "acme/",
             secretKey: "s-other-new",
           })
         )
       ).toEqual({ status: 409, code: "s3BackupDestinationOverlap" });
-      const created = await storage.createEnvironmentStorage(ENV, {
-        name: "Reports",
+      const created = await storage.saveEnvironmentStorage(ENV, {
         endpoint: ENDPOINT,
         region: "auto",
         bucket: BUCKET,
@@ -610,17 +622,17 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
         )
       ).toMatchObject({ isBackupDestination: true });
       as(ENGINEER, "engineer");
-      expect(
-        (await storage.listEnvironmentStorage(ENV)).map((c) => [
-          c.id,
-          c.isBackupDestination,
-        ])
-      ).toEqual(
-        expect.arrayContaining([
-          [CONN_SAME, true],
-          [CONN_OTHER, false],
-        ])
-      );
+      // A stored config on an alias of the destination is flagged too.
+      await sql`insert into environment_storage (environment_id, endpoint,
+          region, bucket, key_prefix, access_key_id, secret_key)
+        values (${ENV}, 'https://alias.example.test:9000', 'auto', ${BUCKET},
+          'acme/dumps/', 'AKSAME', ${encryptSecret("s-same")})
+        on conflict (environment_id) do update set
+          endpoint = excluded.endpoint, bucket = excluded.bucket,
+          key_prefix = excluded.key_prefix`;
+      expect(await storage.getEnvironmentStorage(ENV)).toMatchObject({
+        isBackupDestination: true,
+      });
       expect(
         await refusal(explorer.listEntries(src(CONN_SAME), ""))
       ).toMatchObject({ status: 403 });
@@ -633,8 +645,7 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
       ]) {
         expect(
           await refusal(
-            storage.createEnvironmentStorage(ENV, {
-              name: "Sneaky",
+            storage.saveEnvironmentStorage(ENV, {
               endpoint,
               region: "auto",
               bucket: BUCKET,
@@ -649,8 +660,12 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
       }
       expect(
         await refusal(
-          storage.updateEnvironmentStorage(ENV, CONN_OTHER, {
+          storage.saveEnvironmentStorage(ENV, {
             endpoint: "https://alias.example.test",
+            region: "auto",
+            bucket: BUCKET,
+            accessKeyId: "AKOTHER",
+            forcePathStyle: true,
             keyPrefix: "acme/sub/",
             secretKey: "s-other-new",
           })

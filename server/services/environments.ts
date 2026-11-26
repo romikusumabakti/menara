@@ -46,6 +46,7 @@ import {
   environmentMailpit,
   environmentServices,
   environmentSlugAliases,
+  environmentStorage,
   environments,
   environmentVariables,
   type NewEnvironment,
@@ -60,6 +61,7 @@ import {
   projectSlugsInUse,
   resolveEnvironmentBySlug,
 } from "@/lib/environment-slug";
+import { drainLegacyConnections } from "@/lib/environment-storage";
 import {
   changedInfraFields,
   loadEnvironmentWithServers,
@@ -254,6 +256,8 @@ export async function listEnvironmentsFor(
         // Sidebar's Mail entry. EXISTS, not a join, so the secret columns
         // never enter this client-bound projection.
         hasMailpit: sql<boolean>`exists (select 1 from ${environmentMailpit} where ${environmentMailpit.environmentId} = ${environments.id})`,
+        // Sidebar's Storage entry; EXISTS for the same reason.
+        hasStorage: sql<boolean>`exists (select 1 from ${environmentStorage} where ${environmentStorage.environmentId} = ${environments.id})`,
         // Sidebar's Releases entry: legacy jar/static components only.
         projectReleasable: projectReleasableSql(environments.projectId),
         // Roles present, so the sidebar can hide sections the environment has
@@ -1539,6 +1543,11 @@ async function requireAssistantDbUnbound(
   );
 }
 
+// Thrown inside deleteEnvironment's transaction when the conditional DELETE
+// matched nothing, so the statements before it roll back; `deleted` then
+// stays undefined.
+class DeleteRefused extends Error {}
+
 /** The 409 of a delete refused because the environment has escrowed variables. */
 export async function escrowRefusal(): Promise<CodedHTTPException> {
   const t = await getServerTranslator("actionErrors");
@@ -1616,6 +1625,8 @@ export async function deleteEnvironment(
         )
         .limit(1);
       if (withLogin) return "assistantDbLoginRecorded" as const;
+      // Before the row goes: its FK would only null environment_id.
+      await drainLegacyConnections(tx, id);
       const [row] = await tx
         .delete(environments)
         .where(
@@ -1637,11 +1648,15 @@ export async function deleteEnvironment(
               )
         )
         .returning({ name: environments.name });
+      // Refused (a variable escrowed since the check): undo the drain too.
+      if (!row) throw new DeleteRefused();
       return row;
     });
   } catch (error) {
-    console.error(`Failed to delete environment ${id}:`, error);
-    return { success: false, message: "Failed to delete environment" };
+    if (!(error instanceof DeleteRefused)) {
+      console.error(`Failed to delete environment ${id}:`, error);
+      return { success: false, message: "Failed to delete environment" };
+    }
   }
   if (deleted === "teardownRunning") throw teardownRunningError();
   if (deleted === "assistantDbLoginRecorded") {

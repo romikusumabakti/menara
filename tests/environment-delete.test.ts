@@ -109,8 +109,10 @@ vi.mock("@/lib/db", async () => {
   };
   const db = {
     select,
-    delete: () => {
-      state.deletes++;
+    // Counts the environment's own DELETE; the drain of its old
+    // s3_connections rows before it is another table.
+    delete: (table: unknown) => {
+      if (table === schema.environments) state.deletes++;
       return {
         where: () => ({ returning: async () => state.deleted }),
       };

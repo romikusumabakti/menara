@@ -332,8 +332,12 @@ describe("environment storage form", () => {
     expect(mocks.push).not.toHaveBeenCalled();
   });
 
-  it("Test connection probes with the connection id and reports the result", async () => {
-    mocks.test.mockResolvedValue({ ok: false, message: "AccessDenied" });
+  it("Test connection probes the form values and reports the result", async () => {
+    mocks.test.mockResolvedValue({
+      ok: false,
+      code: "s3ProbeFailed",
+      message: "AccessDenied",
+    });
     await render(
       <StorageForm
         environmentId={ENV_ID}
@@ -347,8 +351,9 @@ describe("environment storage form", () => {
     await act(async () => button?.click());
     expect(mocks.test).toHaveBeenCalledWith(
       ENV_ID,
-      expect.objectContaining({ connectionId: CONN_ID, keyPrefix: "team-a/" })
+      expect.objectContaining({ bucket: "assets", keyPrefix: "team-a/" })
     );
+    expect(mocks.test.mock.calls[0]?.[1]).not.toHaveProperty("connectionId");
     expect(container.textContent).toContain("AccessDenied");
   });
 

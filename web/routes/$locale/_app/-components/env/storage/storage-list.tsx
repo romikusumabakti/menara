@@ -100,10 +100,13 @@ export function StorageList({
         accessKeyId: connection.accessKeyId,
         forcePathStyle: connection.forcePathStyle,
         keyPrefix: connection.keyPrefix,
-        connectionId: connection.id,
       });
       if (result.ok) toast.success(tForm("testSuccess"));
-      else toast.error(`${tForm("testFailed")}: ${result.message}`);
+      else {
+        toast.error(
+          `${tForm("testFailed")}: ${result.code === "s3ProbeFailed" ? result.message : tActions(result.code)}`
+        );
+      }
     } catch (error) {
       reportError(error);
     }

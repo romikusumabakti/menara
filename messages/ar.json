@@ -2434,6 +2434,8 @@
     "storageDeleted": "{actor} أزال التخزين {name} من {environment}",
     "storageDeletedUnassigned": "{actor} حذف التخزين غير المسند {name}",
     "storageAssigned": "{actor} أسند التخزين {name} إلى {environment}",
+    "storageConfigured": "قام {actor} بإعداد تخزين البيئة {environment}",
+    "storageRemoved": "أزال {actor} تخزين البيئة {environment}",
     "backupDestinationSet": "{actor} عيّن وجهة النسخ الاحتياطي إلى {bucket} على {endpoint}",
     "backupDestinationCleared": "{actor} أزال وجهة النسخ الاحتياطي؛ تبقى النسخ على هذا الخادم",
     "instanceBrandingChanged": "قام {actor} بتحديث هوية المثيل{hasFields, select, true {: {fields}} other {}}",

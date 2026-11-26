@@ -151,12 +151,20 @@ export function StorageForm({
     }
     setTestState({ kind: "testing" });
     try {
-      const result = await testEnvironmentStorage(environmentId, {
-        ...probe(form.getValues()),
-        connectionId: connection?.id,
-      });
+      const result = await testEnvironmentStorage(
+        environmentId,
+        probe(form.getValues())
+      );
       setTestState(
-        result.ok ? { kind: "ok" } : { kind: "fail", message: result.message }
+        result.ok
+          ? { kind: "ok" }
+          : {
+              kind: "fail",
+              message:
+                result.code === "s3ProbeFailed"
+                  ? result.message
+                  : tErrors(result.code),
+            }
       );
     } catch (error) {
       setTestState({ kind: "idle" });

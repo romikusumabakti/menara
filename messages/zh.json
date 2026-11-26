@@ -2434,6 +2434,8 @@
     "storageDeleted": "{actor} 从 {environment} 移除了存储 {name}",
     "storageDeletedUnassigned": "{actor} 删除了未分配的存储 {name}",
     "storageAssigned": "{actor} 将存储 {name} 分配给了 {environment}",
+    "storageConfigured": "{actor} 配置了 {environment} 的存储",
+    "storageRemoved": "{actor} 移除了 {environment} 的存储",
     "backupDestinationSet": "{actor} 将备份目标设为 {endpoint} 上的 {bucket}",
     "backupDestinationCleared": "{actor} 移除了备份目标；备份保存在本服务器",
     "instanceBrandingChanged": "{actor} 更新了实例品牌{hasFields, select, true {：{fields}} other {}}",

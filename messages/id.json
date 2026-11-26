@@ -2434,6 +2434,8 @@
     "storageDeleted": "{actor} menghapus storage {name} dari {environment}",
     "storageDeletedUnassigned": "{actor} menghapus storage tanpa environment {name}",
     "storageAssigned": "{actor} menetapkan storage {name} ke {environment}",
+    "storageConfigured": "{actor} mengatur storage {environment}",
+    "storageRemoved": "{actor} menghapus storage {environment}",
     "backupDestinationSet": "{actor} mengatur tujuan backup ke {bucket} di {endpoint}",
     "backupDestinationCleared": "{actor} menghapus tujuan backup; backup tetap di server ini",
     "instanceBrandingChanged": "{actor} memperbarui branding instance{hasFields, select, true {: {fields}} other {}}",

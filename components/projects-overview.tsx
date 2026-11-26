@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import * as React from "react";
 import { useTranslations } from "use-intl";
-import { EnvironmentHost } from "@/components/nav/environment-host";
+import { EnvironmentHost, urlHost } from "@/components/nav/environment-host";
 import { EnvironmentOwner } from "@/components/nav/environment-owner";
 import { EnvironmentUrlButton } from "@/components/nav/environment-url";
 import { RelativeTime, useRelativeTimeText } from "@/components/relative-time";
@@ -46,6 +46,7 @@ import {
   type ProjectRole,
   SETUP_PERMISSIONS,
 } from "@/lib/permissions";
+import { cn } from "@/lib/utils";
 import type { ProjectWithEnvironments } from "@/web/api/project-catalog";
 import type { ProjectGroupSummary } from "@/web/api/project-groups";
 import type { EnvironmentActivity } from "@/web/api/runs";
@@ -253,7 +254,7 @@ export function ProjectsOverview({
   }, [projects, groupsInUse, t]);
 
   const renderCards = (list: ProjectWithEnvironments[]) => (
-    <div className="grid grid-cols-1 xl:grid-cols-2 items-start gap-4">
+    <div className="grid grid-cols-1 items-start gap-4">
       {list.map((project) => (
         <ProjectCard
           key={project.id}
@@ -488,44 +489,71 @@ function EnvironmentRow({
   // The name link stretches over the whole row (after:inset-0), so the row is
   // one click target; the URL button and the status dot sit above it (z-10)
   // and keep their own click and hover.
+  //
+  // Below xl the row is a flex line with a stacked detail line. From xl it is
+  // a grid: the two wrappers become `contents` so the name line, DB type, DB
+  // name, owner and activity are direct cells of fixed tracks, aligned across
+  // every row (a missing value renders an empty cell to keep the columns).
   return (
-    <div className="group relative flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors">
+    <div className="group relative flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors xl:grid xl:grid-cols-[0.875rem_minmax(0,1fr)_5.5rem_11rem_11rem_9rem]">
       <StatusDot activity={activity ?? null} />
-      <span className="flex flex-col min-w-0 flex-1 gap-0.5">
+      <span className="flex flex-col min-w-0 flex-1 gap-0.5 xl:contents">
         <span className="flex items-center gap-2 min-w-0">
           <Link
             href={`/${projectKey}/${env.slug}`}
-            className="text-sm truncate after:absolute after:inset-0 focus:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
+            // With a host beside it the name keeps up to 60% and the host
+            // takes the rest; alone it may use the whole cell.
+            className={cn(
+              urlHost(env.url) ? "max-w-[60%] shrink-0" : "min-w-0",
+              "text-sm truncate after:absolute after:inset-0 focus:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
+            )}
           >
             {stripProjectPrefix(env.name, projectName)}
           </Link>
           <EnvironmentUrlButton url={env.url} className="relative z-10" />
-          <EnvironmentHost url={env.url} className="max-w-[40%]" />
+          <EnvironmentHost url={env.url} />
           {env.kind ? (
             <Badge variant="outline" className="text-[10px] uppercase shrink-0">
               {tKinds(env.kind)}
             </Badge>
           ) : null}
         </span>
-        <span className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
+        <span className="flex items-center gap-2 text-xs text-muted-foreground min-w-0 xl:contents">
           {env.dbType ? (
-            <span className="shrink-0">{tDash(`dbTypes.${env.dbType}`)}</span>
-          ) : null}
+            <span className="shrink-0 xl:truncate">
+              {tDash(`dbTypes.${env.dbType}`)}
+            </span>
+          ) : (
+            <span className="hidden xl:block" />
+          )}
           {env.dbName ? (
-            <code className="font-mono truncate">{env.dbName}</code>
-          ) : null}
+            <code title={env.dbName} className="font-mono truncate">
+              {env.dbName}
+            </code>
+          ) : (
+            <span className="hidden xl:block" />
+          )}
           {env.owner ? (
-            <span className="hidden min-w-0 items-center gap-1 sm:flex">
-              <span aria-hidden>·</span>
+            <span
+              title={env.owner.name}
+              className="hidden min-w-0 items-center gap-1 sm:flex"
+            >
+              <span aria-hidden className="xl:hidden">
+                ·
+              </span>
               <EnvironmentOwner owner={env.owner} />
             </span>
-          ) : null}
+          ) : (
+            <span className="hidden xl:block" />
+          )}
         </span>
       </span>
-      <span className="text-xs text-muted-foreground shrink-0 hidden sm:inline">
-        {activity ? <RelativeTime date={activity.runAt} /> : t("neverActive")}
+      <span className="contents xl:flex xl:items-center xl:justify-end xl:gap-3">
+        <span className="text-xs text-muted-foreground shrink-0 hidden sm:inline">
+          {activity ? <RelativeTime date={activity.runAt} /> : t("neverActive")}
+        </span>
+        <ChevronRight className="size-4 text-muted-foreground shrink-0 transition-transform group-hover:translate-x-0.5" />
       </span>
-      <ChevronRight className="size-4 text-muted-foreground shrink-0 transition-transform group-hover:translate-x-0.5" />
     </div>
   );
 }

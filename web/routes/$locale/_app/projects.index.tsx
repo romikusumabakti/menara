@@ -122,7 +122,7 @@ function ProjectsPage() {
   );
 }
 
-// Mirrors ProjectsOverview: search + sort row above a two-column card grid,
+// Mirrors ProjectsOverview: search + sort row above a one-column card list,
 // each card a project header over a divided list of its environments.
 const CARDS = 4;
 const ENVS_PER_CARD = 3;
@@ -136,7 +136,7 @@ function ProjectsPending() {
           <Skeleton className="h-9 w-full max-w-sm" />
           <Skeleton className="h-9 w-full sm:ms-auto sm:w-56" />
         </div>
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           {Array.from({ length: CARDS }, (_, c) => (
             <div
               key={`project-${c}`}

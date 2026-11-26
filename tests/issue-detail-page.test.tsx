@@ -553,7 +553,7 @@ describe("label toggles", () => {
     if (trigger.getAttribute("aria-expanded") !== "true") await click(trigger);
     const option = await vi.waitFor(() => {
       const found = Array.from(
-        document.querySelectorAll<HTMLElement>("[aria-pressed]")
+        document.querySelectorAll<HTMLElement>('[role="option"]')
       ).find((o) => (o.textContent ?? "").includes(name));
       if (!found) throw new Error(`no label ${name}`);
       return found;
@@ -563,9 +563,9 @@ describe("label toggles", () => {
   }
 
   const pressed = (name: string) =>
-    Array.from(document.querySelectorAll<HTMLElement>("[aria-pressed]"))
+    Array.from(document.querySelectorAll<HTMLElement>('[role="option"]'))
       .find((o) => (o.textContent ?? "").includes(name))
-      ?.getAttribute("aria-pressed");
+      ?.getAttribute("aria-selected");
 
   it("on failure reverts to the last set the server confirmed", async () => {
     let failFirst: (v: { success: false }) => void = () => {};
@@ -698,15 +698,15 @@ describe("following a link to another issue", () => {
     await click(trigger);
     const option = await vi.waitFor(() => {
       const found = Array.from(
-        document.querySelectorAll<HTMLElement>("[aria-pressed]")
+        document.querySelectorAll<HTMLElement>('[role="option"]')
       ).find((o) => (o.textContent ?? "").includes("checkout"));
       if (!found) throw new Error("no checkout label");
       return found;
     });
     expect(
-      Array.from(document.querySelectorAll<HTMLElement>("[aria-pressed]"))
+      Array.from(document.querySelectorAll<HTMLElement>('[role="option"]'))
         .find((o) => (o.textContent ?? "").includes("regression"))
-        ?.getAttribute("aria-pressed")
+        ?.getAttribute("aria-selected")
     ).toBe("false");
     await click(option);
     await vi.waitFor(() => expect(setIssueLabels).toHaveBeenCalledTimes(1));
@@ -791,7 +791,7 @@ describe("label saves", () => {
     expect(updateIssue).toHaveBeenCalledTimes(1);
     await openLabels();
     const option = await vi.waitFor(() => {
-      const found = document.querySelector<HTMLElement>("[aria-pressed]");
+      const found = document.querySelector<HTMLElement>('[role="option"]');
       if (!found) throw new Error("no label option");
       return found;
     });
@@ -821,11 +821,11 @@ describe("label saves", () => {
     await act(async () => {});
     await openLabels();
     const option = await vi.waitFor(() => {
-      const found = document.querySelector<HTMLElement>("[aria-pressed]");
+      const found = document.querySelector<HTMLElement>('[role="option"]');
       if (!found) throw new Error("no label option");
       return found;
     });
-    expect(option.getAttribute("aria-pressed")).toBe("true");
+    expect(option.getAttribute("aria-selected")).toBe("true");
   });
 });
 

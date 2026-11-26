@@ -388,6 +388,38 @@ describe("Deploy timeline layout", () => {
     expect(plain.textContent).toContain("Ada Example");
   });
 
+  it("hides the shortened tag when it is just the sha, keeping the full tag for copy and screen readers", async () => {
+    const sha = "1a2b3c4d5e6f";
+    await mount([
+      target({
+        currentTag: "acme-dev-1a2b3c4",
+        currentStatus: "success",
+        recentBuilds: [
+          { ...build("acme-dev-1a2b3c4", at("09:50:00")), commitSha: sha },
+          {
+            ...build("acme-dev-5d6e7f8", at("09:00:00")),
+            commitSha: "5d6e7f8a9b0c",
+          },
+        ],
+        recentDeployments: [
+          deployment("acme-dev-1a2b3c4", "success", {
+            createdAt: at("10:00:00"),
+          }),
+        ],
+      }),
+    ]);
+    const row = [
+      ...container.querySelectorAll<HTMLElement>('[data-slot="timeline-row"]'),
+    ].find((r) => r.textContent?.includes("1a2b3c4")) as HTMLElement;
+    const ids = slot("row-ids", row) as HTMLElement;
+    expect(slot("row-tag", ids)).toBeNull();
+    expect(ids.textContent).toContain("1a2b3c4");
+    expect(ids.querySelector(".sr-only")?.textContent).toBe("acme-dev-1a2b3c4");
+    expect(
+      ids.querySelector('button[aria-label*="acme-dev-1a2b3c4"]')
+    ).not.toBeNull();
+  });
+
   it("keeps actor, trigger and duration on one line, truncating the actor", async () => {
     await mount([
       target({

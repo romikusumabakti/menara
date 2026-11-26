@@ -96,14 +96,22 @@ describe("users table", () => {
   });
 });
 
-describe("full-width databases page", () => {
-  it("neither the page card nor its skeleton caps the width", () => {
-    for (const f of [
-      `${APP}/$projectKey.$envSlug.databases.tsx`,
-      `${APP}/-components/env/skeletons.tsx`,
-    ]) {
-      expect(src(f)).not.toContain("max-w-3xl");
-    }
+describe("databases page width", () => {
+  it("matches Mock time and Settings (max-w-4xl), skeleton included", () => {
+    expect(src(`${APP}/$projectKey.$envSlug.databases.tsx`)).toMatch(
+      /<Card className="[^"]*max-w-4xl/
+    );
+    expect(src(`${APP}/-components/env/skeletons.tsx`)).toMatch(
+      /DatabasesPending[\s\S]*?max-w-4xl/
+    );
+  });
+});
+
+describe("project environments grid", () => {
+  it("pads its scroll box so card rings and hover shadows aren't clipped", () => {
+    expect(src(`${APP}/$projectKey.index.tsx`)).toMatch(
+      /grid content-start[^"]*-m-1[^"]*p-1|grid content-start[^"]*p-1[^"]*-m-1/
+    );
   });
 });
 

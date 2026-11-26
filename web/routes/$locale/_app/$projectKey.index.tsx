@@ -143,8 +143,10 @@ function ProjectOverviewPage() {
           // The card grid is the scroll box — there is nothing above it in
           // this panel to keep pinned. `content-start` because a grid that is
           // taller than its rows stretches them by default, which would blow
-          // up the cards to fill the panel when there are only a few.
-          <div className="grid content-start flex-1 min-h-0 grid-cols-1 gap-4 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
+          // up the cards to fill the panel when there are only a few. The
+          // scroll box clips at its padding box, so `p-1` (cancelled by
+          // `-m-1`) keeps the cards' outside ring and hover shadow visible.
+          <div className="grid content-start flex-1 min-h-0 -m-1 grid-cols-1 gap-4 overflow-y-auto p-1 sm:grid-cols-2 lg:grid-cols-3">
             {environments.map((env) => {
               const activity = lastActivity[env.id] ?? null;
               // The name link stretches over the whole card (after:inset-0),
@@ -158,7 +160,7 @@ function ProjectOverviewPage() {
                         <div className="flex items-center gap-2 min-w-0">
                           <Link
                             href={`/${project.key}/${env.slug}`}
-                            className="font-medium truncate after:absolute after:inset-0 after:rounded-xl focus:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
+                            className="max-w-[60%] shrink-0 font-medium truncate after:absolute after:inset-0 after:rounded-xl focus:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
                           >
                             {stripProjectPrefix(env.name, project.name)}
                           </Link>
@@ -166,10 +168,7 @@ function ProjectOverviewPage() {
                             url={env.url}
                             className="relative z-10"
                           />
-                          <EnvironmentHost
-                            url={env.url}
-                            className="max-w-[40%]"
-                          />
+                          <EnvironmentHost url={env.url} className="flex-1" />
                           {env.kind ? (
                             <Badge
                               variant="outline"

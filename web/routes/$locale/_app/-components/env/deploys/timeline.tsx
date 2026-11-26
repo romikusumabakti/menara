@@ -177,6 +177,9 @@ function TimelineRowItem({
   const t = useTranslations("deploys");
   const sha = shortSha(row.commitSha);
   const shortTag = tagPrefix ? `…${row.tag.slice(tagPrefix.length)}` : row.tag;
+  const tagIsSha =
+    sha !== null &&
+    (row.tag === sha || row.tag.slice(tagPrefix.length) === sha);
 
   return (
     <li
@@ -221,15 +224,21 @@ function TimelineRowItem({
                 {sha}
               </code>
             )}
-            <span
-              data-slot="row-tag"
-              className="min-w-0 truncate"
-              title={row.tag}
-              aria-hidden={shortTag !== row.tag || undefined}
-            >
-              {shortTag}
-            </span>
-            {shortTag !== row.tag && <span className="sr-only">{row.tag}</span>}
+            {/* A tag that only repeats the sha (CI tags like `…-a014b74`)
+                adds nothing visible; it stays copyable and spoken. */}
+            {!tagIsSha && (
+              <span
+                data-slot="row-tag"
+                className="min-w-0 truncate"
+                title={row.tag}
+                aria-hidden={shortTag !== row.tag || undefined}
+              >
+                {shortTag}
+              </span>
+            )}
+            {(tagIsSha || shortTag !== row.tag) && (
+              <span className="sr-only">{row.tag}</span>
+            )}
             <CopyButton
               value={row.tag}
               label={t("row.copyTag", { tag: row.tag })}

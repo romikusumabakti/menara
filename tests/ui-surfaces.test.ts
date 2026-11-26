@@ -26,6 +26,9 @@ describe("ui surfaces", () => {
     expect(classes).toContain("shadow-xs");
     expect(classes).not.toContain("border");
     expect(classes).not.toContain("shadow-sm");
+    // Cards sit in the scrolling <main> flex column: overflow-hidden would
+    // let a card shrink below its content (min-height: auto → 0) and clip it.
+    expect(classes).not.toContain("overflow-hidden");
   });
 
   it("card sm size", () => {

@@ -34,7 +34,7 @@ export function AttentionStrip() {
     <Card
       role="region"
       aria-label={t("attention.title")}
-      className="py-0 gap-0 overflow-hidden"
+      className="py-0 gap-0 overflow-hidden shrink-0"
     >
       <AttentionList groups={attention.data} instanceBackup={instanceBackup} />
     </Card>

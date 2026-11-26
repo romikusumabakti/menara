@@ -122,6 +122,17 @@ describe("home attention strip", () => {
     expect(strip?.textContent).not.toContain("Needs attention");
   });
 
+  it("does not shrink inside the scrolling main column", async () => {
+    queryClient.setQueryData(ATTENTION_KEY, [GROUP]);
+    queryClient.setQueryData(BACKUP_KEY, null);
+    await render();
+    const strip = container.querySelector('[data-slot="card"]');
+    // overflow-hidden gives the card a zero min-height as a flex item, so it
+    // must opt out of shrinking or a long page squashes it.
+    expect(strip?.classList.contains("overflow-hidden")).toBe(true);
+    expect(strip?.classList.contains("shrink-0")).toBe(true);
+  });
+
   it("shows the stale instance backup item on its own", async () => {
     queryClient.setQueryData(ATTENTION_KEY, []);
     queryClient.setQueryData(BACKUP_KEY, { kind: "stale", at: null });

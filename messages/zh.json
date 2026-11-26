@@ -433,10 +433,8 @@
     },
     "lock": {
       "badge": "部署已锁定",
-      "lockedTitle": "部署已锁定",
       "lockedBy": "{name} 锁定了部署：{reason}",
       "until": "截至 {expiresAt}。",
-      "unlockedHint": "部署已开放。",
       "lock": "锁定部署",
       "unlock": "解锁",
       "edit": "修改锁定",
@@ -455,7 +453,12 @@
       "holderUnknown": "某人",
       "disabledHint": "部署已锁定：{reason}",
       "heldBuilds": "{count, plural, =0 {没有被暂扣的构建。} other {已暂扣 # 个构建。}}",
-      "saveLock": "保存锁定"
+      "saveLock": "保存锁定",
+      "open": "开放",
+      "openHeld": "开放 · 已搁置 {count} 个",
+      "lockedState": "已锁定",
+      "lockedStateHeld": "已锁定 · 已搁置 {count} 个",
+      "moreActions": "更多锁定操作"
     },
     "startBuild": "开始构建",
     "startBuildHint": "立即构建 {branch}；完成后自动部署。",

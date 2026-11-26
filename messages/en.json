@@ -433,10 +433,8 @@
     },
     "lock": {
       "badge": "Deploys locked",
-      "lockedTitle": "Deploys are locked",
       "lockedBy": "{name} locked deploys: {reason}",
       "until": "Until {expiresAt}.",
-      "unlockedHint": "Deploys are open.",
       "lock": "Lock deploys",
       "unlock": "Unlock",
       "edit": "Change lock",
@@ -455,7 +453,12 @@
       "holderUnknown": "Someone",
       "disabledHint": "Deploys are locked: {reason}",
       "heldBuilds": "{count, plural, =0 {No builds are held.} one {# build is held.} other {# builds are held.}}",
-      "saveLock": "Save lock"
+      "saveLock": "Save lock",
+      "open": "Open",
+      "openHeld": "Open · {count} held",
+      "lockedState": "Locked",
+      "lockedStateHeld": "Locked · {count} held",
+      "moreActions": "More lock actions"
     },
     "startBuild": "Start build",
     "startBuildHint": "Build {branch} now; it deploys when it lands.",

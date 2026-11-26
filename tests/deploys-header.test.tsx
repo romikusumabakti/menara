@@ -39,7 +39,7 @@ vi.mock("@/web/api/deploys", async (importOriginal) => ({
 vi.mock(
   "../web/routes/$locale/_app/-components/env/deploys/deploy-lock",
   () => ({
-    DeployLockPanel: () => null,
+    DeployLockControl: () => <span data-testid="lock-control">lock</span>,
     useDeployLock: () => ({ data: { lock: state.lock } }),
   })
 );
@@ -204,6 +204,26 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+});
+
+describe("Deploys page header", () => {
+  it("puts the lock control before Settings and drops the banner row", async () => {
+    await mount([liveTarget()]);
+    const control = container.querySelector('[data-testid="lock-control"]');
+    const settings = [...container.querySelectorAll("a")].find((a) =>
+      a.textContent?.includes(d.settingsLink)
+    );
+    expect(control).toBeTruthy();
+    expect(settings).toBeTruthy();
+    expect(control?.parentElement).toBe(settings?.parentElement);
+    expect(
+      control &&
+        settings &&
+        control.compareDocumentPosition(settings) &
+          Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(container.textContent).not.toContain("Deploys are open.");
+  });
 });
 
 describe("Deploy target header", () => {

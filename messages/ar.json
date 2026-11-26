@@ -433,10 +433,8 @@
     },
     "lock": {
       "badge": "عمليات النشر مقفلة",
-      "lockedTitle": "عمليات النشر مقفلة",
       "lockedBy": "قام {name} بقفل عمليات النشر: {reason}",
       "until": "حتى {expiresAt}.",
-      "unlockedHint": "عمليات النشر مفتوحة.",
       "lock": "قفل عمليات النشر",
       "unlock": "فتح القفل",
       "edit": "تغيير القفل",
@@ -455,7 +453,12 @@
       "holderUnknown": "شخص ما",
       "disabledHint": "عمليات النشر مقفلة: {reason}",
       "heldBuilds": "{count, plural, =0 {لا توجد بنايات محتجزة.} one {بناء واحد محتجز.} two {بناءان محتجزان.} few {# بنايات محتجزة.} many {# بناءً محتجزًا.} other {# بناء محتجز.}}",
-      "saveLock": "حفظ القفل"
+      "saveLock": "حفظ القفل",
+      "open": "مفتوح",
+      "openHeld": "مفتوح · {count} محتجزة",
+      "lockedState": "مقفل",
+      "lockedStateHeld": "مقفل · {count} محتجزة",
+      "moreActions": "إجراءات القفل الأخرى"
     },
     "startBuild": "بدء البناء",
     "startBuildHint": "ابدأ بناء {branch} الآن؛ يُنشر عند اكتماله.",

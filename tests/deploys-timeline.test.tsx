@@ -36,7 +36,7 @@ vi.mock("@/web/api/deploys", async (importOriginal) => ({
 vi.mock(
   "../web/routes/$locale/_app/-components/env/deploys/deploy-lock",
   () => ({
-    DeployLockPanel: () => null,
+    DeployLockControl: () => null,
     useDeployLock: () => ({ data: { lock: null } }),
   })
 );

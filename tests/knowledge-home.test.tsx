@@ -160,6 +160,7 @@ describe("knowledge landing", () => {
         "max-w-3xl",
         "min-h-full",
         "justify-center",
+        "gap-6",
         "pb-[12vh]",
       ])
     );

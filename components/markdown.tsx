@@ -205,7 +205,7 @@ const COMPONENTS: Components = {
   ),
   hr: () => <hr className="my-6 border-border" />,
   table: ({ node: _node, className, ...props }) => (
-    <div className={cn("my-4 overflow-x-auto", tableWrapperClass)}>
+    <div className={cn(tableWrapperClass, "my-4 overflow-x-auto")}>
       <table className={cn("w-full text-sm", className)} {...props} />
     </div>
   ),

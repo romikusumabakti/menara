@@ -1,25 +1,32 @@
 // @vitest-environment happy-dom
 // Round-trip fidelity guard for the knowledge editor. The editor parses and
 // serializes markdown with @tiptap/markdown (marked under the hood), while the
-// read-side renderer (components/markdown-content) parses with react-markdown +
-// remark-gfm. Two different markdown engines means a construct the editor emits
-// could render differently than the WYSIWYG surface showed. These tests pin the
+// read-side renderer (components/markdown) parses with Streamdown (remark-gfm).
+// Two different markdown engines means a construct the editor emits could
+// render differently than the WYSIWYG surface showed. These tests pin the
 // contract from BOTH sides:
 //   1. the editor's serialize is stable (parse∘serialize is idempotent), and
-//   2. what the editor emits parses to the structure react-markdown expects.
+//   2. what the editor emits parses to the structure Markdown expects.
 // Both build from buildEditorExtensions — the same config the live editor runs.
 
 import { readFileSync } from "node:fs";
-import { createElement } from "react";
+import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import ReactMarkdown from "react-markdown";
-import rehypeHighlight from "rehype-highlight";
-import remarkGfm from "remark-gfm";
-import { beforeAll, describe, expect, it } from "vitest";
+import { IntlProvider } from "use-intl";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import { Markdown } from "@/components/markdown";
 import {
   buildEditorExtensions,
   editorMarkdown,
 } from "@/lib/knowledge-editor-extensions";
+import enMessages from "../messages/en.json";
+
+// Markdown's own Link comes from the locale-aware navigation module.
+vi.mock("@/i18n/navigation", () => ({
+  Link: ({ href, children }: { href: string; children?: ReactNode }) => (
+    <a href={href}>{children}</a>
+  ),
+}));
 
 // Tiptap's Editor reaches for window/document at construction; happy-dom
 // (registered in tests/preload.ts) provides them. Import lazily after the env
@@ -47,16 +54,12 @@ function serialize(markdown: string): string {
   return out;
 }
 
-/** Render markdown through the read-side engine and return static HTML.
- *  Plugins mirror components/markdown-content (rehype-slug omitted — it only
- *  adds heading ids and would make every heading assertion noisier). */
+/** Render markdown through the read-side component and return static HTML. */
 function renderHtml(markdown: string): string {
   return renderToStaticMarkup(
-    createElement(
-      ReactMarkdown,
-      { remarkPlugins: [remarkGfm], rehypePlugins: [rehypeHighlight] },
-      markdown
-    )
+    <IntlProvider locale="en" messages={enMessages} timeZone="UTC">
+      <Markdown mode="static" allowImages content={markdown} />
+    </IntlProvider>
   );
 }
 
@@ -64,28 +67,31 @@ function renderHtml(markdown: string): string {
 // must contain. The HTML check is what actually catches cross-engine drift —
 // the editor can serialize anything, but it has to land as the right element.
 const CASES: { name: string; md: string; html: string }[] = [
-  { name: "bold", md: "**bold**", html: "<strong>bold</strong>" },
-  { name: "italic", md: "*it*", html: "<em>it</em>" },
+  { name: "bold", md: "**bold**", html: ">bold</strong>" },
+  { name: "italic", md: "*it*", html: ">it</em>" },
   { name: "strikethrough", md: "~~gone~~", html: "<del>gone</del>" },
-  { name: "h2", md: "## Title", html: "<h2>Title</h2>" },
-  { name: "h3", md: "### Sub", html: "<h3>Sub</h3>" },
-  { name: "bullet list", md: "- a\n- b", html: "<ul>" },
-  { name: "ordered list", md: "1. a\n2. b", html: "<ol>" },
-  { name: "blockquote", md: "> quote", html: "<blockquote>" },
-  { name: "inline code", md: "`x`", html: "<code>x</code>" },
-  { name: "code block", md: "```\ncode\n```", html: "<pre>" },
+  { name: "h2", md: "## Title", html: ">Title</h2>" },
+  { name: "h3", md: "### Sub", html: ">Sub</h3>" },
+  { name: "bullet list", md: "- a\n- b", html: "<ul " },
+  { name: "ordered list", md: "1. a\n2. b", html: "<ol " },
+  { name: "blockquote", md: "> quote", html: "<blockquote " },
+  { name: "inline code", md: "`x`", html: ">x</code>" },
+  {
+    name: "code block",
+    md: "```\ncode\n```",
+    html: 'data-streamdown="code-block"',
+  },
   {
     // The language must survive the fence round-trip (```ts stays ```ts) AND
-    // actually highlight on the read side — hljs-keyword proves rehype-
-    // highlight recognized the language, not just passed the class through.
+    // reach the read side's code block.
     name: "fenced code with language",
     md: '```ts\nconst x = "y";\n```',
-    html: '<span class="hljs-keyword">const</span>',
+    html: 'data-language="ts"',
   },
   {
     name: "external link",
     md: "[site](https://example.com)",
-    html: '<a href="https://example.com">site</a>',
+    html: 'href="https://example.com/"',
   },
   {
     name: "internal doc link (backlink syntax)",
@@ -95,12 +101,12 @@ const CASES: { name: string; md: string; html: string }[] = [
   {
     name: "image with alt",
     md: "![a cat](/api/knowledge/asset/abc)",
-    html: '<img src="/api/knowledge/asset/abc" alt="a cat"',
+    html: 'src="/api/knowledge/asset/abc" alt="a cat"',
   },
   {
     name: "gfm table",
     md: "| x | y |\n| --- | --- |\n| 1 | 2 |",
-    html: "<table>",
+    html: "<table ",
   },
   {
     name: "task list",

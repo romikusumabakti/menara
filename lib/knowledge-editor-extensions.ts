@@ -9,8 +9,8 @@ import StarterKit from "@tiptap/starter-kit";
 import { common, createLowlight } from "lowlight";
 
 // Shared across editor instances — lowlight is stateless after registration.
-// `common` (~35 languages) matches rehype-highlight's default grammar set on
-// the read side, so what highlights here highlights identically after save.
+// `common` covers ~35 common languages; the read side (Shiki) highlights
+// the same fenced blocks with its own grammars.
 const lowlight = createLowlight(common);
 
 /**
@@ -44,8 +44,8 @@ export function buildEditorExtensions(
     // Syntax-highlighted code blocks. Highlighting is render-only decoration:
     // the document stores plain text + a language attr, and the serializer
     // emits a standard fenced block, so nothing highlight-related leaks into
-    // the saved markdown. The read side (markdown-content) runs
-    // rehype-highlight over the same highlight.js grammars for parity.
+    // the saved markdown. The read side (components/markdown) highlights the
+    // fenced block itself.
     CodeBlockLowlight.configure({ lowlight }),
     // StarterKit ships no table node — without this a pasted GFM table
     // collapses to a run-on paragraph and the structure is lost on save.

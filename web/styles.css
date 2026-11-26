@@ -533,8 +533,8 @@
 }
 
 /* highlight.js token colors for fenced code blocks. Shared by both surfaces:
-   the knowledge editor (lowlight decorations) and the read view
-   (rehype-highlight) emit the same hljs-* classes. One muted, oklch-based
+   the knowledge editor (lowlight decorations) and the code editor
+   (CodeMirror highlight style) emit the same hljs-* classes. One muted, oklch-based
    palette per theme — tuned to sit on the bg-muted/50 <pre> both use — instead
    of importing a stock highlight.js theme, which assumes its own background
    and light/dark split. Grouping follows highlight.js's scope docs. */

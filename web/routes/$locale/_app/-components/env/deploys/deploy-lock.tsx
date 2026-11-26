@@ -1,10 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Lock, LockOpen, ShieldAlert } from "lucide-react";
+import { Ellipsis, Lock, LockOpen, ShieldAlert } from "lucide-react";
 import * as React from "react";
 import { toast } from "sonner";
 import { useFormatter, useTranslations } from "use-intl";
 import { useProjectRole } from "@/components/project-role";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,8 +14,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   canLock,
   canUnlock,
@@ -61,16 +71,22 @@ export function DeployLockBadge({ environmentId }: { environmentId: string }) {
   );
 }
 
+const OPEN_TINT =
+  "border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400";
+const LOCKED_TINT =
+  "border-amber-600/30 bg-amber-500/10 text-amber-700 dark:text-amber-400";
+
 /**
- * The lock banner and its controls. Who may do what mirrors the server
- * (lib/deploy/lock, server/services/deploy-locks); the API enforces it anyway.
+ * The lock state and its controls, for the Deploys page header. Who may do
+ * what mirrors the server (lib/deploy/lock, server/services/deploy-locks); the
+ * API enforces it anyway.
  */
-export function DeployLockPanel({
+export function DeployLockControl({
   environmentId,
-  ownerId,
+  ownerId = null,
 }: {
   environmentId: string;
-  ownerId: string | null;
+  ownerId?: string | null;
 }) {
   const t = useTranslations("deploys.lock");
   const format = useFormatter();
@@ -91,6 +107,7 @@ export function DeployLockPanel({
   const mayForce =
     lock !== null && canOrg(me?.orgRole, { integration: ["manage"] });
   const actions = lockBannerActions({ mayLock, mayUnlock, mayForce });
+  const held = state.heldCount;
 
   function refresh() {
     queryClient.invalidateQueries({ queryKey: ["deploy-locks"] });
@@ -119,82 +136,8 @@ export function DeployLockPanel({
     }
   }
 
-  return (
+  const dialogs = (
     <>
-      {lock ? (
-        <Alert>
-          <Lock />
-          <AlertTitle>{t("lockedTitle")}</AlertTitle>
-          <AlertDescription>
-            <p>
-              {t("lockedBy", {
-                name: lock.lockedBy?.name || t("holderUnknown"),
-                reason: lock.reason,
-              })}
-            </p>
-            <p>
-              {t("until", {
-                expiresAt: format.dateTime(new Date(lock.expiresAt), {
-                  timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                }),
-              })}{" "}
-              {t("heldBuilds", { count: state.heldCount })}
-            </p>
-            {(actions.unlock || actions.force || actions.edit) && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {actions.unlock && (
-                  <Button size="sm" disabled={busy} onClick={onUnlock}>
-                    <LockOpen data-icon="inline-start" />
-                    {t("unlock")}
-                  </Button>
-                )}
-                {actions.force && (
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => setDialog("force")}
-                  >
-                    <ShieldAlert data-icon="inline-start" />
-                    {t("forceUnlock")}
-                  </Button>
-                )}
-                {actions.edit && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setDialog("lock")}
-                  >
-                    {t("edit")}
-                  </Button>
-                )}
-              </div>
-            )}
-          </AlertDescription>
-        </Alert>
-      ) : (
-        (mayLock || state.heldCount > 0) && (
-          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-            <span className="text-muted-foreground">
-              {state.heldCount > 0
-                ? t("heldBuilds", { count: state.heldCount })
-                : t("unlockedHint")}
-            </span>
-            {mayLock && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDialog("lock")}
-              >
-                <Lock data-icon="inline-start" />
-                {t("lock")}
-              </Button>
-            )}
-          </div>
-        )
-      )}
-
       <LockDialog
         open={dialog === "lock"}
         onOpenChange={(open) => !open && setDialog(null)}
@@ -210,6 +153,100 @@ export function DeployLockPanel({
         onDone={refresh}
       />
     </>
+  );
+
+  if (!lock) {
+    if (!mayLock && held === 0) return null;
+    return (
+      <div className="flex items-center gap-2">
+        <Badge variant="outline" className={OPEN_TINT}>
+          <LockOpen data-icon="inline-start" />
+          {held > 0 ? t("openHeld", { count: held }) : t("open")}
+        </Badge>
+        {mayLock && (
+          <Button variant="outline" onClick={() => setDialog("lock")}>
+            <Lock data-icon="inline-start" />
+            {t("lock")}
+          </Button>
+        )}
+        {dialogs}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Popover>
+        <PopoverTrigger
+          render={
+            <Badge
+              variant="outline"
+              className={`cursor-pointer ${LOCKED_TINT}`}
+              render={<button type="button" />}
+            />
+          }
+        >
+          <Lock data-icon="inline-start" />
+          {held > 0 ? t("lockedStateHeld", { count: held }) : t("lockedState")}
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-80">
+          <p>
+            {t("lockedBy", {
+              name: lock.lockedBy?.name || t("holderUnknown"),
+              reason: lock.reason,
+            })}
+          </p>
+          <p className="text-muted-foreground">
+            {t("until", {
+              expiresAt: format.dateTime(new Date(lock.expiresAt), {
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                dateStyle: "medium",
+                timeStyle: "short",
+              }),
+            })}{" "}
+            {t("heldBuilds", { count: held })}
+          </p>
+        </PopoverContent>
+      </Popover>
+      {actions.unlock && (
+        <Button variant="outline" disabled={busy} onClick={onUnlock}>
+          <LockOpen data-icon="inline-start" />
+          {t("unlock")}
+        </Button>
+      )}
+      {(actions.edit || actions.force) && (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label={t("moreActions")}
+              />
+            }
+          >
+            <Ellipsis />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {actions.edit && (
+              <DropdownMenuItem onClick={() => setDialog("lock")}>
+                {t("edit")}
+              </DropdownMenuItem>
+            )}
+            {actions.force && (
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => setDialog("force")}
+              >
+                <ShieldAlert />
+                {t("forceUnlock")}
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+      {dialogs}
+    </div>
   );
 }
 

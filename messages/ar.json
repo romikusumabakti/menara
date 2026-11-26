@@ -433,10 +433,8 @@
     },
     "lock": {
       "badge": "عمليات النشر مقفلة",
-      "lockedTitle": "عمليات النشر مقفلة",
       "lockedBy": "قام {name} بقفل عمليات النشر: {reason}",
       "until": "حتى {expiresAt}.",
-      "unlockedHint": "عمليات النشر مفتوحة.",
       "lock": "قفل عمليات النشر",
       "unlock": "فتح القفل",
       "edit": "تغيير القفل",
@@ -455,7 +453,12 @@
       "holderUnknown": "شخص ما",
       "disabledHint": "عمليات النشر مقفلة: {reason}",
       "heldBuilds": "{count, plural, =0 {لا توجد بنايات محتجزة.} one {بناء واحد محتجز.} two {بناءان محتجزان.} few {# بنايات محتجزة.} many {# بناءً محتجزًا.} other {# بناء محتجز.}}",
-      "saveLock": "حفظ القفل"
+      "saveLock": "حفظ القفل",
+      "open": "مفتوح",
+      "openHeld": "مفتوح · {count} محتجزة",
+      "lockedState": "مقفل",
+      "lockedStateHeld": "مقفل · {count} محتجزة",
+      "moreActions": "إجراءات القفل الأخرى"
     },
     "startBuild": "بدء البناء",
     "startBuildHint": "ابدأ بناء {branch} الآن؛ يُنشر عند اكتماله.",
@@ -471,20 +474,22 @@
     "markRelease": "Mark as release",
     "releasePreparing": "Preparing release…",
     "serviceRepo": "مستودع الخدمة",
-    "focalLive": "قيد التشغيل: {tag}",
-    "focalDeployedBy": "نُشر {time} بواسطة {actor}",
+    "liveNote": "قيد التشغيل: {tag}",
     "focalFailed": "فشل آخر نشر لـ {tag} {time} — قد يشغّل الخادم إصدارًا جزئيًا",
     "focalFailedNoTime": "فشل آخر نشر لـ {tag} — قد يشغّل الخادم إصدارًا جزئيًا",
     "focalLastGood": "· آخر إصدار سليم: {tag}",
     "failureLine": "فشل آخر نشر لـ {tag} {time}",
     "viewLog": "عرض السجل",
-    "deployLatest": "نشر الأحدث ({tag})",
+    "deployLatest": "نشر الأحدث",
+    "deployTag": "نشر {tag}",
+    "deployLatestLabel": "نشر الأحدث ({tag})",
+    "rollbackShort": "التراجع",
+    "serviceUnit": "وحدة systemd: {unit}",
     "latestIsLive": "أحدث بناء، {tag}، قيد التشغيل.",
     "latestDeploying": "يجري نشر أحدث بناء.",
     "latestHeld": "أحدث بناء ينتظر رفع قفل النشر.",
     "rollbackInProgress": "هناك تراجع إلى {tag} في الانتظار أو قيد التشغيل بالفعل.",
     "lockChip": "مقفل بواسطة {name} · حتى {time}",
-    "viewPipelineFor": "عرض خط الأنابيب لـ {sha}",
     "opensInNewTab": "(يفتح في علامة تبويب جديدة)",
     "rowActionsLabel": "إجراءات {tag}",
     "deployThis": "نشر هذا الإصدار",
@@ -504,7 +509,8 @@
       "skipped": "تم التخطي — جرى نشر أحدث منه",
       "deployedEarlier": "نُشر",
       "never": "لم يُنشر",
-      "history": "{count, plural, zero {لا عمليات نشر سابقة} one {عملية نشر سابقة واحدة} two {عمليتا نشر سابقتان} few {# عمليات نشر سابقة} many {# عملية نشر سابقة} other {# عملية نشر سابقة}}"
+      "history": "{count, plural, zero {لا عمليات نشر سابقة} one {عملية نشر سابقة واحدة} two {عمليتا نشر سابقتان} few {# عمليات نشر سابقة} many {# عملية نشر سابقة} other {# عملية نشر سابقة}}",
+      "copyTag": "نسخ الوسم {tag}"
     },
     "loadFailed": "تعذّر تحديث عمليات النشر. قد تكون القائمة قديمة.",
     "showMore": "{count, plural, zero {عرض 0 إضافي} one {عرض واحد إضافي} two {عرض اثنين إضافيين} few {عرض # إضافية} many {عرض # إضافياً} other {عرض # إضافي}}"
@@ -1731,6 +1737,7 @@
     "newDocument": "مستند جديد",
     "newDocumentHint": "اكتب صفحة جديدة لقاعدة معرفة الفريق.",
     "newCollection": "مجموعة جديدة",
+    "collectionsHeading": "المجموعات",
     "newCollectionHint": "تجمع المجموعات المستندات ذات الصلة.",
     "collectionName": "الاسم",
     "collectionDescription": "الوصف (اختياري)",
@@ -1754,7 +1761,8 @@
     "emptyTitle": "لا توجد قاعدة معرفة بعد",
     "emptyAdminHint": "يجب على المسؤول إنشاء أول مجموعة للبدء.",
     "landingTitle": "قاعدة معرفة الفريق",
-    "landingHint": "اختر مستندًا من الشريط الجانبي، أو أنشئ مستندًا جديدًا.",
+    "recentTitle": "آخر التحديثات",
+    "recentEmptyHint": "لا توجد مستندات بعد. أنشئ أول مستند ليظهر هنا.",
     "created": "تم إنشاء المستند",
     "saved": "تم حفظ التغييرات",
     "deleted": "تم حذف المستند",
@@ -2149,11 +2157,6 @@
     "sourcesDescription": "الخدمات التي ينشرها هذا المشروع والفرع الذي تبدأ منه كل خدمة في بيئة جديدة. تحتفظ كل بيئة بفرعها الخاص، ويُحدَّد في إعدادات Source & Deploy الخاصة بها."
   },
   "homePage": {
-    "askExamples": {
-      "first": "ما الخدمات الأكثر تغيّرًا هذا الأسبوع؟",
-      "second": "ما الذي يعمل الآن على staging؟",
-      "third": "لخّص القضايا المفتوحة في مشروعي"
-    },
     "askRecent": "الدردشات الأخيرة",
     "title": "الرئيسية",
     "greeting": {
@@ -4223,7 +4226,28 @@
     "recentChats": "الأخيرة",
     "pinChat": "تثبيت",
     "unpinChat": "إلغاء التثبيت",
-    "editQuestion": "تعديل السؤال"
+    "editQuestion": "تعديل السؤال",
+    "suggestions": {
+      "groupLabel": "أسئلة مقترحة",
+      "failedRun": "لماذا فشل {runKind} في {environment}؟",
+      "myIssues": "{count, plural, one {لخّص مشكلتي المفتوحة، بدءًا من {firstKey}} two {لخّص مشكلتيّ المفتوحتين، بدءًا من {firstKey}} few {لخّص مشاكلي المفتوحة الـ # ، بدءًا من {firstKey}} many {لخّص مشاكلي المفتوحة الـ # ، بدءًا من {firstKey}} other {لخّص مشاكلي المفتوحة (#)، بدءًا من {firstKey}}}",
+      "environment": "ما الذي يعمل الآن في {environment}؟",
+      "general": {
+        "changedToday": "ما الذي تغيّر اليوم؟",
+        "failedDeploysThisWeek": "أي عمليات نشر فشلت هذا الأسبوع؟"
+      },
+      "runKind": {
+        "backup": "النسخ الاحتياطي",
+        "restore": "الاستعادة",
+        "mock_time": "تغيير الوقت التجريبي",
+        "test": "الاختبار",
+        "deploy": "النشر",
+        "provision": "التهيئة",
+        "teardown": "الإزالة",
+        "release": "الإصدار",
+        "other": "التشغيل"
+      }
+    }
   },
   "oauthConsent": {
     "title": "هل تسمح لـ {client} باستخدام حسابك على {{APP_NAME}}؟",

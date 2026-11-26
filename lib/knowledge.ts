@@ -20,6 +20,8 @@ import {
   knowledgeCollections,
   knowledgeDocuments,
   knowledgeLinks,
+  knowledgeRevisions,
+  users,
 } from "@/lib/db/schema";
 import {
   canOrg,
@@ -290,6 +292,77 @@ export async function loadRevisions(
     limit: 100,
   });
   return rows as RevisionWithEditor[];
+}
+
+export type RecentKnowledgeItem = {
+  slug: string;
+  title: string;
+  docType: string;
+  collection: { id: string; name: string };
+  editedAt: Date;
+  editedBy: { id: string; name: string } | null;
+};
+
+/**
+ * The published documents `viewer` may see, newest content edit first. The
+ * edit is the document's newest revision row (every update and restore writes
+ * one, with its editor); moving a document only bumps `updatedAt`, so that
+ * column is never used. A document nobody has edited yet has no revision and
+ * counts as edited when it was created, by its creator. Drafts are left out
+ * even for their author or a manager.
+ */
+export async function listRecentlyEdited(
+  viewer: KnowledgeViewer,
+  limit = 8
+): Promise<RecentKnowledgeItem[]> {
+  const latest = db
+    .selectDistinctOn([knowledgeRevisions.documentId], {
+      documentId: knowledgeRevisions.documentId,
+      editedAt: knowledgeRevisions.createdAt,
+      editedById: knowledgeRevisions.editedById,
+    })
+    .from(knowledgeRevisions)
+    .orderBy(knowledgeRevisions.documentId, desc(knowledgeRevisions.createdAt))
+    .as("latest_revision");
+  const editedAt =
+    sql<Date>`coalesce(${latest.editedAt}, ${knowledgeDocuments.createdAt})`.mapWith(
+      knowledgeDocuments.createdAt
+    );
+  const editorId = sql<
+    string | null
+  >`case when ${latest.documentId} is null then ${knowledgeDocuments.createdById} else ${latest.editedById} end`;
+  const rows = await db
+    .select({
+      slug: knowledgeDocuments.slug,
+      title: knowledgeDocuments.title,
+      docType: knowledgeDocuments.docType,
+      collectionId: knowledgeCollections.id,
+      collectionName: knowledgeCollections.name,
+      editedAt,
+      editorId: users.id,
+      editorName: users.name,
+    })
+    .from(knowledgeDocuments)
+    .innerJoin(
+      knowledgeCollections,
+      eq(knowledgeCollections.id, knowledgeDocuments.collectionId)
+    )
+    .leftJoin(latest, eq(latest.documentId, knowledgeDocuments.id))
+    .leftJoin(users, sql`${users.id} = ${editorId}`)
+    .where(and(isNotNull(knowledgeDocuments.publishedAt), visibleDocs(viewer)))
+    .orderBy(desc(editedAt), desc(knowledgeDocuments.id))
+    .limit(limit);
+  return rows.map((row) => ({
+    slug: row.slug,
+    title: row.title,
+    docType: row.docType,
+    collection: { id: row.collectionId, name: row.collectionName },
+    editedAt: row.editedAt,
+    editedBy:
+      row.editorId && row.editorName
+        ? { id: row.editorId, name: row.editorName }
+        : null,
+  }));
 }
 
 export type Backlink = { id: string; title: string; slug: string };

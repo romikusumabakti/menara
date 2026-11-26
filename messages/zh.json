@@ -433,10 +433,8 @@
     },
     "lock": {
       "badge": "部署已锁定",
-      "lockedTitle": "部署已锁定",
       "lockedBy": "{name} 锁定了部署：{reason}",
       "until": "截至 {expiresAt}。",
-      "unlockedHint": "部署已开放。",
       "lock": "锁定部署",
       "unlock": "解锁",
       "edit": "修改锁定",
@@ -455,7 +453,12 @@
       "holderUnknown": "某人",
       "disabledHint": "部署已锁定：{reason}",
       "heldBuilds": "{count, plural, =0 {没有被暂扣的构建。} other {已暂扣 # 个构建。}}",
-      "saveLock": "保存锁定"
+      "saveLock": "保存锁定",
+      "open": "开放",
+      "openHeld": "开放 · 已搁置 {count} 个",
+      "lockedState": "已锁定",
+      "lockedStateHeld": "已锁定 · 已搁置 {count} 个",
+      "moreActions": "更多锁定操作"
     },
     "startBuild": "开始构建",
     "startBuildHint": "立即构建 {branch}；完成后自动部署。",
@@ -471,20 +474,22 @@
     "markRelease": "Mark as release",
     "releasePreparing": "Preparing release…",
     "serviceRepo": "服务的代码仓库",
-    "focalLive": "运行中：{tag}",
-    "focalDeployedBy": "由 {actor} 于 {time} 部署",
+    "liveNote": "运行中：{tag}",
     "focalFailed": "{tag} 的最近一次部署于 {time} 失败——服务器可能运行着不完整的版本",
     "focalFailedNoTime": "{tag} 的最近一次部署失败——服务器可能运行着不完整的版本",
     "focalLastGood": "· 上次成功版本：{tag}",
     "failureLine": "{tag} 的最近一次部署于 {time} 失败",
     "viewLog": "查看日志",
-    "deployLatest": "部署最新版本（{tag}）",
+    "deployLatest": "部署最新版本",
+    "deployTag": "部署 {tag}",
+    "deployLatestLabel": "部署最新版本（{tag}）",
+    "rollbackShort": "回滚",
+    "serviceUnit": "systemd 单元：{unit}",
     "latestIsLive": "最新构建 {tag} 已在运行。",
     "latestDeploying": "最新构建正在部署。",
     "latestHeld": "最新构建正在等待部署锁解除。",
     "rollbackInProgress": "回滚到 {tag} 的操作已在排队或正在运行。",
     "lockChip": "由 {name} 锁定 · 至 {time}",
-    "viewPipelineFor": "查看 {sha} 的流水线",
     "opensInNewTab": "（在新标签页中打开）",
     "rowActionsLabel": "{tag} 的操作",
     "deployThis": "部署此版本",
@@ -504,7 +509,8 @@
       "skipped": "已跳过——已有更新的部署运行过",
       "deployedEarlier": "部署于",
       "never": "未部署",
-      "history": "{count, plural, other {# 次更早的部署}}"
+      "history": "{count, plural, other {# 次更早的部署}}",
+      "copyTag": "复制标签 {tag}"
     },
     "loadFailed": "无法刷新部署，列表可能已过期。",
     "showMore": "{count, plural, other {再显示 # 条}}"
@@ -1731,6 +1737,7 @@
     "newDocument": "新建文档",
     "newDocumentHint": "为团队知识库撰写新页面。",
     "newCollection": "新建集合",
+    "collectionsHeading": "集合",
     "newCollectionHint": "集合用于归类相关文档。",
     "collectionName": "名称",
     "collectionDescription": "描述（可选）",
@@ -1754,7 +1761,8 @@
     "emptyTitle": "尚无知识库",
     "emptyAdminHint": "需要管理员创建第一个集合以开始使用。",
     "landingTitle": "团队知识库",
-    "landingHint": "从侧栏选择文档，或创建新文档。",
+    "recentTitle": "最近更新",
+    "recentEmptyHint": "还没有文档。创建第一篇后会显示在这里。",
     "created": "文档已创建",
     "saved": "更改已保存",
     "deleted": "文档已删除",
@@ -2149,11 +2157,6 @@
     "sourcesDescription": "本项目部署的服务，以及每个服务在新环境中起始使用的分支。每个环境保留各自的分支，在其“Source & Deploy”设置中配置。"
   },
   "homePage": {
-    "askExamples": {
-      "first": "本周哪些服务变化最大？",
-      "second": "staging 上现在运行着什么？",
-      "third": "总结我的项目中未解决的 issue"
-    },
     "askRecent": "最近的聊天",
     "title": "主页",
     "greeting": {
@@ -4223,7 +4226,28 @@
     "recentChats": "最近",
     "pinChat": "置顶",
     "unpinChat": "取消置顶",
-    "editQuestion": "编辑问题"
+    "editQuestion": "编辑问题",
+    "suggestions": {
+      "groupLabel": "推荐问题",
+      "failedRun": "{environment} 上的{runKind}为什么失败了？",
+      "myIssues": "{count, plural, other {总结我的 # 个未解决问题，从 {firstKey} 开始}}",
+      "environment": "{environment} 现在运行着什么？",
+      "general": {
+        "changedToday": "今天有什么变化？",
+        "failedDeploysThisWeek": "本周哪些部署失败了？"
+      },
+      "runKind": {
+        "backup": "备份",
+        "restore": "恢复",
+        "mock_time": "模拟时间变更",
+        "test": "测试",
+        "deploy": "部署",
+        "provision": "预配",
+        "teardown": "拆除",
+        "release": "发布",
+        "other": "运行"
+      }
+    }
   },
   "oauthConsent": {
     "title": "允许 {client} 使用你的 {{APP_NAME}} 账户？",

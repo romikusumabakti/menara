@@ -19,7 +19,7 @@ import { Link } from "@/i18n/navigation";
 import type { DeployTargetState } from "@/web/api/deploys";
 import type { EnvironmentWithServers } from "@/web/api/environments";
 import { ProvisioningPanel } from "../provisioning-panel";
-import { DeployLockPanel, useDeployLock } from "./deploy-lock";
+import { DeployLockControl, useDeployLock } from "./deploy-lock";
 import { type ActiveRun, isActive, TargetCard } from "./target-card";
 import { environmentServers } from "./target-form-dialog";
 
@@ -83,17 +83,23 @@ export function DeploysClient({
         title={t("title")}
         subtitle={t("subtitle")}
         action={
-          canConfigure && (
-            <Button
-              variant="outline"
-              render={<Link href={settingsHref} />}
-              nativeButton={false}
-              title={t("settingsHint")}
-            >
-              <Settings data-icon="inline-start" />
-              {t("settingsLink")}
-            </Button>
-          )
+          <div className="flex flex-wrap items-center gap-2">
+            <DeployLockControl
+              environmentId={environment.id}
+              ownerId={environment.ownerId ?? null}
+            />
+            {canConfigure && (
+              <Button
+                variant="outline"
+                render={<Link href={settingsHref} />}
+                nativeButton={false}
+                title={t("settingsHint")}
+              >
+                <Settings data-icon="inline-start" />
+                {t("settingsLink")}
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -118,11 +124,6 @@ export function DeploysClient({
           </AlertDescription>
         </Alert>
       )}
-
-      <DeployLockPanel
-        environmentId={environment.id}
-        ownerId={environment.ownerId ?? null}
-      />
 
       <ProvisioningPanel environment={environment} targets={targets} />
 

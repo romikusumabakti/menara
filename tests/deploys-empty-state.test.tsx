@@ -19,7 +19,7 @@ vi.mock("@/web/api/service-catalog", () => ({
 vi.mock("@/components/live-run-dialog", () => ({ LiveRunDialog: () => null }));
 vi.mock(
   "../web/routes/$locale/_app/-components/env/deploys/deploy-lock",
-  () => ({ DeployLockPanel: () => null, useDeployLock: () => ({}) })
+  () => ({ DeployLockControl: () => null, useDeployLock: () => ({}) })
 );
 vi.mock(
   "../web/routes/$locale/_app/-components/env/provisioning-panel",

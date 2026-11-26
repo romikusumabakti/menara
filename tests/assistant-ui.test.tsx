@@ -65,6 +65,10 @@ vi.mock("@/web/api/assistant", () => ({
     queryKey: ["assistant", "getConversation", [id]],
     queryFn: () => conversationFetch.get(id)?.() ?? new Promise(() => {}),
   }),
+  assistantSuggestionsQuery: () => ({
+    queryKey: ["assistant", "suggestions"],
+    queryFn: () => new Promise(() => {}),
+  }),
   listConversationsQuery: (query?: string) => ({
     queryKey: query
       ? ["assistant", "listConversations", { query }]
@@ -2415,6 +2419,26 @@ describe("drafts panel in the workspace", () => {
     expect(panel()).toBeNull();
   });
 
+  it("sits in the shared workspace layout: chats as the left aside, drafts as the right aside", async () => {
+    await renderWorkspace();
+    const chatsNav = document.querySelector("nav");
+    const left = chatsNav?.closest("aside");
+    expect(left?.className).toContain("lg:w-64");
+    expect(left?.nextElementSibling?.tagName).toBe("MAIN");
+    queryClient.setQueryData(conversationKey, {
+      ...conversation,
+      drafts: [draft("d1")],
+    });
+    const item = [...document.querySelectorAll("nav button")].find((b) =>
+      b.textContent?.includes("Iuran")
+    ) as HTMLButtonElement | undefined;
+    await act(async () => item?.click());
+    await act(async () => toggle(1)?.click());
+    const right = panel()?.closest("aside");
+    expect(right?.className).toContain("lg:w-96");
+    expect(right).not.toBe(left);
+  });
+
   it("is closed initially and the Drafts button toggles it", async () => {
     await renderWorkspace();
     queryClient.setQueryData(conversationKey, {
@@ -4199,6 +4223,47 @@ describe("context picker", () => {
       expect(document.activeElement).toBe(before);
     });
 
+    it("hides suggestion chips when the daily cap is reached", async () => {
+      queryClient.setQueryData(["assistant", "suggestions"], {
+        items: [
+          {
+            kind: "general",
+            params: { question: "changedToday" },
+            context: null,
+          },
+        ],
+      });
+      await renderWorkspace();
+      expect(dock()?.querySelectorAll("[data-suggestion]")).toHaveLength(1);
+      await act(async () => {
+        queryClient.setQueryData(["assistant", "getAllowance"], {
+          enabled: true,
+          usedFraction: 1,
+          capReached: true,
+          resetsAt: "2026-11-17T17:00:00.000Z",
+          readsImages: true,
+        });
+      });
+      await settle();
+      expect(dock()?.querySelectorAll("[data-suggestion]")).toHaveLength(0);
+    });
+
+    it("shows suggestion chips on an empty new chat, but not in a temporary one", async () => {
+      queryClient.setQueryData(["assistant", "suggestions"], {
+        items: [
+          {
+            kind: "general",
+            params: { question: "changedToday" },
+            context: null,
+          },
+        ],
+      });
+      await renderWorkspace();
+      expect(dock()?.querySelectorAll("[data-suggestion]")).toHaveLength(1);
+      await act(async () => button(t.temporaryChat)?.click());
+      expect(dock()?.querySelectorAll("[data-suggestion]")).toHaveLength(0);
+    });
+
     it("the temporary toggle makes the next new chat temporary, and says what that means", async () => {
       api.createConversation.mockResolvedValue({ id: CONV_ID });
       api.sendMessage.mockResolvedValue({});
@@ -4873,11 +4938,12 @@ describe("assistant messages", () => {
     const dir = "web/components/assistant";
     // `t` / `tAssistant` read `assistant`; `tErrors` `assistantErrors`;
     // `tCommon` `common`.
-    const namespaces: Record<string, Record<string, string>> = {
+    const namespaces: Record<string, object> = {
       t: en.assistant,
       tAssistant: en.assistant,
       tErrors: en.assistantErrors,
       tCommon: en.common,
+      tSuggestions: enMessages.assistant.suggestions,
     };
     const files = [
       ...readdirSync(dir).map((f) => `${dir}/${f}`),
@@ -4888,7 +4954,7 @@ describe("assistant messages", () => {
     for (const file of files) {
       const source = readFileSync(file, "utf8");
       for (const match of source.matchAll(
-        /\b(t|tAssistant|tErrors|tCommon)\("([a-zA-Z]+)"/g
+        /\b(t|tAssistant|tErrors|tCommon|tSuggestions)\("([a-zA-Z]+)"/g
       )) {
         const [, fn = "", key = ""] = match;
         used++;

@@ -1,6 +1,7 @@
 import { UI_MESSAGE_STREAM_HEADERS } from "ai";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
+import { getSuggestions } from "@/lib/assistant/suggestions";
 import { uuidSchema } from "@/lib/validation";
 import { sessionRouter } from "@/server/router";
 import {
@@ -44,6 +45,8 @@ import { json, query } from "@/server/validation";
 /** The assistant's chats. Each service function authorizes the caller. */
 export const assistantRouter = sessionRouter()
   .get("/allowance", async (c) => c.json(await getAllowance()))
+  // Starter questions from the caller's own activity (scoped by the queries).
+  .get("/suggestions", async (c) => c.json({ items: await getSuggestions() }))
   // The caller's own conversations, all projects: `{ pinned, recent }`,
   // never a temporary chat; `query` searches titles and message text.
   .get("/list-conversations", query(listConversationsInputSchema), async (c) =>

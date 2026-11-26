@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { IntlProvider } from "use-intl";
-import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { DialogProvider } from "@/components/dialog-provider";
 import { ProjectRoleProvider } from "@/components/project-role";
 import arMessages from "../messages/ar.json";
@@ -40,7 +40,7 @@ vi.mock("@/web/api/deploys", async (importOriginal) => ({
 vi.mock(
   "../web/routes/$locale/_app/-components/env/deploys/deploy-lock",
   () => ({
-    DeployLockPanel: () => null,
+    DeployLockControl: () => null,
     useDeployLock: () => ({ data: { lock: null } }),
   })
 );
@@ -215,80 +215,177 @@ afterEach(() => {
 });
 
 describe("Deploy timeline layout", () => {
-  it("rows stack below md and become columns from md", async () => {
+  const rowOf = (tag: string) =>
+    [
+      ...container.querySelectorAll<HTMLElement>('[data-slot="timeline-row"]'),
+    ].find((r) => slot("row-tag", r)?.textContent === tag);
+
+  it("a row is one flex line from md and stacks below", async () => {
     await mount([liveTarget()]);
     const first = slot("timeline-row") as HTMLElement;
     const cls = [...first.classList];
-    expect(cls).toContain("grid-cols-[minmax(0,1fr)_auto]");
-    expect(cls.some((c) => c.startsWith("md:grid-cols-["))).toBe(true);
-    const time = slot("row-time", first);
-    expect(time?.classList.contains("hidden")).toBe(true);
-    expect(time?.classList.contains("md:block")).toBe(true);
-    expect(slot("row-received", first)?.classList.contains("md:hidden")).toBe(
-      true
-    );
+    expect(cls).toContain("flex");
+    expect(cls).toContain("flex-col");
+    expect(cls).toContain("md:flex-row");
+    expect(cls.some((c) => c.includes("grid"))).toBe(false);
+    expect(slot("row-status-dot", first)).not.toBeNull();
+    expect(slot("row-time", first)?.textContent).not.toBe("");
   });
 
-  it("a tag that fits is no tab stop and no extra group", async () => {
-    await mount([liveTarget()]);
-    const scrollers = container.querySelectorAll('[data-slot="tag-scroll"]');
-    expect(scrollers.length).toBeGreaterThan(0);
-    for (const scroller of scrollers) {
-      expect(scroller.hasAttribute("tabindex")).toBe(false);
-      expect(scroller.hasAttribute("role")).toBe(false);
-      expect(scroller.hasAttribute("aria-label")).toBe(false);
-    }
-  });
-
-  it("long tag sits in its own scroll wrapper", async () => {
-    // happy-dom lays nothing out: make every box report an overflow.
-    const proto = HTMLElement.prototype;
-    Object.defineProperty(proto, "scrollWidth", {
-      configurable: true,
-      get: () => 500,
-    });
-    Object.defineProperty(proto, "clientWidth", {
-      configurable: true,
-      get: () => 100,
-    });
-    onTestFinished(() => {
-      Reflect.deleteProperty(proto, "scrollWidth");
-      Reflect.deleteProperty(proto, "clientWidth");
-    });
-    const longTag = "v".repeat(120);
-    const longMessage = `${"m".repeat(500)}\n\nbody`;
+  it("no row has a horizontal scroller, even with a long tag", async () => {
+    const prefix = `release-train-${"v".repeat(60)}-`;
     await mount([
       target({
         recentBuilds: [
-          build(longTag, at("09:00:00"), { commitMessage: longMessage }),
+          build(`${prefix}1a2b3c4`, at("09:00:00")),
+          build(`${prefix}5d6e7f8`, at("08:00:00")),
         ],
       }),
     ]);
-    const scroller = slot("row-tag")?.closest<HTMLElement>(
-      '[data-slot="tag-scroll"]'
-    );
-    expect(scroller).not.toBeNull();
-    expect(scroller?.classList.contains("overflow-x-auto")).toBe(true);
-    expect(scroller?.getAttribute("tabindex")).toBe("0");
-    expect(scroller?.getAttribute("role")).toBe("group");
-    expect(scroller?.getAttribute("aria-label")).toBe(longTag);
-    for (
-      let el = scroller?.parentElement;
-      el && el !== container;
-      el = el.parentElement
-    ) {
-      expect(el.classList.contains("overflow-x-auto")).toBe(false);
-    }
-    // The timeline's model keeps only the first line of the message.
-    const message = container.querySelector<HTMLElement>("span.truncate");
-    expect(message?.classList.contains("truncate")).toBe(true);
-    expect(message?.getAttribute("title")).toBe("m".repeat(500));
+    expect(container.innerHTML).not.toContain("overflow-x-auto");
+    expect(container.querySelector('[data-slot="tag-scroll"]')).toBeNull();
   });
 
-  it("restores the full sha as the commit title", async () => {
+  it("the commit message leads, with the tag as fallback", async () => {
+    await mount([
+      target({
+        recentBuilds: [
+          build("v2", at("09:50:00")),
+          build("v1", at("09:00:00"), { commitMessage: null }),
+        ],
+      }),
+    ]);
+    const title = slot("row-title", rowOf("v2"));
+    expect(title?.textContent).toBe("Change v2");
+    expect(title?.getAttribute("title")).toBe("Change v2");
+    expect(slot("row-title", rowOf("v1"))?.textContent).toBe("v1");
+  });
+
+  it("the second line has the short sha, a shortened tag and a copy button for the full tag", async () => {
+    const prefix = "release-train-2026-";
+    const one = `${prefix}1a2b3c4`;
+    const two = `${prefix}5d6e7f8`;
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    await mount([
+      target({
+        recentBuilds: [build(one, at("09:50:00")), build(two, at("09:00:00"))],
+      }),
+    ]);
+    const first = slot("timeline-row") as HTMLElement;
+    const line = slot("row-ids", first) as HTMLElement;
+    expect(line.querySelector("code")?.textContent).toBe(one.slice(0, 7));
+    const tag = slot("row-tag", first) as HTMLElement;
+    expect(tag.textContent).toBe("…1a2b3c4");
+    expect(tag.getAttribute("title")).toBe(one);
+    // Screen readers get the full tag, not the "…" short form.
+    expect(tag.getAttribute("aria-hidden")).toBe("true");
+    expect(tag.nextElementSibling?.className).toContain("sr-only");
+    expect(tag.nextElementSibling?.textContent).toBe(one);
+    const copy = line.querySelector<HTMLButtonElement>(
+      `button[aria-label="${d.row.copyTag.replace("{tag}", one)}"]`
+    );
+    expect(copy).not.toBeNull();
+    await act(async () => copy?.click());
+    expect(writeText).toHaveBeenCalledWith(one);
+  });
+
+  it("tags with no shared prefix are not shortened", async () => {
     await mount([liveTarget()]);
-    const code = slot("row-commit")?.querySelector("code");
-    expect(code?.getAttribute("title")).toBe("v2abcdef0123");
+    const tags = [...container.querySelectorAll('[data-slot="row-tag"]')].map(
+      (el) => el.textContent
+    );
+    expect(tags).toEqual(["v2", "v1"]);
+  });
+
+  it("a deployed row shows its latest deployment time, a never-deployed one its build time", async () => {
+    await mount([
+      target({
+        currentTag: "v2",
+        currentStatus: "success",
+        recentBuilds: [
+          build("v3", at("10:03:00")),
+          build("v2", at("09:50:00")),
+        ],
+        recentDeployments: [
+          deployment("v2", "success", {
+            createdAt: at("10:00:00"),
+            finishedAt: at("10:01:30"),
+          }),
+        ],
+      }),
+    ]);
+    const time = (tag: string) =>
+      slot("row-time", rowOf(tag))
+        ?.querySelector("time")
+        ?.getAttribute("datetime");
+    expect(time("v2")).toBe(at("10:01:30").toISOString());
+    expect(time("v3")).toBe(at("10:03:00").toISOString());
+  });
+
+  it("status badges carry a variant per state", async () => {
+    await mount([
+      target({
+        currentTag: "v2",
+        currentStatus: "success",
+        recentBuilds: [
+          build("v5", at("10:04:00")),
+          build("v4", at("10:03:00")),
+          build("v3", at("10:02:00")),
+          build("v2", at("09:50:00")),
+        ],
+        recentDeployments: [
+          deployment("v2", "success"),
+          deployment("v3", "failed"),
+          deployment("v4", "queued"),
+          deployment("v5", "held"),
+        ],
+      }),
+    ]);
+    const badge = (tag: string) =>
+      slot("row-status", rowOf(tag))?.querySelector<HTMLElement>(
+        '[data-slot="badge"]'
+      );
+    expect(badge("v2")?.className).toContain("text-success");
+    expect(badge("v3")?.getAttribute("data-variant")).toBe("destructive");
+    expect(badge("v4")?.className).toContain("text-sky");
+    expect(badge("v5")?.className).toContain("text-amber");
+  });
+
+  it("an actor with a user id is a profile link, others plain text, with trigger and duration", async () => {
+    await mount([
+      target({
+        currentTag: "v2",
+        currentStatus: "success",
+        recentBuilds: [
+          build("v2", at("09:50:00")),
+          build("v1", at("09:00:00")),
+        ],
+        recentDeployments: [
+          {
+            ...deployment("v2", "success", {
+              createdAt: at("10:00:00"),
+              finishedAt: at("10:01:30"),
+              trigger: "rollback",
+            }),
+            userId: "u1",
+          },
+          deployment("v1", "success", { createdAt: at("09:10:00") }),
+        ],
+      }),
+    ]);
+    const meta = slot("row-meta", rowOf("v2")) as HTMLElement;
+    expect(meta.querySelector('a[href="/people/u1"]')?.textContent).toContain(
+      "Ada Example"
+    );
+    expect(meta.textContent).toContain(d.trigger.rollback);
+    expect(meta.textContent).toContain("1m 30s");
+    const plain = slot("row-meta", rowOf("v1")) as HTMLElement;
+    expect(plain.querySelector("a")).toBeNull();
+    expect(plain.textContent).toContain("Ada Example");
   });
 
   it("timeline sources use logical properties only", () => {
@@ -365,6 +462,9 @@ describe("Deploy timeline layout", () => {
         card.querySelectorAll('[data-slot="timeline-row-skeleton"]')
       ).toHaveLength(5);
     }
+    // Rows are two lines tall like the real ones.
+    const row = container.querySelector('[data-slot="timeline-row-skeleton"]');
+    expect(row?.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(3);
   });
 
   it("moves focus to the first newly shown row after Show more", async () => {

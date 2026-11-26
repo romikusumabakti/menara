@@ -32,7 +32,11 @@ export type TimelineRow = {
   build: TimelineBuild | null;
   commitSha: string | null;
   commitMessage: string | null;
-  receivedAt: string | null;
+  /**
+   * When the row happened: the tag's latest deployment (finish, else
+   * creation), or the build's arrival if it was never deployed.
+   */
+  shownAt: string | null;
   sortAt: string | null;
   /** This tag's deployments, newest `createdAt` first, then id descending. */
   deployments: TimelineDeployment[];
@@ -211,7 +215,11 @@ export function buildTimeline(input: TimelineInput): TimelineRow[] {
         deployments.find((d) => d.build)?.build?.commitSha ??
         null,
       commitMessage: firstLine(build?.commitMessage ?? null),
-      receivedAt: iso(build?.receivedAt),
+      shownAt: iso(
+        deployments[0]
+          ? (deployments[0].finishedAt ?? deployments[0].createdAt)
+          : build?.receivedAt
+      ),
       sortAt: iso(build?.receivedAt ?? deployments[0]?.createdAt),
       deployments,
       status,
@@ -248,14 +256,38 @@ const BUSY_STATUSES: ReadonlySet<RowStatusKind> = new Set([
   "held",
 ]);
 
+/** Rows the timeline shows at first. */
+export const PAGE_FIRST = 10;
+
+const TAG_SEPARATORS = /[-._/:]/;
+
+/** A shortened tag must keep enough to identify it (a short sha, not "3"). */
+const MIN_TAG_REMAINDER = 6;
+
+/**
+ * The prefix every tag shares, cut after its last separator so no word is
+ * split; "" when there is a single tag or a remainder under 6 characters.
+ */
+export function commonTagPrefix(tags: string[]): string {
+  const [first, ...rest] = tags;
+  if (first === undefined || rest.length === 0) return "";
+  let end = 0;
+  while (end < first.length && rest.every((tag) => tag[end] === first[end])) {
+    end += 1;
+  }
+  let cut = end;
+  while (cut > 0 && !TAG_SEPARATORS.test(first[cut - 1] ?? "")) cut -= 1;
+  const prefix = first.slice(0, cut);
+  return tags.every((tag) => tag.length - prefix.length >= MIN_TAG_REMAINDER)
+    ? prefix
+    : "";
+}
+
 export type HeaderState = {
   focal:
     | {
         kind: "live";
         tag: string;
-        deployment: TimelineDeployment | null;
-        commitSha: string | null;
-        pipelineUrl: string | null;
       }
     | {
         kind: "failedCurrent";
@@ -265,6 +297,16 @@ export type HeaderState = {
       }
     | { kind: "never" };
   failure: { tag: string; deployment: TimelineDeployment } | null;
+  /**
+   * What the header says when no Live row carries the state: the current
+   * deploy failed (shown even when it is the latest finished one), or nothing
+   * was ever deployed.
+   */
+  note:
+    | { kind: "failedCurrent"; lastGoodTag: string | null }
+    | { kind: "neverDeployed" }
+    | { kind: "lastLive"; tag: string }
+    | null;
   deployLatest: {
     tag: string;
     blocked: "latestIsLive" | "deploying" | "held" | null;
@@ -274,29 +316,13 @@ export type HeaderState = {
   rollbackBusy: boolean;
 };
 
-function liveFocal(
-  tag: string,
-  deployment: TimelineDeployment | null,
-  input: TimelineInput
-): HeaderState["focal"] {
-  const build = input.recentBuilds.find((b) => b.tag === tag) ?? null;
-  return {
-    kind: "live",
-    tag,
-    deployment,
-    commitSha: build?.commitSha ?? deployment?.build?.commitSha ?? null,
-    pipelineUrl: build?.pipelineUrl ?? null,
-  };
-}
-
 function focalOf(
   input: TimelineInput,
   all: TimelineDeployment[]
 ): HeaderState["focal"] {
   const { currentTag, currentStatus } = input;
   if (currentTag && currentStatus === "success") {
-    const mine = all.filter((d) => d.tag === currentTag);
-    return liveFocal(currentTag, newestWith(mine, "success"), input);
+    return { kind: "live", tag: currentTag };
   }
   if (currentTag && currentStatus === "failed") {
     const mine = all.filter((d) => d.tag === currentTag);
@@ -313,7 +339,7 @@ function focalOf(
   // Deploying (or otherwise unsettled): keep the previous live info.
   const lastSuccess = newestWith(all, "success");
   return lastSuccess
-    ? liveFocal(lastSuccess.tag, lastSuccess, input)
+    ? { kind: "live", tag: lastSuccess.tag }
     : { kind: "never" };
 }
 
@@ -332,6 +358,19 @@ export function headerState(input: TimelineInput): HeaderState {
       : null;
 
   const rows = buildTimeline(input);
+
+  // A Live row carries the live tag; without one in the first page (a deploy
+  // is running, or the live tag is older than the shown rows) the header does.
+  const liveVisible = rows.slice(0, PAGE_FIRST).some((r) => r.isLive);
+  const note: HeaderState["note"] =
+    focal.kind === "failedCurrent"
+      ? { kind: "failedCurrent", lastGoodTag: focal.lastGood }
+      : focal.kind === "never"
+        ? { kind: "neverDeployed" }
+        : liveVisible
+          ? null
+          : { kind: "lastLive", tag: focal.tag };
+
   const latest = input.recentBuilds[0];
   let deployLatest: HeaderState["deployLatest"] = null;
   if (latest) {
@@ -362,6 +401,7 @@ export function headerState(input: TimelineInput): HeaderState {
   return {
     focal,
     failure,
+    note,
     deployLatest,
     rollbackTag: input.previousTag,
     rollbackBusy,

@@ -46,7 +46,9 @@ vi.mock("@/web/api/knowledge", () => ({
   deleteCollection: vi.fn(),
 }));
 vi.mock("@/components/knowledge-search", () => ({
-  KnowledgeSearch: () => null,
+  KnowledgeSearchProvider: ({ children }: { children: React.ReactNode }) =>
+    children,
+  KnowledgeSearchTrigger: () => <div data-testid="search-trigger">SEARCH</div>,
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
@@ -67,11 +69,14 @@ const COLLECTION = {
 let container: HTMLDivElement;
 let root: ReturnType<typeof createRoot>;
 
-async function render(ui: React.ReactElement) {
+async function render(
+  ui: React.ReactElement,
+  collections: (typeof COLLECTION)[] = [COLLECTION]
+) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  queryClient.setQueryData(["collections"], [COLLECTION]);
+  queryClient.setQueryData(["collections"], collections);
   queryClient.setQueryData(["nodes"], []);
   container = document.createElement("div");
   document.body.append(container);
@@ -96,6 +101,37 @@ const hrefs = () =>
   [...container.querySelectorAll("a")].map((a) => a.getAttribute("href"));
 
 describe("knowledge for a staff user", () => {
+  it("orders the sidebar New document, then Collections, with no title link", async () => {
+    state.role = "admin";
+    const Layout = LayoutRoute.options.component as React.ComponentType;
+    await render(<Layout />);
+    const text = container.textContent ?? "";
+    expect(text.indexOf(messages.knowledge.newDocument)).toBeGreaterThan(-1);
+    expect(text.indexOf(messages.knowledge.newDocument)).toBeLessThan(
+      text.indexOf("SEARCH")
+    );
+    expect(text.indexOf("SEARCH")).toBeLessThan(
+      text.indexOf(messages.knowledge.collectionsHeading)
+    );
+    expect(text.indexOf(messages.knowledge.collectionsHeading)).toBeLessThan(
+      text.indexOf("Handbook")
+    );
+    expect(hrefs()).not.toContain("/knowledge");
+    expect(
+      container.querySelector(
+        `button[aria-label="${messages.knowledge.newCollection}"]`
+      )
+    ).not.toBeNull();
+  });
+
+  it("shows no search trigger and no New document without collections", async () => {
+    state.role = "admin";
+    const Layout = LayoutRoute.options.component as React.ComponentType;
+    await render(<Layout />, []);
+    expect(container.textContent).not.toContain("SEARCH");
+    expect(container.textContent).not.toContain(messages.knowledge.newDocument);
+  });
+
   it("shows no New document action in the layout", async () => {
     state.role = "staff";
     const Layout = LayoutRoute.options.component as React.ComponentType;

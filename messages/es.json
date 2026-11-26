@@ -433,10 +433,8 @@
     },
     "lock": {
       "badge": "Despliegues bloqueados",
-      "lockedTitle": "Los despliegues están bloqueados",
       "lockedBy": "{name} bloqueó los despliegues: {reason}",
       "until": "Hasta {expiresAt}.",
-      "unlockedHint": "Los despliegues están abiertos.",
       "lock": "Bloquear despliegues",
       "unlock": "Desbloquear",
       "edit": "Cambiar bloqueo",
@@ -455,7 +453,12 @@
       "holderUnknown": "Alguien",
       "disabledHint": "Los despliegues están bloqueados: {reason}",
       "heldBuilds": "{count, plural, =0 {No hay compilaciones retenidas.} one {# compilación retenida.} other {# compilaciones retenidas.}}",
-      "saveLock": "Guardar bloqueo"
+      "saveLock": "Guardar bloqueo",
+      "open": "Abierto",
+      "openHeld": "Abierto · {count} retenidos",
+      "lockedState": "Bloqueado",
+      "lockedStateHeld": "Bloqueado · {count} retenidos",
+      "moreActions": "Más acciones de bloqueo"
     },
     "startBuild": "Iniciar compilación",
     "startBuildHint": "Compila {branch} ahora; se despliega al terminar.",
@@ -471,20 +474,22 @@
     "markRelease": "Mark as release",
     "releasePreparing": "Preparing release…",
     "serviceRepo": "El repositorio del servicio",
-    "focalLive": "En vivo: {tag}",
-    "focalDeployedBy": "desplegado {time} por {actor}",
+    "liveNote": "En vivo: {tag}",
     "focalFailed": "El último despliegue de {tag} falló {time}: el servidor puede ejecutar una versión parcial",
     "focalFailedNoTime": "El último despliegue de {tag} falló: el servidor puede ejecutar una versión parcial",
     "focalLastGood": "· último correcto: {tag}",
     "failureLine": "El último despliegue de {tag} falló {time}",
     "viewLog": "Ver registro",
-    "deployLatest": "Desplegar la última ({tag})",
+    "deployLatest": "Desplegar la última",
+    "deployTag": "Desplegar {tag}",
+    "deployLatestLabel": "Desplegar la última ({tag})",
+    "rollbackShort": "Revertir",
+    "serviceUnit": "Unidad systemd: {unit}",
     "latestIsLive": "La última compilación, {tag}, está en vivo.",
     "latestDeploying": "La última compilación se está desplegando.",
     "latestHeld": "La última compilación espera a que se libere el bloqueo de despliegues.",
     "rollbackInProgress": "Ya hay una reversión a {tag} en cola o en curso.",
     "lockChip": "Bloqueado por {name} · hasta {time}",
-    "viewPipelineFor": "Ver pipeline de {sha}",
     "opensInNewTab": "(se abre en una pestaña nueva)",
     "rowActionsLabel": "Acciones para {tag}",
     "deployThis": "Desplegar esta versión",
@@ -504,7 +509,8 @@
       "skipped": "Omitido: se ejecutó un despliegue más reciente",
       "deployedEarlier": "Desplegado",
       "never": "No desplegado",
-      "history": "{count, plural, one {# despliegue anterior} other {# despliegues anteriores}}"
+      "history": "{count, plural, one {# despliegue anterior} other {# despliegues anteriores}}",
+      "copyTag": "Copiar la etiqueta {tag}"
     },
     "loadFailed": "No se pudieron actualizar los despliegues. Es posible que la lista esté desactualizada.",
     "showMore": "{count, plural, other {Mostrar # más}}"
@@ -1731,6 +1737,7 @@
     "newDocument": "Nuevo documento",
     "newDocumentHint": "Escribe una página nueva para la base de conocimiento del equipo.",
     "newCollection": "Nueva colección",
+    "collectionsHeading": "Colecciones",
     "newCollectionHint": "Las colecciones agrupan documentos relacionados.",
     "collectionName": "Nombre",
     "collectionDescription": "Descripción (opcional)",
@@ -1754,7 +1761,8 @@
     "emptyTitle": "Aún no hay base de conocimiento",
     "emptyAdminHint": "Un administrador debe crear la primera colección para empezar.",
     "landingTitle": "Base de conocimiento del equipo",
-    "landingHint": "Elige un documento en la barra lateral o crea uno nuevo.",
+    "recentTitle": "Actualizados recientemente",
+    "recentEmptyHint": "Aún no hay documentos. Crea el primero para verlo aquí.",
     "created": "Documento creado",
     "saved": "Cambios guardados",
     "deleted": "Documento eliminado",
@@ -2149,11 +2157,6 @@
     "sourcesDescription": "Los servicios que despliega este proyecto y la rama con la que arranca cada uno en un entorno nuevo. Cada entorno conserva su propia rama, definida en sus ajustes de Source & Deploy."
   },
   "homePage": {
-    "askExamples": {
-      "first": "¿Qué servicios cambiaron más esta semana?",
-      "second": "¿Qué se está ejecutando ahora en staging?",
-      "third": "Resume las incidencias abiertas de mi proyecto"
-    },
     "askRecent": "Chats recientes",
     "title": "Inicio",
     "greeting": {
@@ -4223,7 +4226,28 @@
     "recentChats": "Recientes",
     "pinChat": "Fijar",
     "unpinChat": "Desfijar",
-    "editQuestion": "Editar pregunta"
+    "editQuestion": "Editar pregunta",
+    "suggestions": {
+      "groupLabel": "Preguntas sugeridas",
+      "failedRun": "¿Por qué falló {runKind} en {environment}?",
+      "myIssues": "{count, plural, one {Resume mi # incidencia abierta, empezando por {firstKey}} other {Resume mis # incidencias abiertas, empezando por {firstKey}}}",
+      "environment": "¿Qué se está ejecutando ahora en {environment}?",
+      "general": {
+        "changedToday": "¿Qué cambió hoy?",
+        "failedDeploysThisWeek": "¿Qué despliegues fallaron esta semana?"
+      },
+      "runKind": {
+        "backup": "la copia de seguridad",
+        "restore": "la restauración",
+        "mock_time": "el cambio de hora simulada",
+        "test": "la prueba",
+        "deploy": "el despliegue",
+        "provision": "el aprovisionamiento",
+        "teardown": "el desmontaje",
+        "release": "la publicación",
+        "other": "la ejecución"
+      }
+    }
   },
   "oauthConsent": {
     "title": "¿Permitir que {client} use tu cuenta de {{APP_NAME}}?",

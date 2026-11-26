@@ -33,6 +33,10 @@ vi.mock("@/web/api/assistant", () => ({
     queryKey: ["assistant", "getAllowance"],
     queryFn: () => new Promise(() => {}),
   }),
+  assistantSuggestionsQuery: () => ({
+    queryKey: ["assistant", "suggestions"],
+    queryFn: () => new Promise(() => {}),
+  }),
   listConversationsQuery: () => ({
     queryKey: ["assistant", "listConversations"],
     queryFn: api.listConversations,
@@ -272,31 +276,71 @@ describe("home ask-the-assistant card", () => {
     expect(container.textContent).toBe("");
   });
 
-  it("shows three example questions and no recents with no conversations", async () => {
-    await renderCard({});
-    const examples = container.querySelectorAll("[data-example]");
-    expect(examples).toHaveLength(3);
-    expect(container.querySelector("[data-recent]")).toBeNull();
+  it("shows suggestion chips under the composer and no static examples", async () => {
+    queryClient.setQueryData(["assistant", "suggestions"], {
+      items: [
+        {
+          kind: "general",
+          params: { question: "changedToday" },
+          context: null,
+        },
+      ],
+    });
+    await renderCard({ conversations: CONVERSATIONS });
+    const chip = container.querySelector("[data-suggestion]");
+    expect(chip?.textContent).toBe("What changed today?");
+    const recent = container.querySelector("[data-recent]");
+    if (!chip || !recent) throw new Error("missing chip or recent");
+    expect(
+      chip.compareDocumentPosition(recent) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 
-  it("shows neither examples nor recents while the conversations load", async () => {
+  it("hides the chips when the daily cap is reached", async () => {
+    queryClient.setQueryData(["assistant", "suggestions"], {
+      items: [
+        {
+          kind: "general",
+          params: { question: "changedToday" },
+          context: null,
+        },
+      ],
+    });
+    await renderCard({ allowance: { ...ENABLED, capReached: true } });
+    expect(container.querySelector("[data-suggestion]")).toBeNull();
+  });
+
+  it("a chip fills the prompt without sending", async () => {
+    queryClient.setQueryData(["assistant", "suggestions"], {
+      items: [
+        {
+          kind: "general",
+          params: { question: "changedToday" },
+          context: null,
+        },
+      ],
+    });
+    await renderCard({});
+    const chip =
+      container.querySelector<HTMLButtonElement>("[data-suggestion]");
+    await act(async () => chip?.click());
+    expect(box().value).toBe("What changed today?");
+    expect(container.querySelector("[data-suggestion]")).toBeNull();
+    expect(api.createConversation).not.toHaveBeenCalled();
+  });
+
+  it("shows no recents with no conversations, and nothing while they load", async () => {
+    await renderCard({});
+    expect(container.querySelector("[data-recent]")).toBeNull();
+    act(() => root.unmount());
+    container.remove();
     await renderCard({ conversations: null });
     expect(box()).toBeTruthy();
-    expect(container.querySelector("[data-example]")).toBeNull();
     expect(container.querySelector("[data-recent]")).toBeNull();
-  });
-
-  it("an example fills the prompt without sending", async () => {
-    await renderCard({});
-    const first = container.querySelector<HTMLButtonElement>("[data-example]");
-    await act(async () => first?.click());
-    expect(box().value).toBe(first?.textContent);
-    expect(api.createConversation).not.toHaveBeenCalled();
   });
 
   it("shows at most three recents with context and time, linking to them", async () => {
     await renderCard({ conversations: CONVERSATIONS });
-    expect(container.querySelector("[data-example]")).toBeNull();
     const recents = [...container.querySelectorAll("a[data-recent]")];
     expect(recents.map((a) => a.getAttribute("href"))).toEqual([
       "/assistant?c=c1",

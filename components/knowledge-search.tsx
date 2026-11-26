@@ -1,7 +1,15 @@
 import { FileText, Search } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  use,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslations } from "use-intl";
-import { Button } from "@/components/ui/button";
 import {
   CommandDialog,
   CommandEmpty,
@@ -10,7 +18,9 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { InputGroup, InputGroupAddon } from "@/components/ui/input-group";
 import { useRouter } from "@/i18n/navigation";
+import { cn } from "@/lib/utils";
 import { searchKnowledge } from "@/web/api/knowledge";
 
 // Must match HL_START / HL_STOP in lib/knowledge.ts. Control chars, so the
@@ -64,7 +74,20 @@ function HighlightedSnippet({ snippet }: { snippet: string }) {
   );
 }
 
-export function KnowledgeSearch() {
+const KnowledgeSearchContext = createContext<{ open: () => void } | null>(null);
+
+export function useKnowledgeSearch() {
+  const ctx = use(KnowledgeSearchContext);
+  if (!ctx) {
+    throw new Error("useKnowledgeSearch needs a KnowledgeSearchProvider");
+  }
+  return ctx;
+}
+
+// Owns the single search dialog and the server search; the "/" shortcut is
+// registered by the triggers, so it only exists where a trigger is rendered.
+// Mount once per knowledge area; triggers anywhere below open it via context.
+export function KnowledgeSearchProvider({ children }: { children: ReactNode }) {
   const t = useTranslations("knowledge");
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -73,24 +96,6 @@ export function KnowledgeSearch() {
   const [loading, setLoading] = useState(false);
   // Guards against out-of-order responses: only the latest query's result wins.
   const seq = useRef(0);
-
-  // Open with "/" while not typing in a field, like many doc tools.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (
-        e.key === "/" &&
-        !["INPUT", "TEXTAREA"].includes(
-          (e.target as HTMLElement)?.tagName ?? ""
-        ) &&
-        !(e.target as HTMLElement)?.isContentEditable
-      ) {
-        e.preventDefault();
-        setOpen(true);
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, []);
 
   useEffect(() => {
     const q = query.trim();
@@ -116,18 +121,12 @@ export function KnowledgeSearch() {
     router.push(`/knowledge/${slug}`);
   }
 
-  return (
-    <>
-      <Button
-        variant="outline"
-        size="sm"
-        className="mx-2 justify-start gap-2 font-normal text-muted-foreground"
-        onClick={() => setOpen(true)}
-      >
-        <Search className="size-4" />
-        {t("searchPlaceholder")}
-      </Button>
+  const openDialog = useCallback(() => setOpen(true), []);
+  const value = useMemo(() => ({ open: openDialog }), [openDialog]);
 
+  return (
+    <KnowledgeSearchContext value={value}>
+      {children}
       <CommandDialog
         open={open}
         onOpenChange={setOpen}
@@ -164,6 +163,61 @@ export function KnowledgeSearch() {
           )}
         </CommandList>
       </CommandDialog>
-    </>
+    </KnowledgeSearchContext>
+  );
+}
+
+// Looks like the assistant's "Search chats" field, but opens the dialog. The
+// button is the one accessible control; the icon and "/" hint forward clicks.
+export function KnowledgeSearchTrigger({
+  variant,
+}: {
+  variant: "sidebar" | "hero";
+}) {
+  const t = useTranslations("knowledge");
+  const { open } = useKnowledgeSearch();
+
+  // Open with "/" while not typing in a field, like many doc tools.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        e.key === "/" &&
+        !["INPUT", "TEXTAREA"].includes(target?.tagName ?? "") &&
+        !target?.isContentEditable
+      ) {
+        e.preventDefault();
+        open();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  return (
+    <InputGroup
+      className={cn(
+        "cursor-pointer",
+        variant === "hero"
+          ? "mx-auto h-12 w-full max-w-xl rounded-xl"
+          : "shrink-0"
+      )}
+    >
+      <InputGroupAddon onClick={open}>
+        <Search />
+      </InputGroupAddon>
+      <button
+        type="button"
+        onClick={open}
+        className="h-full min-w-0 flex-1 cursor-pointer truncate bg-transparent px-2 text-start text-sm text-muted-foreground outline-none"
+      >
+        {t("searchPlaceholder")}
+      </button>
+      <InputGroupAddon align="inline-end" onClick={open}>
+        <kbd className="pointer-events-none hidden h-5 select-none items-center rounded border bg-background px-1.5 font-mono text-xs md:inline-flex">
+          /
+        </kbd>
+      </InputGroupAddon>
+    </InputGroup>
   );
 }

@@ -433,10 +433,8 @@
     },
     "lock": {
       "badge": "Deploys locked",
-      "lockedTitle": "Deploys are locked",
       "lockedBy": "{name} locked deploys: {reason}",
       "until": "Until {expiresAt}.",
-      "unlockedHint": "Deploys are open.",
       "lock": "Lock deploys",
       "unlock": "Unlock",
       "edit": "Change lock",
@@ -455,7 +453,12 @@
       "holderUnknown": "Someone",
       "disabledHint": "Deploys are locked: {reason}",
       "heldBuilds": "{count, plural, =0 {No builds are held.} one {# build is held.} other {# builds are held.}}",
-      "saveLock": "Save lock"
+      "saveLock": "Save lock",
+      "open": "Open",
+      "openHeld": "Open · {count} held",
+      "lockedState": "Locked",
+      "lockedStateHeld": "Locked · {count} held",
+      "moreActions": "More lock actions"
     },
     "startBuild": "Start build",
     "startBuildHint": "Build {branch} now; it deploys when it lands.",
@@ -471,20 +474,22 @@
     "markRelease": "Mark as release",
     "releasePreparing": "Preparing release…",
     "serviceRepo": "The service's repository",
-    "focalLive": "Live: {tag}",
-    "focalDeployedBy": "deployed {time} by {actor}",
+    "liveNote": "Live: {tag}",
     "focalFailed": "Last deploy of {tag} failed {time} — the server may run a partial version",
     "focalFailedNoTime": "Last deploy of {tag} failed — the server may run a partial version",
     "focalLastGood": "· last good: {tag}",
     "failureLine": "Last deploy of {tag} failed {time}",
     "viewLog": "View log",
-    "deployLatest": "Deploy latest ({tag})",
+    "deployLatest": "Deploy latest",
+    "deployTag": "Deploy {tag}",
+    "deployLatestLabel": "Deploy latest ({tag})",
+    "rollbackShort": "Roll back",
+    "serviceUnit": "systemd unit: {unit}",
     "latestIsLive": "The latest build, {tag}, is live.",
     "latestDeploying": "The latest build is being deployed.",
     "latestHeld": "The latest build is waiting for the deploy lock.",
     "rollbackInProgress": "A rollback to {tag} is already queued or running.",
     "lockChip": "Locked by {name} · until {time}",
-    "viewPipelineFor": "View pipeline for {sha}",
     "opensInNewTab": "(opens in a new tab)",
     "rowActionsLabel": "Actions for {tag}",
     "deployThis": "Deploy this version",
@@ -504,7 +509,8 @@
       "skipped": "Skipped — a newer deploy ran",
       "deployedEarlier": "Deployed",
       "never": "Not deployed",
-      "history": "{count, plural, one {# earlier deploy} other {# earlier deploys}}"
+      "history": "{count, plural, one {# earlier deploy} other {# earlier deploys}}",
+      "copyTag": "Copy tag {tag}"
     },
     "loadFailed": "Couldn't refresh deploys. The list may be out of date.",
     "showMore": "{count, plural, other {Show # more}}"
@@ -1731,6 +1737,7 @@
     "newDocument": "New document",
     "newDocumentHint": "Write a new page for the team knowledge base.",
     "newCollection": "New collection",
+    "collectionsHeading": "Collections",
     "newCollectionHint": "Collections group related documents.",
     "collectionName": "Name",
     "collectionDescription": "Description (optional)",
@@ -1754,7 +1761,8 @@
     "emptyTitle": "No knowledge base yet",
     "emptyAdminHint": "An admin needs to create the first collection to get started.",
     "landingTitle": "Team knowledge base",
-    "landingHint": "Pick a document from the sidebar, or create a new one.",
+    "recentTitle": "Recently updated",
+    "recentEmptyHint": "No documents yet. Create the first one to see it here.",
     "created": "Document created",
     "saved": "Changes saved",
     "deleted": "Document deleted",
@@ -2149,11 +2157,6 @@
     "sourcesDescription": "The services this project deploys and the branch each starts on in a new environment. Each environment keeps its own branch, set in its Source & Deploy settings."
   },
   "homePage": {
-    "askExamples": {
-      "first": "Which services changed most this week?",
-      "second": "What is running on staging right now?",
-      "third": "Summarize the open issues for my project"
-    },
     "askRecent": "Recent chats",
     "title": "Home",
     "greeting": {
@@ -4223,7 +4226,28 @@
     "recentChats": "Recent",
     "pinChat": "Pin",
     "unpinChat": "Unpin",
-    "editQuestion": "Edit question"
+    "editQuestion": "Edit question",
+    "suggestions": {
+      "groupLabel": "Suggested questions",
+      "failedRun": "Why did the {runKind} on {environment} fail?",
+      "myIssues": "{count, plural, one {Summarize my # open issue, starting with {firstKey}} other {Summarize my # open issues, starting with {firstKey}}}",
+      "environment": "What is running on {environment} right now?",
+      "general": {
+        "changedToday": "What changed today?",
+        "failedDeploysThisWeek": "Which deploys failed this week?"
+      },
+      "runKind": {
+        "backup": "backup",
+        "restore": "restore",
+        "mock_time": "mock time change",
+        "test": "test run",
+        "deploy": "deploy",
+        "provision": "provisioning",
+        "teardown": "teardown",
+        "release": "release",
+        "other": "run"
+      }
+    }
   },
   "oauthConsent": {
     "title": "Allow {client} to use your {{APP_NAME}} account?",

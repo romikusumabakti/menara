@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildTimeline,
+  commonTagPrefix,
   deploymentDurationMs,
   deploysPollInterval,
   elapsedMs,
@@ -149,7 +150,7 @@ describe("buildTimeline", () => {
         recentBuilds: [build("v1", new Date(at(1)) as unknown as string)],
       })
     );
-    expect(rows[0]?.receivedAt).toBe(at(1));
+    expect(rows[0]?.shownAt).toBe(at(1));
   });
 
   const statusCases: [string, TimelineInput, string, string | undefined][] = [
@@ -431,6 +432,40 @@ const failedCurrentInput = () =>
     ],
   });
 
+describe("headerState note for a live tag without a visible Live row", () => {
+  it("deploying with a previous success keeps the last live tag", () => {
+    const h = headerState(
+      input({
+        currentTag: "v3",
+        currentStatus: "running",
+        previousTag: "v2",
+        recentBuilds: [build("v3", at(3)), build("v2", at(2))],
+        recentDeployments: [
+          deployment("v3", "running", { id: "r3", createdAt: at(6) }),
+          deployment("v2", "success", { id: "s2", createdAt: at(5) }),
+        ],
+      })
+    );
+    expect(h.note).toEqual({ kind: "lastLive", tag: "v2" });
+  });
+
+  it("a live tag older than the first page keeps a note", () => {
+    const tags = Array.from({ length: 12 }, (_, i) => `v${i + 1}`);
+    const h = headerState(
+      input({
+        currentTag: "v1",
+        currentStatus: "success",
+        previousTag: null,
+        recentBuilds: tags.map((tag, i) => build(tag, at(i + 1))).reverse(),
+        recentDeployments: [
+          deployment("v1", "success", { id: "s1", createdAt: at(1) }),
+        ],
+      })
+    );
+    expect(h.note).toEqual({ kind: "lastLive", tag: "v1" });
+  });
+});
+
 describe("headerState", () => {
   it("live focal line with who, when and the pipeline link", () => {
     const h = headerState(
@@ -445,13 +480,8 @@ describe("headerState", () => {
         ],
       })
     );
-    expect(h.focal).toMatchObject({
-      kind: "live",
-      tag: "v2",
-      commitSha: "v2-sha",
-      pipelineUrl: "https://ci.example.com/v2",
-    });
-    expect(h.focal.kind === "live" && h.focal.deployment?.id).toBe("new");
+    expect(h.focal).toEqual({ kind: "live", tag: "v2" });
+    expect(h.note).toBeNull();
     expect(h.rollbackTag).toBe("v1");
   });
 
@@ -463,6 +493,7 @@ describe("headerState", () => {
       lastGood: "v1",
     });
     expect(h.failure).toBeNull();
+    expect(h.note).toEqual({ kind: "failedCurrent", lastGoodTag: "v1" });
     expect(h.deployLatest).toEqual({ tag: "v3", blocked: null });
     expect(h.rollbackTag).toBe("v1");
   });
@@ -560,28 +591,10 @@ describe("headerState", () => {
   it("no state at all is never, without Deploy latest", () => {
     const h = headerState(input());
     expect(h.focal).toEqual({ kind: "never" });
+    expect(h.note).toEqual({ kind: "neverDeployed" });
     expect(h.deployLatest).toBeNull();
     expect(h.failure).toBeNull();
     expect(h.rollbackTag).toBeNull();
-  });
-
-  it("live focal falls back to the deployment's build when the tag has no build row", () => {
-    const h = headerState(
-      input({
-        currentTag: "v1",
-        currentStatus: "success",
-        recentDeployments: [
-          deployment("v1", "success", {
-            build: { branch: "main", commitSha: "dep-sha" },
-          }),
-        ],
-      })
-    );
-    expect(h.focal).toMatchObject({
-      kind: "live",
-      commitSha: "dep-sha",
-      pipelineUrl: null,
-    });
   });
 
   it.each([
@@ -883,5 +896,49 @@ describe("shortSha", () => {
   it("keeps the first 7 characters, null when unknown", () => {
     expect(shortSha("abcdef0123456")).toBe("abcdef0");
     expect(shortSha(null)).toBeNull();
+  });
+});
+
+describe("commonTagPrefix", () => {
+  it("is the shared prefix up to its last separator", () => {
+    expect(commonTagPrefix(["acme-dev-1a2b3c4", "acme-dev-5d6e7f8"])).toBe(
+      "acme-dev-"
+    );
+  });
+
+  it("drops the prefix when the remainders would be shorter than 6 characters", () => {
+    expect(commonTagPrefix(["v1.2.3", "v1.2.4"])).toBe("");
+    expect(commonTagPrefix(["v1.2.3", "v1.2.40"])).toBe("");
+    expect(commonTagPrefix(["acme-dev-1a2b3", "acme-dev-5d6e7"])).toBe("");
+  });
+
+  it("is empty for one tag, no shared separator, or a prefix that eats a tag", () => {
+    expect(commonTagPrefix(["acme-dev-1a2b3c4"])).toBe("");
+    expect(commonTagPrefix(["v1", "v2"])).toBe("");
+    expect(commonTagPrefix(["a-", "a-b"])).toBe("");
+  });
+});
+
+describe("shownAt", () => {
+  it("is the latest deployment's finish, else its creation; the build time if never deployed", () => {
+    const rows = buildTimeline(
+      input({
+        recentBuilds: [
+          build("v1", at(1)),
+          build("v2", at(2)),
+          build("v3", at(3)),
+        ],
+        recentDeployments: [
+          deployment("v1", "success", {
+            createdAt: at(10),
+            finishedAt: at(12),
+          }),
+          deployment("v2", "running", { createdAt: at(11), finishedAt: null }),
+        ],
+      })
+    );
+    expect(row(rows, "v1").shownAt).toBe(at(12));
+    expect(row(rows, "v2").shownAt).toBe(at(11));
+    expect(row(rows, "v3").shownAt).toBe(at(3));
   });
 });

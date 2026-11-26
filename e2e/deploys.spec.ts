@@ -204,7 +204,7 @@ test("mobile: no horizontal page scroll with a long tag and message", async ({
   await page.goto(deploysUrl("en"));
   const longRow = rowFor(page, LONG_TAG.slice(0, 20));
   await expect(longRow).toBeVisible();
-  await expect(longRow.locator('[data-slot="tag-scroll"]')).toBeVisible();
+  await expect(longRow.locator('[data-slot="row-title"]')).toBeVisible();
   await expect(longRow).toContainText("Rework the release pipeline");
 
   const overflow = await page.evaluate(() => {

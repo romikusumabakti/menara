@@ -433,10 +433,8 @@
     },
     "lock": {
       "badge": "Deploy dikunci",
-      "lockedTitle": "Deploy sedang dikunci",
       "lockedBy": "{name} mengunci deploy: {reason}",
       "until": "Sampai {expiresAt}.",
-      "unlockedHint": "Deploy terbuka.",
       "lock": "Kunci deploy",
       "unlock": "Buka kunci",
       "edit": "Ubah kunci",
@@ -455,7 +453,12 @@
       "holderUnknown": "Seseorang",
       "disabledHint": "Deploy dikunci: {reason}",
       "heldBuilds": "{count, plural, =0 {Tidak ada build yang ditahan.} other {# build ditahan.}}",
-      "saveLock": "Simpan kunci"
+      "saveLock": "Simpan kunci",
+      "open": "Terbuka",
+      "openHeld": "Terbuka · {count} ditahan",
+      "lockedState": "Terkunci",
+      "lockedStateHeld": "Terkunci · {count} ditahan",
+      "moreActions": "Aksi kunci lainnya"
     },
     "startBuild": "Mulai build",
     "startBuildHint": "Build {branch} sekarang; langsung di-deploy saat selesai.",
@@ -471,20 +474,22 @@
     "markRelease": "Tandai sebagai rilis",
     "releasePreparing": "Menyiapkan rilis…",
     "serviceRepo": "Repositori service",
-    "focalLive": "Aktif: {tag}",
-    "focalDeployedBy": "di-deploy {time} oleh {actor}",
+    "liveNote": "Aktif: {tag}",
     "focalFailed": "Deploy terakhir {tag} gagal {time} — server mungkin menjalankan versi parsial",
     "focalFailedNoTime": "Deploy terakhir {tag} gagal — server mungkin menjalankan versi parsial",
     "focalLastGood": "· terakhir berhasil: {tag}",
     "failureLine": "Deploy terakhir {tag} gagal {time}",
     "viewLog": "Lihat log",
-    "deployLatest": "Deploy terbaru ({tag})",
+    "deployLatest": "Deploy terbaru",
+    "deployTag": "Deploy {tag}",
+    "deployLatestLabel": "Deploy terbaru ({tag})",
+    "rollbackShort": "Rollback",
+    "serviceUnit": "Unit systemd: {unit}",
     "latestIsLive": "Build terbaru, {tag}, sudah aktif.",
     "latestDeploying": "Build terbaru sedang di-deploy.",
     "latestHeld": "Build terbaru menunggu kunci deploy dibuka.",
     "rollbackInProgress": "Rollback ke {tag} sudah dalam antrean atau sedang berjalan.",
     "lockChip": "Dikunci oleh {name} · sampai {time}",
-    "viewPipelineFor": "Lihat pipeline untuk {sha}",
     "opensInNewTab": "(terbuka di tab baru)",
     "rowActionsLabel": "Tindakan untuk {tag}",
     "deployThis": "Deploy versi ini",
@@ -504,7 +509,8 @@
       "skipped": "Dilewati — deploy yang lebih baru sudah dijalankan",
       "deployedEarlier": "Di-deploy",
       "never": "Belum di-deploy",
-      "history": "{count, plural, other {# deploy sebelumnya}}"
+      "history": "{count, plural, other {# deploy sebelumnya}}",
+      "copyTag": "Salin tag {tag}"
     },
     "loadFailed": "Gagal menyegarkan deploy. Daftar mungkin sudah usang.",
     "showMore": "{count, plural, other {Tampilkan # lagi}}"
@@ -1731,6 +1737,7 @@
     "newDocument": "Dokumen baru",
     "newDocumentHint": "Tulis halaman baru untuk basis pengetahuan tim.",
     "newCollection": "Koleksi baru",
+    "collectionsHeading": "Koleksi",
     "newCollectionHint": "Koleksi mengelompokkan dokumen terkait.",
     "collectionName": "Nama",
     "collectionDescription": "Deskripsi (opsional)",
@@ -1754,7 +1761,8 @@
     "emptyTitle": "Belum ada basis pengetahuan",
     "emptyAdminHint": "Admin perlu membuat koleksi pertama untuk memulai.",
     "landingTitle": "Basis pengetahuan tim",
-    "landingHint": "Pilih dokumen dari bilah sisi, atau buat yang baru.",
+    "recentTitle": "Baru diperbarui",
+    "recentEmptyHint": "Belum ada dokumen. Buat yang pertama agar muncul di sini.",
     "created": "Dokumen dibuat",
     "saved": "Perubahan disimpan",
     "deleted": "Dokumen dihapus",
@@ -2149,11 +2157,6 @@
     "sourcesDescription": "Service yang di-deploy proyek ini dan branch awal masing-masing di environment baru. Setiap environment menyimpan branch-nya sendiri, diatur di pengaturan Source & Deploy-nya."
   },
   "homePage": {
-    "askExamples": {
-      "first": "Layanan mana yang paling banyak berubah minggu ini?",
-      "second": "Apa yang sedang berjalan di staging saat ini?",
-      "third": "Ringkas issue yang masih terbuka di proyek saya"
-    },
     "askRecent": "Chat terbaru",
     "title": "Beranda",
     "greeting": {
@@ -4223,7 +4226,28 @@
     "recentChats": "Terbaru",
     "pinChat": "Sematkan",
     "unpinChat": "Lepas sematan",
-    "editQuestion": "Edit pertanyaan"
+    "editQuestion": "Edit pertanyaan",
+    "suggestions": {
+      "groupLabel": "Pertanyaan yang disarankan",
+      "failedRun": "Mengapa {runKind} di {environment} gagal?",
+      "myIssues": "{count, plural, other {Ringkas # isu terbuka saya, mulai dari {firstKey}}}",
+      "environment": "Apa yang sedang berjalan di {environment} sekarang?",
+      "general": {
+        "changedToday": "Apa yang berubah hari ini?",
+        "failedDeploysThisWeek": "Deploy mana yang gagal minggu ini?"
+      },
+      "runKind": {
+        "backup": "backup",
+        "restore": "restore",
+        "mock_time": "perubahan mock time",
+        "test": "uji",
+        "deploy": "deploy",
+        "provision": "provisioning",
+        "teardown": "teardown",
+        "release": "rilis",
+        "other": "proses"
+      }
+    }
   },
   "oauthConsent": {
     "title": "Izinkan {client} memakai akun {{APP_NAME}} Anda?",

@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/empty";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { TooltipHint } from "@/components/ui/tooltip";
+import { WorkspaceLayout } from "@/components/workspace-layout";
 import { useModKey } from "@/hooks/use-is-mac";
 import { Link } from "@/i18n/navigation";
 import type { AttachmentRef } from "@/lib/assistant/attachment-refs";
@@ -72,6 +73,7 @@ import {
   useDraftGeneration,
 } from "./draft-panel";
 import { useAssistantErrorText } from "./error-text";
+import { SuggestionChips } from "./suggestion-chips";
 
 const LARGE = "(min-width: 64rem)"; // Tailwind `lg`
 
@@ -391,7 +393,7 @@ export function AssistantWorkspace({
 
   if (!allowance.enabled) {
     return (
-      <div className="flex h-full min-h-0 flex-col gap-6 overflow-y-auto">
+      <div className="flex flex-col gap-6">
         {heading}
         <Empty className="border border-dashed">
           <EmptyHeader>
@@ -408,7 +410,7 @@ export function AssistantWorkspace({
   // The assistant takes questions only from users who see a project.
   if (contextOptions.loaded && contextOptions.projects.length === 0) {
     return (
-      <div className="flex h-full min-h-0 flex-col gap-6 overflow-y-auto">
+      <div className="flex flex-col gap-6">
         {heading}
         <Empty className="border border-dashed">
           <EmptyHeader>
@@ -518,15 +520,9 @@ export function AssistantWorkspace({
   );
 
   return (
-    <div className="h-full min-h-0">
-      {heading}
-      <div
-        className={cn(
-          "flex h-full min-h-0 flex-col gap-6 lg:grid lg:grid-cols-[14rem_minmax(0,1fr)]",
-          draftsOpen && selectedId && "lg:grid-cols-[14rem_minmax(0,1fr)_24rem]"
-        )}
-      >
-        <div className="flex max-h-40 min-h-0 shrink-0 flex-col lg:max-h-none">
+    <WorkspaceLayout
+      sidebar={
+        <div className="flex max-h-40 min-h-0 flex-1 flex-col overflow-y-auto p-4 lg:max-h-none">
           <ConversationList
             selectedId={selectedId}
             onSelect={select}
@@ -543,80 +539,85 @@ export function AssistantWorkspace({
             }}
           />
         </div>
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
-          {toolbar}
-          {emptyChat || !selectedId ? null : (
-            <ChatThread
-              key={selectedId}
-              conversationId={selectedId}
-              onRetry={() => void retry()}
-              retryDisabled={busy || capped || retrying}
-              onEditLast={editLast}
-              editDisabled={capped || stopping}
-            />
-          )}
-          {/* One place in the tree for both layouts, so the box (its focus
+      }
+      aside={
+        draftPanel && isLarge && draftsOpen ? (
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">{draftPanel}</div>
+        ) : undefined
+      }
+    >
+      {heading}
+      <div className="flex min-h-0 flex-1 flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
+        {toolbar}
+        {emptyChat || !selectedId ? null : (
+          <ChatThread
+            key={selectedId}
+            conversationId={selectedId}
+            onRetry={() => void retry()}
+            retryDisabled={busy || capped || retrying}
+            onEditLast={editLast}
+            editDisabled={capped || stopping}
+          />
+        )}
+        {/* One place in the tree for both layouts, so the box (its focus
               and text) stays mounted when the first question docks it. */}
-          <div
-            data-composer-dock={emptyChat ? "center" : "bottom"}
-            className={cn(
-              "mx-auto flex w-full max-w-3xl flex-col",
-              emptyChat ? "my-auto gap-6 pb-[12vh]" : "shrink-0"
-            )}
-          >
-            {emptyChat && (
-              <div className="flex flex-col items-center gap-2 text-center">
-                <h2 className="text-2xl font-semibold tracking-tight">
-                  {temporary && !chatOpen ? t("temporaryChat") : t("greeting")}
-                </h2>
-                {temporary && !chatOpen && (
-                  <p className="max-w-md text-sm text-muted-foreground">
-                    {t("temporaryDescription")}
-                  </p>
-                )}
-              </div>
-            )}
-            <Composer
-              disabled={busy || capped}
-              running={busy}
-              stopping={stopping}
-              onStop={() => void stop()}
-              capResetsAt={capped ? allowance.resetsAt : null}
-              readsImages={allowance.readsImages}
-              onSend={send}
-              focusKey={selectedId ?? "new"}
-              draftKey={draftKey}
-              userId={userId}
-              context={context}
-            />
-            {emptyChat && (
-              <p className="text-center text-xs text-muted-foreground">
-                {t("shortcutHint", {
-                  shortcut: assistantShortcutLabel(modKey),
-                  newChat: newChatShortcutLabel(modKey),
-                })}
-              </p>
-            )}
-          </div>
+        <div
+          data-composer-dock={emptyChat ? "center" : "bottom"}
+          className={cn(
+            "mx-auto flex w-full max-w-3xl flex-col",
+            emptyChat ? "my-auto gap-6 pb-[12vh]" : "shrink-0"
+          )}
+        >
+          {emptyChat && (
+            <div className="flex flex-col items-center gap-2 text-center">
+              <h2 className="text-2xl font-semibold tracking-tight">
+                {temporary && !chatOpen ? t("temporaryChat") : t("greeting")}
+              </h2>
+              {temporary && !chatOpen && (
+                <p className="max-w-md text-sm text-muted-foreground">
+                  {t("temporaryDescription")}
+                </p>
+              )}
+            </div>
+          )}
+          <Composer
+            disabled={busy || capped}
+            running={busy}
+            stopping={stopping}
+            onStop={() => void stop()}
+            capResetsAt={capped ? allowance.resetsAt : null}
+            readsImages={allowance.readsImages}
+            onSend={send}
+            focusKey={selectedId ?? "new"}
+            draftKey={draftKey}
+            userId={userId}
+            context={context}
+          />
+          {emptyChat && !capped && !temporary && !conversation?.temporary && (
+            <SuggestionChips draftKey={draftKey} />
+          )}
+          {emptyChat && (
+            <p className="text-center text-xs text-muted-foreground">
+              {t("shortcutHint", {
+                shortcut: assistantShortcutLabel(modKey),
+                newChat: newChatShortcutLabel(modKey),
+              })}
+            </p>
+          )}
         </div>
-        {draftPanel &&
-          (isLarge ? (
-            draftsOpen && (
-              <aside className="min-h-0 overflow-y-auto">{draftPanel}</aside>
-            )
-          ) : (
-            <Sheet open={draftsOpen} onOpenChange={setDraftsOpen}>
-              <SheetContent
-                side="right"
-                showCloseButton={false}
-                aria-label={t("draftsTitle")}
-                className="overflow-y-auto p-4"
-              >
-                {draftPanel}
-              </SheetContent>
-            </Sheet>
-          ))}
       </div>
-    </div>
+      {draftPanel && !isLarge && (
+        <Sheet open={draftsOpen} onOpenChange={setDraftsOpen}>
+          <SheetContent
+            side="right"
+            showCloseButton={false}
+            aria-label={t("draftsTitle")}
+            className="overflow-y-auto p-4"
+          >
+            {draftPanel}
+          </SheetContent>
+        </Sheet>
+      )}
+    </WorkspaceLayout>
   );
 }

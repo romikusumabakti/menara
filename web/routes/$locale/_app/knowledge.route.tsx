@@ -1,11 +1,15 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import { BookOpen, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useTranslations } from "use-intl";
 import { CollectionCreateDialog } from "@/components/collection-create-dialog";
-import { KnowledgeSearch } from "@/components/knowledge-search";
+import {
+  KnowledgeSearchProvider,
+  KnowledgeSearchTrigger,
+} from "@/components/knowledge-search";
 import { KnowledgeTree } from "@/components/knowledge-tree";
 import { Button } from "@/components/ui/button";
+import { WorkspaceLayout } from "@/components/workspace-layout";
 import { Link, usePathname } from "@/i18n/navigation";
 import { canOrg } from "@/lib/permissions";
 import { listCollectionsQuery, listTreeNodesQuery } from "@/web/api/knowledge";
@@ -40,23 +44,12 @@ function KnowledgeLayout() {
   const openCollectionId = nodes.find((n) => n.slug === openSlug)?.collectionId;
 
   return (
-    <div className="-mx-4 -my-6 flex h-[calc(100svh-3.5rem)] flex-col overflow-hidden sm:-mx-6 lg:-mx-8 lg:flex-row">
-      <aside className="flex shrink-0 flex-col border-b lg:h-full lg:w-64 lg:shrink-0 lg:border-b-0 lg:border-e">
-        <div className="flex flex-col gap-3 px-3 py-4 lg:shrink-0">
-          <div className="flex items-center justify-between gap-2 px-2">
-            <Link
-              href="/knowledge"
-              className="flex items-center gap-1.5 text-sm font-semibold"
-            >
-              <BookOpen className="size-4" />
-              {t("title")}
-            </Link>
-            {canManage && <CollectionCreateDialog />}
-          </div>
-          {collections.length > 0 && (
-            <>
-              <KnowledgeSearch />
-              {canWrite && (
+    <KnowledgeSearchProvider>
+      <WorkspaceLayout
+        sidebar={
+          <>
+            <div className="flex flex-col gap-3 px-3 py-4 lg:shrink-0">
+              {collections.length > 0 && canWrite && (
                 <Button
                   nativeButton={false}
                   render={
@@ -70,30 +63,37 @@ function KnowledgeLayout() {
                   }
                   size="sm"
                   variant="outline"
-                  className="mx-2"
                 >
                   <Plus className="size-4" />
                   {t("newDocument")}
                 </Button>
               )}
-            </>
-          )}
-        </div>
-        <div
-          data-scroll-shadow
-          className="px-2 pt-2 pb-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto"
-        >
-          <KnowledgeTree
-            collections={collections}
-            nodes={nodes}
-            canManage={canManage}
-            canWrite={canWrite}
-          />
-        </div>
-      </aside>
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+              {collections.length > 0 && (
+                <KnowledgeSearchTrigger variant="sidebar" />
+              )}
+              <div className="flex items-center justify-between gap-2 px-2">
+                <h2 className="font-medium text-muted-foreground text-xs">
+                  {t("collectionsHeading")}
+                </h2>
+                {canManage && <CollectionCreateDialog />}
+              </div>
+            </div>
+            <div
+              data-scroll-shadow
+              className="px-2 pb-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto"
+            >
+              <KnowledgeTree
+                collections={collections}
+                nodes={nodes}
+                canManage={canManage}
+                canWrite={canWrite}
+              />
+            </div>
+          </>
+        }
+      >
         <Outlet />
-      </main>
-    </div>
+      </WorkspaceLayout>
+    </KnowledgeSearchProvider>
   );
 }

@@ -157,23 +157,25 @@ export function MockTimePending() {
         <CardContent className="flex flex-col gap-4">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,20rem)_1fr] lg:items-start">
             {/* Clock state panel */}
-            <div className="flex flex-col gap-3 rounded-md border bg-card p-4">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Skeleton className="size-4 rounded-sm" />
-                  <Skeleton className="h-4 w-24" />
+            <Card size="sm">
+              <CardContent className="flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="size-4 rounded-sm" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                  <Skeleton className="h-8 w-20" />
                 </div>
-                <Skeleton className="h-8 w-20" />
-              </div>
-              <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-                <Skeleton className="h-4 w-12" />
-                <Skeleton className="h-4 w-40" />
-                <Skeleton className="h-4 w-12" />
-                <Skeleton className="h-5 w-16 rounded-full" />
-                <Skeleton className="h-4 w-12" />
-                <Skeleton className="h-5 w-16 rounded-full" />
-              </div>
-            </div>
+                <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+                  <Skeleton className="h-4 w-12" />
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-4 w-12" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                  <Skeleton className="h-4 w-12" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Controls */}
             <div className="flex flex-col gap-6">

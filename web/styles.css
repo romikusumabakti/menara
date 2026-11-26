@@ -483,6 +483,46 @@
   }
 }
 
+/* App header seam. The shadow is a pseudo-element of the header (z-10, above
+   the page) rather than an inset shadow on <main>, which paints under opaque
+   cards. <main data-app-main> publishes a named scroll timeline; the shell
+   (the common ancestor) scopes it so the header's ::after can consume it. */
+[data-app-shell] {
+  timeline-scope: --app-main;
+}
+[data-app-main] {
+  scroll-timeline: --app-main block;
+}
+[data-app-header]::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 100%;
+  height: 8px;
+  pointer-events: none;
+}
+@supports (animation-timeline: scroll()) {
+  [data-app-header]::after {
+    background: linear-gradient(to bottom, var(--border), transparent);
+    animation: header-shadow linear both;
+    animation-timeline: --app-main;
+    animation-range: 0 2rem;
+  }
+  @keyframes header-shadow {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+@supports not (animation-timeline: scroll()) {
+  [data-app-header] {
+    border-bottom: 1px solid var(--border);
+  }
+}
+
 /* Brand logo motion (components/brand-mark.tsx). The tower builds once when
    the logo mounts (the sidebar persists across navigations, so once per page
    load): the slabs from the bottom up, then the beacon. While its parent — the

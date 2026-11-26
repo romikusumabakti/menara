@@ -224,7 +224,7 @@ function TimelineRowItem({
                 {sha}
               </code>
             )}
-            {/* A tag that only repeats the sha (CI tags like `…-a014b74`)
+            {/* A tag that only repeats the sha (CI tags like `…-1a2b3c4`)
                 adds nothing visible; it stays copyable and spoken. */}
             {!tagIsSha && (
               <span

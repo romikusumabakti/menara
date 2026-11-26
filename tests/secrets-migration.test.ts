@@ -68,6 +68,13 @@ describe("secrets migration", () => {
         idType: "uuid",
       },
       { table: "s3_connections", column: "secret_key", idType: "uuid" },
+      // One storage per environment: keyed by its environment id.
+      {
+        table: "environment_storage",
+        column: "secret_key",
+        keyColumn: "environment_id",
+        idType: "uuid",
+      },
       // The instance backup destination's own secret (single row, id 1).
       {
         table: "instance_settings",

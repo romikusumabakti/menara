@@ -3,7 +3,8 @@ import { encryptSecret, isEncrypted } from "@/lib/secrets";
 // The columns that hold app-level encrypted secrets. Rows written before
 // encryption was introduced still hold plaintext; scripts/encrypt-legacy-secrets.ts
 // migrates them. `idType` is the type of the table's `id` (instance_settings
-// is a single row keyed by integer 1). instance_settings.backup_s3_secret_key
+// is a single row keyed by integer 1); `keyColumn` names the key column when it
+// is not `id` (environment_storage is keyed by its environment). instance_settings.backup_s3_secret_key
 // is written encrypted from the start; it is listed so the sweep covers every
 // copy of S3 credentials. Deliberately excluded: jira_connections.webhook_secret
 // (a URL token compared in plaintext by design) and accounts.access_token
@@ -23,6 +24,12 @@ export const SECRET_COLUMNS = [
   },
   { table: "s3_connections", column: "secret_key", idType: "uuid" },
   {
+    table: "environment_storage",
+    column: "secret_key",
+    keyColumn: "environment_id",
+    idType: "uuid",
+  },
+  {
     table: "instance_settings",
     column: "backup_s3_secret_key",
     idType: "integer",
@@ -32,8 +39,10 @@ export const SECRET_COLUMNS = [
     | "servers"
     | "environment_services"
     | "s3_connections"
+    | "environment_storage"
     | "instance_settings";
   column: string;
+  keyColumn?: string;
   idType: "uuid" | "integer";
 }[];
 

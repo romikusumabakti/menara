@@ -56,12 +56,7 @@ describe("copy button", () => {
 
 describe("hover polish", () => {
   it("hoverable rows share one tone", () => {
-    for (const f of [
-      attentionList,
-      recentEnvs,
-      bell,
-      activeRuns,
-    ]) {
+    for (const f of [attentionList, recentEnvs, bell, activeRuns]) {
       expect(src(f)).not.toContain("hover:bg-accent");
     }
     for (const f of [attentionList, recentEnvs, bell]) {

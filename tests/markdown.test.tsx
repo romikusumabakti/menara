@@ -223,6 +223,25 @@ describe("Markdown", () => {
     expect(el.querySelector("script")).toBeNull();
   });
 
+  it("answer paragraphs from stored shape are spaced", async () => {
+    // Shape of a stored assistant answer: blank lines between paragraphs,
+    // a bold-label paragraph right above a list, no hard breaks.
+    const content =
+      'In the code, the existing ACME transfer goes to source 6 (Pooled Fund), not 4. So if BETA matches ACME, the result is 6.\n\nI found no code change for BETA, so nothing was changed.\n\n**Assumption:** "ms" means money source, project ACME (`core-backend`, head branch).\n\n**Meaning of source IDs** (`core-backend/src/sql/source.sql:8`):\n- 4 is `ser` (Employer Fund Transfer), constant `FUND_TRANSFER_EMPLOYER` in `SourceModel.java:30`.\n- 6 is `pooled-fund`, constant `TYPE_POOLED_FUND` in `SourceModel.java:41`.';
+    for (const mode of ["static", "streaming"] as const) {
+      const el = await rerender({ content, mode });
+      const ps = [...el.querySelectorAll("p")];
+      expect(ps).toHaveLength(4);
+      for (const p of ps) {
+        expect(p.className).toContain("my-3");
+        expect(p.querySelector("br")).toBeNull();
+      }
+      const ul = el.querySelector("ul");
+      expect(ul?.className).toContain("my-3");
+      expect(ul?.querySelectorAll("li")).toHaveLength(2);
+    }
+  });
+
   it("gives each block its own direction", async () => {
     await render({ content: "", mode: "static" });
     for (const mode of ["static", "streaming"] as const) {

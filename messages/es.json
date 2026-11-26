@@ -3961,7 +3961,8 @@
       "failed": "Failed"
     },
     "copyTag": "Copiar etiqueta",
-    "rowActions": "Acciones de {component} {version}"
+    "rowActions": "Acciones de {component} {version}",
+    "supersededLabel": "Reemplazada"
   },
   "personPicker": {
     "search": "Buscar por nombre o correo…",

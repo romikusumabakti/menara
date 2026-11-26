@@ -419,7 +419,15 @@ describe("Releases page", () => {
     ];
     const failed = rows.find((r) => r.textContent?.includes("build exploded"));
     expect(failed).toBeDefined();
-    expect(failed?.className).toContain("opacity-");
+    // Muted by text colour (keeps AA contrast), not by opacity, and announced
+    // to screen readers.
+    expect(failed?.className).not.toContain("opacity-");
+    expect(failed?.querySelector(".font-mono.text-sm")?.className).toContain(
+      "text-muted-foreground"
+    );
+    expect(failed?.querySelector(".sr-only")?.textContent).toBe("Superseded");
+    const current = rows.find((r) => r !== failed);
+    expect(current?.querySelector(".sr-only")).toBeNull();
     const header = container.querySelector("[data-slot=card-header]");
     expect(header?.textContent).toContain("Ready");
   });

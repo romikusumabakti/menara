@@ -3961,7 +3961,8 @@
       "failed": "Failed"
     },
     "copyTag": "复制标签",
-    "rowActions": "{component} {version} 的操作"
+    "rowActions": "{component} {version} 的操作",
+    "supersededLabel": "已被取代"
   },
   "personPicker": {
     "search": "按姓名或邮箱搜索…",

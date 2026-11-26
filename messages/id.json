@@ -3961,7 +3961,8 @@
       "failed": "Gagal"
     },
     "copyTag": "Salin tag",
-    "rowActions": "Aksi untuk {component} {version}"
+    "rowActions": "Aksi untuk {component} {version}",
+    "supersededLabel": "Digantikan"
   },
   "personPicker": {
     "search": "Cari nama atau email…",

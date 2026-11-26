@@ -237,16 +237,20 @@ function ReleaseRow({
   ];
 
   return (
-    <li
-      data-slot="release-row"
-      className={cn(
-        "flex items-center gap-3 px-6 py-3",
-        superseded && "opacity-60"
-      )}
-    >
+    <li data-slot="release-row" className="flex items-center gap-3 px-6 py-3">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-sm">{release.componentKey}</span>
+          <span
+            className={cn(
+              "font-mono text-sm",
+              superseded && "text-muted-foreground"
+            )}
+          >
+            {release.componentKey}
+          </span>
+          {superseded && (
+            <span className="sr-only">{t("supersededLabel")}</span>
+          )}
           {release.status !== "ready" && (
             <StatusBadge status={release.status} />
           )}

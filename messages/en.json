@@ -3961,7 +3961,8 @@
       "failed": "Failed"
     },
     "copyTag": "Copy tag",
-    "rowActions": "Actions for {component} {version}"
+    "rowActions": "Actions for {component} {version}",
+    "supersededLabel": "Superseded"
   },
   "personPicker": {
     "search": "Search by name or email…",

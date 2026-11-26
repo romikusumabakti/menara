@@ -3961,7 +3961,8 @@
       "failed": "Failed"
     },
     "copyTag": "نسخ الوسم",
-    "rowActions": "إجراءات {component} {version}"
+    "rowActions": "إجراءات {component} {version}",
+    "supersededLabel": "تم استبدالها"
   },
   "personPicker": {
     "search": "ابحث بالاسم أو البريد الإلكتروني…",

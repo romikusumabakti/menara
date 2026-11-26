@@ -28,6 +28,7 @@ import {
   useSettingsForm,
 } from "./settings-form";
 import { SourceDeployTab } from "./source-deploy-tab";
+import { StorageTab } from "./storage-tab";
 import { VariablesTab } from "./variables-tab";
 
 export const SETTINGS_TABS = [
@@ -35,6 +36,7 @@ export const SETTINGS_TABS = [
   "variables",
   "source",
   "database",
+  "storage",
   "domain",
   "mail",
   "danger",
@@ -63,13 +65,14 @@ const TAB_LABELS = {
   variables: "tabVariables",
   source: "tabSourceDeploy",
   database: "tabDatabase",
+  storage: "tabStorage",
   domain: "tabDomain",
   mail: "tabMailMockTime",
   danger: "tabDanger",
 } as const satisfies Record<SettingsTabId, string>;
 
 /**
- * The environment's Settings: seven tabs over one form state. Each tab saves on
+ * The environment's Settings: eight tabs over one form state. Each tab saves on
  * its own (Domain and Mailpit through their own APIs).
  */
 export function EnvironmentSettingsTabs({
@@ -206,6 +209,10 @@ export function EnvironmentSettingsTabs({
               await saveTab("database");
             }}
           />
+        </TabsContent>
+
+        <TabsContent value="storage">
+          <StorageTab environmentId={environment.id} />
         </TabsContent>
 
         <TabsContent value="domain">

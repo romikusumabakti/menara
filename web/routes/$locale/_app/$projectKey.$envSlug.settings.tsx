@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { canOrg, canProject, SETUP_PERMISSIONS } from "@/lib/permissions";
 import { listDeployTargetsQuery } from "@/web/api/deploys";
 import { environmentDomainQuery } from "@/web/api/environment-domains";
+import { environmentStorageQuery } from "@/web/api/environment-storage";
 import { getEnvironmentByIdQuery } from "@/web/api/environments";
 import { getMailpitSettingsQuery } from "@/web/api/mailpit-settings";
 import { listProjectsQuery } from "@/web/api/project-catalog";
@@ -45,6 +46,7 @@ export const Route = createFileRoute(
       loaderQuery(queryClient, listDeployTargetsQuery(environmentId)),
       loaderQuery(queryClient, getMailpitSettingsQuery(environmentId)),
       loaderQuery(queryClient, environmentDomainQuery(environmentId)),
+      loaderQuery(queryClient, environmentStorageQuery(environmentId)),
     ]);
   },
   pendingComponent: SettingsPending,

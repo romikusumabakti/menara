@@ -198,13 +198,13 @@ export function KnowledgeSearchTrigger({
         "cursor-pointer",
         variant === "hero" ? "mx-auto h-11 max-w-xl" : "shrink-0"
       )}
-      onClick={open}
     >
       <InputGroupAddon>
         <Search />
       </InputGroupAddon>
       <button
         type="button"
+        onClick={open}
         className="h-full min-w-0 flex-1 cursor-pointer truncate bg-transparent px-2 text-start text-sm text-muted-foreground outline-none"
       >
         {t("searchPlaceholder")}

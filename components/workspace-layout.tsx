@@ -29,7 +29,7 @@ export function WorkspaceLayout({
         {children}
       </main>
       {aside && (
-        <aside className="flex shrink-0 flex-col border-t lg:h-full lg:w-72 lg:border-s lg:border-t-0">
+        <aside className="flex shrink-0 flex-col border-t lg:h-full lg:w-96 lg:border-s lg:border-t-0">
           {aside}
         </aside>
       )}

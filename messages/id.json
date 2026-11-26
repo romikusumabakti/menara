@@ -1912,37 +1912,18 @@
     "saveHint": "Tekan Ctrl+S (⌘S) untuk menyimpan",
     "serverFilesTitle": "Berkas — {name}",
     "serverFilesSubtitle": "Menjelajahi {root} melalui SFTP",
-    "storageFilesTitle": "Berkas — {name}",
-    "storageFilesSubtitle": "Menjelajahi bucket {bucket}",
     "reviewHostKey": "Tinjau host key"
   },
   "storage": {
     "title": "Penyimpanan",
-    "subtitle": "Koneksi penyimpanan objek yang kompatibel dengan S3.",
-    "addConnection": "Tambah koneksi",
-    "colName": "Nama",
-    "colEndpoint": "Endpoint",
-    "colBucket": "Bucket",
-    "browse": "Jelajahi berkas",
-    "emptyTitle": "Belum ada koneksi",
-    "empty": "Tambahkan koneksi kompatibel S3 untuk menjelajahi objeknya.",
-    "deleteTitle": "Hapus koneksi",
-    "deleteDescription": "Hapus “{name}”? Objek yang tersimpan tidak terpengaruh.",
-    "emptyReadOnly": "Belum ada koneksi penyimpanan. Anggota yang dapat mengubah lingkungan ini bisa menambahkannya.",
+    "subtitle": "Berkas di {bucket}.",
+    "notConfiguredTitle": "Penyimpanan belum diatur",
+    "notConfiguredDescription": "Hubungkan bucket kompatibel S3 environment ini di pengaturan untuk menjelajahi berkasnya di sini.",
+    "notConfiguredReadOnly": "Anggota yang dapat mengubah environment ini dapat menghubungkan penyimpanannya.",
+    "openSettings": "Buka pengaturan penyimpanan",
+    "restrictedTitle": "Penyimpanan terbatas",
+    "restrictedDescription": "Penyimpanan ini menyimpan cadangan instance, sehingga hanya peran dengan akses berkas penyimpanan yang dapat menjelajahinya.",
     "instanceBackups": "Backup instans"
-  },
-  "newStorage": {
-    "title": "Koneksi baru",
-    "description": "Hubungkan bucket kompatibel S3.",
-    "formTitle": "Detail koneksi",
-    "formDescription": "Kredensial disimpan di sisi server dan tidak pernah dikirim ke browser."
-  },
-  "editStorage": {
-    "title": "Edit {name}",
-    "description": "Perbarui detail koneksi.",
-    "formTitle": "Detail koneksi",
-    "formDescription": "Kredensial disimpan di sisi server dan tidak pernah dikirim ke browser.",
-    "browseFiles": "Jelajahi berkas"
   },
   "adminStorage": {
     "title": "Penyimpanan",

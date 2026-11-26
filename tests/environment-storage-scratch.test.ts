@@ -892,20 +892,18 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
       expect((await location(MISSING)).status).toBe(404);
     });
 
-    it("sends the storage managers to Admin › Storage for an unassigned one", async () => {
+    it("answers 404 for an unassigned connection, even to the storage managers", async () => {
       for (const [user, role] of [
         [ADMIN, "admin"],
         [INFRA, "infra"],
       ] as const) {
         as(user, role);
-        for (const id of [CONN_FREE, CONN_BACKUP]) {
-          expect(await admin.getS3ConnectionLocation(id)).toEqual({
-            kind: "admin",
-          });
+        for (const id of [CONN_FREE, CONN_BACKUP, MISSING]) {
+          expect(
+            await refusal(admin.getS3ConnectionLocation(id)),
+            `${role} ${id}`
+          ).toMatchObject({ status: 404 });
         }
-        expect(
-          await refusal(admin.getS3ConnectionLocation(MISSING))
-        ).toMatchObject({ status: 404 });
       }
     });
   });

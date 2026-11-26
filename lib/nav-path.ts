@@ -188,6 +188,7 @@ export const PARALLEL_SECTIONS: ReadonlySet<string> = new Set([
 export const SECTION_PERMS = {
   "mock-time": { clock: ["control"] },
   mail: { mail: ["read"] },
+  storage: { variable: ["read"] },
   settings: { environment: ["update"] },
   variables: { variable: ["read"] },
 } satisfies Record<string, ProjectPermissions>;
@@ -239,15 +240,17 @@ export type SwitchEnvironment = {
   key: string;
   slug: string;
   hasMailpit: boolean;
+  hasStorage: boolean;
 };
 
 export function canOpenSection(
   section: string,
-  env: { hasMailpit: boolean },
+  env: { hasMailpit: boolean; hasStorage: boolean },
   role: ProjectRole | null
 ): boolean {
   if (!role) return false;
   if (section === "mail" && !env.hasMailpit) return false;
+  if (section === "storage" && !env.hasStorage) return false;
   const perm: ProjectPermissions | undefined =
     SECTION_PERMS[section as keyof typeof SECTION_PERMS];
   return !perm || canProject(role, perm);

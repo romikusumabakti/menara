@@ -248,6 +248,7 @@ describe("project group", () => {
     name: "Dev",
     kind: "dev",
     hasMailpit: false,
+    hasStorage: true,
     serviceRoles: [],
     projectReleasable,
   });
@@ -283,20 +284,35 @@ describe("project group", () => {
     );
   });
 
-  it.each(["engineer", "qa", "ba"] as const)(
-    "gives the environment group a Storage entry for %s",
+  it("gives the environment group a Storage entry to a role with variable read", async () => {
+    await renderSidebar("engineer", "/HMEM/dev/deploys", scope(true));
+    expect(groupRows("Dev")).toContain(messages.nav.storage);
+    expect(hrefs()).toContain("/HMEM/dev/storage");
+  });
+
+  it("hides Storage while the environment has none configured", async () => {
+    await renderSidebar("engineer", "/HMEM/dev/deploys", {
+      ...scope(true),
+      environments: [{ ...env(true), hasStorage: false }],
+    });
+    expect(groupRows("Dev")).not.toContain(messages.nav.storage);
+    expect(hrefs()).not.toContain("/HMEM/dev/storage");
+  });
+
+  it.each(["qa", "ba"] as const)(
+    "hides Storage from %s even when configured (no variable read)",
     async (role) => {
       await renderSidebar(role, "/HMEM/dev/deploys", {
         ...scope(true),
-        projectRoles: { p1: role === "engineer" ? "engineer" : "qa" },
+        projectRoles: { p1: "qa" },
       });
-      expect(groupRows("Dev")).toContain(messages.nav.storage);
-      expect(hrefs()).toContain("/HMEM/dev/storage");
+      expect(groupRows("Dev")).not.toContain(messages.nav.storage);
+      expect(hrefs()).not.toContain("/HMEM/dev/storage");
     }
   );
 
   it("marks Storage active on its sub-pages", async () => {
-    await renderSidebar("engineer", "/HMEM/dev/storage/new", scope(true));
+    await renderSidebar("engineer", "/HMEM/dev/storage/files", scope(true));
     expect(linkByHref("/HMEM/dev/storage")?.getAttribute("data-active")).toBe(
       "true"
     );

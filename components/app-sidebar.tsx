@@ -102,7 +102,12 @@ const environmentItems: EnvironmentItem[] = [
     perm: SECTION_PERMS["mock-time"],
   },
   { key: "mail", url: "/mail", icon: Mail, perm: SECTION_PERMS.mail },
-  { key: "storage", url: "/storage", icon: HardDrive },
+  {
+    key: "storage",
+    url: "/storage",
+    icon: HardDrive,
+    perm: SECTION_PERMS.storage,
+  },
   { key: "history", url: "/history", icon: History },
   {
     key: "settings",
@@ -534,6 +539,10 @@ export function AppSidebar({
                     // Mail only exists once a Mailpit is connected.
                     .filter(
                       (item) => item.key !== "mail" || activeEnv.hasMailpit
+                    )
+                    // Storage only exists once the environment has one.
+                    .filter(
+                      (item) => item.key !== "storage" || activeEnv.hasStorage
                     )
                     .map((item) => {
                       const itemPath = `/${activeEnv.key}/${activeEnv.slug}${item.url}`;

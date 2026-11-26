@@ -269,30 +269,70 @@ const target = (
   slug: string,
   lastAccessedAt: string | null,
   hasMailpit = true
-) => ({ id: slug, key: "KESTREL", slug, hasMailpit, lastAccessedAt });
+) => ({
+  id: slug,
+  key: "KESTREL",
+  slug,
+  hasMailpit,
+  hasStorage: true,
+  lastAccessedAt,
+});
 
 describe("canOpenSection", () => {
   it("needs a connected Mailpit for mail", () => {
-    expect(canOpenSection("mail", { hasMailpit: false }, "engineer")).toBe(
-      false
-    );
-    expect(canOpenSection("mail", { hasMailpit: true }, "engineer")).toBe(true);
+    expect(
+      canOpenSection(
+        "mail",
+        { hasMailpit: false, hasStorage: false },
+        "engineer"
+      )
+    ).toBe(false);
+    expect(
+      canOpenSection(
+        "mail",
+        { hasMailpit: true, hasStorage: false },
+        "engineer"
+      )
+    ).toBe(true);
+  });
+  it("needs a configured storage and variable read for storage", () => {
+    const env = { hasMailpit: false, hasStorage: true };
+    expect(canOpenSection("storage", env, "engineer")).toBe(true);
+    expect(
+      canOpenSection("storage", { ...env, hasStorage: false }, "engineer")
+    ).toBe(false);
+    expect(canOpenSection("storage", env, "qa")).toBe(false);
+    expect(canOpenSection("storage", env, null)).toBe(false);
   });
   it("checks the section permission against the role", () => {
-    expect(canOpenSection("settings", { hasMailpit: true }, "viewer")).toBe(
-      false
-    );
-    expect(canOpenSection("settings", { hasMailpit: true }, "engineer")).toBe(
-      true
-    );
+    expect(
+      canOpenSection(
+        "settings",
+        { hasMailpit: true, hasStorage: false },
+        "viewer"
+      )
+    ).toBe(false);
+    expect(
+      canOpenSection(
+        "settings",
+        { hasMailpit: true, hasStorage: false },
+        "engineer"
+      )
+    ).toBe(true);
   });
   it("allows ungated sections for any member", () => {
-    expect(canOpenSection("deploys", { hasMailpit: false }, "viewer")).toBe(
-      true
-    );
+    expect(
+      canOpenSection(
+        "deploys",
+        { hasMailpit: false, hasStorage: false },
+        "viewer"
+      )
+    ).toBe(true);
   });
   it("denies everything without a role", () => {
-    expect(canOpenSection("settings", { hasMailpit: true }, null)).toBe(false);
+    expect(
+      canOpenSection("settings", { hasMailpit: true, hasStorage: false }, null)
+    ).toBe(false);
   });
 });
 
@@ -303,7 +343,7 @@ describe("PARALLEL_SECTIONS", () => {
 });
 
 describe("environmentSwitchHref", () => {
-  const dest = { key: "CMEM", slug: "qa", hasMailpit: false };
+  const dest = { key: "CMEM", slug: "qa", hasMailpit: false, hasStorage: true };
 
   it("keeps a parallel section", () => {
     expect(

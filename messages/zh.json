@@ -1912,37 +1912,18 @@
     "saveHint": "按 Ctrl+S（⌘S）保存",
     "serverFilesTitle": "文件 — {name}",
     "serverFilesSubtitle": "通过 SFTP 浏览 {root}",
-    "storageFilesTitle": "文件 — {name}",
-    "storageFilesSubtitle": "浏览存储桶 {bucket}",
     "reviewHostKey": "查看主机密钥"
   },
   "storage": {
     "title": "存储",
-    "subtitle": "S3 兼容的对象存储连接。",
-    "addConnection": "添加连接",
-    "colName": "名称",
-    "colEndpoint": "端点",
-    "colBucket": "存储桶",
-    "browse": "浏览文件",
-    "emptyTitle": "暂无连接",
-    "empty": "添加 S3 兼容连接以浏览其对象。",
-    "deleteTitle": "删除连接",
-    "deleteDescription": "删除“{name}”？已存储的对象不受影响。",
-    "emptyReadOnly": "尚无存储连接。可编辑此环境的成员可以添加。",
+    "subtitle": "{bucket} 中的文件。",
+    "notConfiguredTitle": "尚未配置存储",
+    "notConfiguredDescription": "在设置中连接此环境的 S3 兼容存储桶,即可在此浏览其文件。",
+    "notConfiguredReadOnly": "可编辑此环境的成员可以连接其存储。",
+    "openSettings": "打开存储设置",
+    "restrictedTitle": "受限存储",
+    "restrictedDescription": "此存储保存实例备份,因此只有拥有存储文件访问权限的角色才能浏览。",
     "instanceBackups": "实例备份"
-  },
-  "newStorage": {
-    "title": "新建连接",
-    "description": "连接 S3 兼容的存储桶。",
-    "formTitle": "连接详情",
-    "formDescription": "凭证存储在服务器端，绝不会发送到浏览器。"
-  },
-  "editStorage": {
-    "title": "编辑 {name}",
-    "description": "更新连接详情。",
-    "formTitle": "连接详情",
-    "formDescription": "凭证存储在服务器端，绝不会发送到浏览器。",
-    "browseFiles": "浏览文件"
   },
   "adminStorage": {
     "title": "存储",

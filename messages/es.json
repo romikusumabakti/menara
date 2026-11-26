@@ -1912,37 +1912,18 @@
     "saveHint": "Pulsa Ctrl+S (⌘S) para guardar",
     "serverFilesTitle": "Archivos — {name}",
     "serverFilesSubtitle": "Explorando {root} por SFTP",
-    "storageFilesTitle": "Archivos — {name}",
-    "storageFilesSubtitle": "Explorando el bucket {bucket}",
     "reviewHostKey": "Revisar la clave de host"
   },
   "storage": {
     "title": "Almacenamiento",
-    "subtitle": "Conexiones de almacenamiento de objetos compatible con S3.",
-    "addConnection": "Añadir conexión",
-    "colName": "Nombre",
-    "colEndpoint": "Endpoint",
-    "colBucket": "Bucket",
-    "browse": "Explorar archivos",
-    "emptyTitle": "Sin conexiones",
-    "empty": "Añade una conexión compatible con S3 para explorar sus objetos.",
-    "deleteTitle": "Eliminar conexión",
-    "deleteDescription": "¿Eliminar “{name}”? Los objetos almacenados no se ven afectados.",
-    "emptyReadOnly": "Aún no hay conexiones de almacenamiento. Un miembro que pueda editar este entorno puede añadir una.",
+    "subtitle": "Archivos en {bucket}.",
+    "notConfiguredTitle": "No hay almacenamiento configurado",
+    "notConfiguredDescription": "Conecta el bucket compatible con S3 de este entorno en los ajustes para explorar sus archivos aquí.",
+    "notConfiguredReadOnly": "Un miembro que pueda editar este entorno puede conectar su almacenamiento.",
+    "openSettings": "Abrir ajustes de almacenamiento",
+    "restrictedTitle": "Almacenamiento restringido",
+    "restrictedDescription": "Este almacenamiento contiene las copias de seguridad de la instancia, por lo que solo los roles con acceso a archivos de almacenamiento pueden explorarlo.",
     "instanceBackups": "Copias de la instancia"
-  },
-  "newStorage": {
-    "title": "Nueva conexión",
-    "description": "Conecta un bucket compatible con S3.",
-    "formTitle": "Detalles de la conexión",
-    "formDescription": "Las credenciales se guardan en el servidor y nunca se envían al navegador."
-  },
-  "editStorage": {
-    "title": "Editar {name}",
-    "description": "Actualiza los detalles de la conexión.",
-    "formTitle": "Detalles de la conexión",
-    "formDescription": "Las credenciales se guardan en el servidor y nunca se envían al navegador.",
-    "browseFiles": "Explorar archivos"
   },
   "adminStorage": {
     "title": "Almacenamiento",

@@ -1912,37 +1912,18 @@
     "saveHint": "Press Ctrl+S (⌘S) to save",
     "serverFilesTitle": "Files — {name}",
     "serverFilesSubtitle": "Browsing {root} over SFTP",
-    "storageFilesTitle": "Files — {name}",
-    "storageFilesSubtitle": "Browsing bucket {bucket}",
     "reviewHostKey": "Review the host key"
   },
   "storage": {
     "title": "Storage",
-    "subtitle": "S3-compatible object storage connections.",
-    "addConnection": "Add connection",
-    "colName": "Name",
-    "colEndpoint": "Endpoint",
-    "colBucket": "Bucket",
-    "browse": "Browse files",
-    "emptyTitle": "No connections",
-    "empty": "Add an S3-compatible connection to browse its objects.",
-    "deleteTitle": "Delete connection",
-    "deleteDescription": "Delete “{name}”? The stored objects are not affected.",
-    "emptyReadOnly": "No storage connections yet. A member who can edit this environment can add one.",
+    "subtitle": "Files in {bucket}.",
+    "notConfiguredTitle": "No storage configured",
+    "notConfiguredDescription": "Connect this environment's S3-compatible bucket in settings to browse its files here.",
+    "notConfiguredReadOnly": "A member who can edit this environment can connect its storage.",
+    "openSettings": "Open storage settings",
+    "restrictedTitle": "Restricted storage",
+    "restrictedDescription": "This storage holds the instance backups, so only roles with storage file access can browse it.",
     "instanceBackups": "Instance backups"
-  },
-  "newStorage": {
-    "title": "New connection",
-    "description": "Connect an S3-compatible bucket.",
-    "formTitle": "Connection details",
-    "formDescription": "Credentials are stored server-side and never sent to the browser."
-  },
-  "editStorage": {
-    "title": "Edit {name}",
-    "description": "Update connection details.",
-    "formTitle": "Connection details",
-    "formDescription": "Credentials are stored server-side and never sent to the browser.",
-    "browseFiles": "Browse files"
   },
   "adminStorage": {
     "title": "Storage",

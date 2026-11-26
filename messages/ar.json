@@ -1912,37 +1912,18 @@
     "saveHint": "اضغط Ctrl+S (⌘S) للحفظ",
     "serverFilesTitle": "الملفات — {name}",
     "serverFilesSubtitle": "تصفح {root} عبر SFTP",
-    "storageFilesTitle": "الملفات — {name}",
-    "storageFilesSubtitle": "تصفح الحاوية {bucket}",
     "reviewHostKey": "مراجعة مفتاح المضيف"
   },
   "storage": {
     "title": "التخزين",
-    "subtitle": "اتصالات تخزين الكائنات المتوافقة مع S3.",
-    "addConnection": "إضافة اتصال",
-    "colName": "الاسم",
-    "colEndpoint": "نقطة النهاية",
-    "colBucket": "الحاوية",
-    "browse": "تصفح الملفات",
-    "emptyTitle": "لا توجد اتصالات",
-    "empty": "أضف اتصالاً متوافقًا مع S3 لتصفح كائناته.",
-    "deleteTitle": "حذف الاتصال",
-    "deleteDescription": "حذف “{name}”؟ لن تتأثر الكائنات المخزنة.",
-    "emptyReadOnly": "لا توجد اتصالات تخزين بعد. يمكن لعضو يستطيع تعديل هذه البيئة إضافة اتصال.",
+    "subtitle": "الملفات في {bucket}.",
+    "notConfiguredTitle": "لم يتم إعداد أي تخزين",
+    "notConfiguredDescription": "اربط حاوية S3 المتوافقة الخاصة بهذه البيئة من الإعدادات لتصفح ملفاتها هنا.",
+    "notConfiguredReadOnly": "يمكن لعضو لديه صلاحية تعديل هذه البيئة ربط التخزين الخاص بها.",
+    "openSettings": "فتح إعدادات التخزين",
+    "restrictedTitle": "تخزين مقيّد",
+    "restrictedDescription": "يحتوي هذا التخزين على النسخ الاحتياطية للنسخة، لذا لا يمكن تصفحه إلا للأدوار التي لديها صلاحية الوصول إلى ملفات التخزين.",
     "instanceBackups": "نسخ المثيل الاحتياطية"
-  },
-  "newStorage": {
-    "title": "اتصال جديد",
-    "description": "اربط حاوية متوافقة مع S3.",
-    "formTitle": "تفاصيل الاتصال",
-    "formDescription": "تُخزَّن بيانات الاعتماد على الخادم ولا تُرسل إلى المتصفح أبدًا."
-  },
-  "editStorage": {
-    "title": "تعديل {name}",
-    "description": "تحديث تفاصيل الاتصال.",
-    "formTitle": "تفاصيل الاتصال",
-    "formDescription": "تُخزَّن بيانات الاعتماد على الخادم ولا تُرسل إلى المتصفح أبدًا.",
-    "browseFiles": "تصفح الملفات"
   },
   "adminStorage": {
     "title": "التخزين",

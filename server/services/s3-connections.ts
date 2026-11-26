@@ -15,7 +15,7 @@ import {
   type SafeS3Connection,
   s3Connections,
 } from "@/lib/db/schema";
-import { canOrg, type OrgPermissions } from "@/lib/permissions";
+import type { OrgPermissions } from "@/lib/permissions";
 import {
   backupDestinationId,
   isRestrictedConnection,
@@ -108,22 +108,23 @@ export async function toSafeS3Connections(
 }
 
 /** Where an old /storage/<id> link leads (see getS3ConnectionLocation). */
-export type S3ConnectionLocation =
-  | { kind: "environment"; projectKey: string; envSlug: string }
-  | { kind: "admin" };
+export type S3ConnectionLocation = {
+  kind: "environment";
+  projectKey: string;
+  envSlug: string;
+};
 
 /**
- * Where a connection is managed, for the removed global /storage/<id> URLs:
- * its environment (project key and slug) when the caller may view that
- * environment (project:read), Admin › Storage for an unassigned one when the
- * org role holds storage:manage. Everything else, a missing connection
- * included, is the same 404, so the answer reveals nothing of connections
- * the caller can't reach.
+ * Where a connection's storage lives, for the removed /storage/<id> URLs: its
+ * environment (project key and slug) when the caller may view that
+ * environment (project:read). Everything else, an unassigned or missing
+ * connection included, is the same 404, so the answer reveals nothing of
+ * connections the caller can't reach.
  */
 export async function getS3ConnectionLocation(
   id: string
 ): Promise<S3ConnectionLocation> {
-  const session = await requireSession();
+  await requireSession();
   const [row] = await db
     .select({
       environmentId: s3Connections.environmentId,
@@ -135,11 +136,7 @@ export async function getS3ConnectionLocation(
     .leftJoin(projects, eq(projects.id, environments.projectId))
     .where(eq(s3Connections.id, id))
     .limit(1);
-  if (!row) notFound();
-  if (row.environmentId === null) {
-    if (!canOrg(session.user.role, STORAGE_MANAGE)) notFound();
-    return { kind: "admin" };
-  }
+  if (!row?.environmentId) notFound();
   try {
     await requireProjectPermission(
       { environmentId: row.environmentId },

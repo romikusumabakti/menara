@@ -18,7 +18,6 @@ const sources = execFileSync(
 const HAND_BUILT_ALLOWLIST = [
   "components/ui/data-table.tsx",
   "admin/storage/unassigned-storage.tsx",
-  "env/storage/storage-list.tsx",
 ];
 
 describe("ui surfaces", () => {

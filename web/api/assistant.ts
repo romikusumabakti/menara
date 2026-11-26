@@ -27,6 +27,17 @@ export const getAllowanceQuery = () =>
     queryFn: getAllowance,
   });
 
+export async function getSuggestions() {
+  return parseResponse(routes.suggestions.$get());
+}
+
+/** Starter questions for the composer: `{ items }`, at most 4. */
+export const assistantSuggestionsQuery = () =>
+  queryOptions({
+    queryKey: ["assistant", "suggestions"],
+    queryFn: getSuggestions,
+  });
+
 /**
  * The caller's conversations, all projects: `pinned` (most recently pinned
  * first) and `recent` (newest first), each with the label of its latest

@@ -59,9 +59,9 @@ function RunningRow({ item }: { item: EnvironmentRunningItem }) {
       {item.deployed ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           {item.tag && (
-            <span className="inline-flex items-center gap-1 text-foreground">
+            <span className="inline-flex min-w-0 items-center gap-1 text-foreground">
               <Tag className="size-3 shrink-0" />
-              {item.tag}
+              <span className="min-w-0 break-all">{item.tag}</span>
             </span>
           )}
           {item.commitSha ? (

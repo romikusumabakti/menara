@@ -88,18 +88,18 @@ export function DeploymentActor({
           avatar
         />
       ) : (
-        <span>{text}</span>
+        <span className="truncate">{text}</span>
       );
     case "autoUser":
     case "auto":
       return (
-        <span className="inline-flex items-center gap-1.5">
+        <span className="inline-flex min-w-0 items-center gap-1.5">
           <Zap className="size-3.5 shrink-0" aria-hidden />
-          {text}
+          <span className="truncate">{text}</span>
         </span>
       );
     default:
-      return <span className="italic">{text}</span>;
+      return <span className="truncate italic">{text}</span>;
   }
 }
 

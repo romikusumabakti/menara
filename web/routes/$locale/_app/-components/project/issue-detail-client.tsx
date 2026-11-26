@@ -492,7 +492,9 @@ function IssueDetailView({
               className="min-w-0 flex-1 rounded-sm bg-transparent text-xl font-semibold outline-none placeholder:text-muted-foreground/70 focus-visible:ring-3 focus-visible:ring-ring/50"
             />
           ) : (
-            <h2 className="text-xl font-semibold break-words">{issue.title}</h2>
+            <h2 className="min-w-0 flex-1 text-xl font-semibold break-words">
+              {issue.title}
+            </h2>
           )}
           {canEdit ? (
             <SaveStatus
@@ -798,7 +800,7 @@ function SaveStatus({
       role="status"
       className={cn(
         "flex items-center gap-2 text-xs text-muted-foreground",
-        inline ? "shrink-0" : "min-h-5"
+        inline ? "shrink-0 whitespace-nowrap" : "min-h-5"
       )}
     >
       {state === "saving" ? t("saving") : null}

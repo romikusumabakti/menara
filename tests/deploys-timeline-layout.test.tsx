@@ -406,9 +406,11 @@ describe("Deploy timeline layout", () => {
     const meta = slot("row-meta", rowOf("v2")) as HTMLElement;
     expect(meta.className).not.toContain("flex-wrap");
     expect(meta.className).toContain("min-w-0");
-    expect(meta.querySelector('[data-slot="row-actor"]')?.className).toContain(
-      "truncate"
-    );
+    const actor = meta.querySelector('[data-slot="row-actor"]') as HTMLElement;
+    // A flex container, so the inline-flex actor (UserName link, auto chip)
+    // becomes a shrinkable flex item whose inner text truncates.
+    expect(actor.className).toContain("flex");
+    expect(actor.className).toContain("min-w-0");
   });
 
   it("timeline sources use logical properties only", () => {

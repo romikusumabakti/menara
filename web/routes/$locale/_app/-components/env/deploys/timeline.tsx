@@ -479,7 +479,7 @@ function SubjectMeta({
       className="flex min-w-0 items-center gap-x-1.5 whitespace-nowrap text-xs text-muted-foreground"
     >
       {/* One line: a long name truncates, the trigger and duration stay. */}
-      <span data-slot="row-actor" className="min-w-0 truncate">
+      <span data-slot="row-actor" className="flex min-w-0 items-center">
         <DeploymentActor deployment={d} />
       </span>
       {d.trigger !== "auto" && (

@@ -632,6 +632,12 @@ describe("without issue: write", () => {
     expect(editorDom()).toBeNull();
     expect(text()).toContain("Checkout total off by one");
     expect(text()).toContain("Seen on staging");
+    // The read-only title shares the title row: it must shrink and wrap.
+    const heading = [...document.querySelectorAll("h2")].find(
+      (h) => h.textContent === "Checkout total off by one"
+    );
+    expect(heading?.className).toContain("min-w-0");
+    expect(heading?.className).toContain("flex-1");
     expect(sidebar().querySelector("button")).toBeNull();
     expect(chipRow()?.querySelector("button")).toBeNull();
     expect(

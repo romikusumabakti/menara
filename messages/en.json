@@ -508,7 +508,8 @@
       "skipped": "Skipped — a newer deploy ran",
       "deployedEarlier": "Deployed",
       "never": "Not deployed",
-      "history": "{count, plural, one {# earlier deploy} other {# earlier deploys}}"
+      "history": "{count, plural, one {# earlier deploy} other {# earlier deploys}}",
+      "copyTag": "Copy tag {tag}"
     },
     "loadFailed": "Couldn't refresh deploys. The list may be out of date.",
     "showMore": "{count, plural, other {Show # more}}"

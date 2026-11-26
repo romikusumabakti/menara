@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildTimeline,
+  commonTagPrefix,
   deploymentDurationMs,
   deploysPollInterval,
   elapsedMs,
@@ -149,7 +150,7 @@ describe("buildTimeline", () => {
         recentBuilds: [build("v1", new Date(at(1)) as unknown as string)],
       })
     );
-    expect(rows[0]?.receivedAt).toBe(at(1));
+    expect(rows[0]?.shownAt).toBe(at(1));
   });
 
   const statusCases: [string, TimelineInput, string, string | undefined][] = [
@@ -920,5 +921,44 @@ describe("shortSha", () => {
   it("keeps the first 7 characters, null when unknown", () => {
     expect(shortSha("abcdef0123456")).toBe("abcdef0");
     expect(shortSha(null)).toBeNull();
+  });
+});
+
+describe("commonTagPrefix", () => {
+  it("is the shared prefix up to its last separator", () => {
+    expect(commonTagPrefix(["mpl-ml-a014b74", "mpl-ml-b125c85"])).toBe(
+      "mpl-ml-"
+    );
+    expect(commonTagPrefix(["v1.2.3", "v1.2.4"])).toBe("v1.2.");
+  });
+
+  it("is empty for one tag, no shared separator, or a prefix that eats a tag", () => {
+    expect(commonTagPrefix(["mpl-ml-a014b74"])).toBe("");
+    expect(commonTagPrefix(["v1", "v2"])).toBe("");
+    expect(commonTagPrefix(["a-", "a-b"])).toBe("");
+  });
+});
+
+describe("shownAt", () => {
+  it("is the latest deployment's finish, else its creation; the build time if never deployed", () => {
+    const rows = buildTimeline(
+      input({
+        recentBuilds: [
+          build("v1", at(1)),
+          build("v2", at(2)),
+          build("v3", at(3)),
+        ],
+        recentDeployments: [
+          deployment("v1", "success", {
+            createdAt: at(10),
+            finishedAt: at(12),
+          }),
+          deployment("v2", "running", { createdAt: at(11), finishedAt: null }),
+        ],
+      })
+    );
+    expect(row(rows, "v1").shownAt).toBe(at(12));
+    expect(row(rows, "v2").shownAt).toBe(at(11));
+    expect(row(rows, "v3").shownAt).toBe(at(3));
   });
 });

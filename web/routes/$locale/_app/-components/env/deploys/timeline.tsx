@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import * as React from "react";
 import { useNow, useTranslations } from "use-intl";
+import { CopyButton } from "@/components/copy-button";
 import { RelativeTime } from "@/components/relative-time";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ import { FirstBuild, WaitingForFirstBuild } from "./first-build";
 import { TimelineRowMenu } from "./row-menu";
 import type { CardActions } from "./target-header";
 import {
+  commonTagPrefix,
   deploymentDurationMs,
   elapsedMs,
   logDeployment,
@@ -77,6 +79,11 @@ export function Timeline({
   // Index of the first row a "Show more" click revealed, to move focus onto.
   const [focusIndex, setFocusIndex] = React.useState<number | null>(null);
   const remaining = rows.length - shown;
+  // The prefix every tag of this target shares is dropped from the rows.
+  const tagPrefix = React.useMemo(
+    () => commonTagPrefix(rows.map((row) => row.tag)),
+    [rows]
+  );
   React.useEffect(() => {
     if (focusIndex === null) return;
     listRef.current
@@ -122,6 +129,7 @@ export function Timeline({
               <TimelineRowItem
                 key={row.tag}
                 row={row}
+                tagPrefix={tagPrefix}
                 plans={rowActions(row, ctx)}
                 actions={actions}
                 lockedReason={lockedReason}
@@ -151,6 +159,7 @@ export function Timeline({
 
 function TimelineRowItem({
   row,
+  tagPrefix,
   plans,
   actions,
   lockedReason,
@@ -158,19 +167,16 @@ function TimelineRowItem({
   sourceBranch,
 }: {
   row: TimelineRow;
+  tagPrefix: string;
   plans: RowActionPlan[];
   actions: CardActions;
   lockedReason: string | null;
   queuedHint: string | null;
   sourceBranch: string;
 }) {
+  const t = useTranslations("deploys");
   const sha = shortSha(row.commitSha);
-  const [tagRef, tagOverflows] = useOverflowsInline<HTMLSpanElement>();
-  const shownAt =
-    row.receivedAt ??
-    row.subject?.createdAt ??
-    row.deployments[0]?.createdAt ??
-    null;
+  const shortTag = tagPrefix ? `…${row.tag.slice(tagPrefix.length)}` : row.tag;
 
   return (
     <li
@@ -181,105 +187,100 @@ function TimelineRowItem({
       // Not a tab stop: "Show more" moves focus here.
       tabIndex={-1}
       className={cn(
-        "grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 md:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_8rem_minmax(0,14rem)_auto]",
-        "items-start rounded-lg px-2 py-2 outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+        "flex flex-col gap-2 md:flex-row md:items-center md:gap-3",
+        "rounded-lg px-2 py-2 outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
         row.status === "live" && "bg-success/5"
       )}
     >
-      {/* Below md the tag and status share line 1; from md both become
-          grid cells of their own. */}
-      <div className="flex min-w-0 flex-wrap items-start gap-x-2 gap-y-1 md:contents">
+      {/* Below md the dot, main text and menu share line 1 and the rest
+          wraps beneath; from md every child is a cell of the one row. */}
+      <div className="flex min-w-0 items-start gap-2 md:contents">
         <span
-          ref={tagRef}
-          data-slot="tag-scroll"
-          // The one scrollable box: a long tag scrolls here, not the card.
-          // Only a tag that overflows is a tab stop, so keyboard users can
-          // scroll it; one that fits adds nothing to the tab order.
-          {...(tagOverflows && {
-            tabIndex: 0,
-            role: "group",
-            "aria-label": row.tag,
-          })}
-          className="max-w-full min-w-0 overflow-x-auto whitespace-nowrap md:col-start-1 md:row-start-1"
-        >
-          <span data-slot="row-tag" className="font-mono text-sm">
-            {row.tag}
+          data-slot="row-status-dot"
+          aria-hidden="true"
+          className={cn(
+            "mt-1.5 size-2 shrink-0 rounded-full md:mt-0",
+            STATUS_DOT[row.status]
+          )}
+        />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span
+            data-slot="row-title"
+            className="truncate text-sm font-medium"
+            title={row.commitMessage ?? row.tag}
+          >
+            {row.commitMessage ?? row.tag}
           </span>
-        </span>
-        <div className="flex min-w-0 flex-col gap-1 md:col-start-4 md:row-start-1">
+          <span
+            data-slot="row-ids"
+            className="flex min-w-0 items-center gap-1.5 font-mono text-xs text-muted-foreground"
+            title={row.build?.commitAuthorEmail ?? undefined}
+          >
+            {sha && (
+              <code className="shrink-0" title={row.commitSha ?? undefined}>
+                {sha}
+              </code>
+            )}
+            <span
+              data-slot="row-tag"
+              className="min-w-0 truncate"
+              title={row.tag}
+            >
+              {shortTag}
+            </span>
+            <CopyButton
+              value={row.tag}
+              label={t("row.copyTag", { tag: row.tag })}
+            />
+          </span>
+        </div>
+        <div className="md:order-last">
+          <TimelineRowMenu
+            row={row}
+            plans={plans}
+            actions={actions}
+            lockedReason={lockedReason}
+            queuedHint={queuedHint}
+            sourceBranch={sourceBranch}
+          />
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 ps-4 md:contents">
+        <div className="md:w-44 md:shrink-0">
           <RowStatus row={row} onViewLog={actions.viewLog} />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1 md:w-56 md:shrink-0">
           <SubjectMeta deployment={row.subject} />
           <RowHistory row={row} onViewLog={actions.viewLog} />
         </div>
-      </div>
-      <div
-        data-slot="row-commit"
-        className="col-span-1 flex min-w-0 flex-col md:col-start-2 md:row-start-1"
-      >
         <span
-          className="flex min-w-0 items-baseline gap-2 text-sm"
-          title={row.build?.commitAuthorEmail ?? undefined}
+          data-slot="row-time"
+          className="text-xs text-muted-foreground md:w-24 md:shrink-0 md:text-sm"
         >
-          {sha && (
-            <code
-              className="shrink-0 font-mono text-muted-foreground"
-              title={row.commitSha ?? undefined}
-            >
-              {sha}
-            </code>
-          )}
-          {row.commitMessage && (
-            <span className="truncate" title={row.commitMessage}>
-              {row.commitMessage}
-            </span>
-          )}
+          {row.shownAt && <RelativeTime date={row.shownAt} />}
         </span>
-        {shownAt && (
-          <span
-            data-slot="row-received"
-            className="text-xs text-muted-foreground md:hidden"
-          >
-            <RelativeTime date={shownAt} />
-          </span>
-        )}
-      </div>
-      <span
-        data-slot="row-time"
-        className="hidden text-sm text-muted-foreground md:col-start-3 md:row-start-1 md:block"
-      >
-        {shownAt && <RelativeTime date={shownAt} />}
-      </span>
-      <div className="col-start-2 row-span-2 row-start-1 self-start md:col-start-5 md:row-span-1">
-        <TimelineRowMenu
-          row={row}
-          plans={plans}
-          actions={actions}
-          lockedReason={lockedReason}
-          queuedHint={queuedHint}
-          sourceBranch={sourceBranch}
-        />
       </div>
     </li>
   );
 }
 
-// Whether the element's content is wider than its box, kept up to date as
-// the box resizes.
-function useOverflowsInline<T extends HTMLElement>() {
-  const ref = React.useRef<T>(null);
-  const [overflows, setOverflows] = React.useState(false);
-  React.useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const measure = () => setOverflows(el.scrollWidth > el.clientWidth);
-    measure();
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-  return [ref, overflows] as const;
-}
+const STATUS_DOT: Record<TimelineRow["status"], string> = {
+  live: "bg-success",
+  previous: "bg-muted-foreground/50",
+  lastGood: "bg-muted-foreground/50",
+  queued: "bg-sky-500",
+  deploying: "bg-sky-500",
+  held: "bg-amber-500",
+  failed: "bg-destructive",
+  skipped: "bg-muted-foreground/30",
+  deployedEarlier: "bg-muted-foreground/50",
+  never: "bg-muted-foreground/20",
+};
+
+const INFO_BADGE =
+  "border-transparent bg-sky-500/10 text-sky-700 dark:text-sky-400";
+const WARNING_BADGE =
+  "border-transparent bg-amber-500/10 text-amber-700 dark:text-amber-400";
 
 function StatusLine({
   icon: Icon,
@@ -331,61 +332,74 @@ function RowStatus({
       case "previous":
         return (
           <>
-            <StatusLine icon={History}>{t("row.previous")}</StatusLine>
+            <Badge variant="secondary">
+              <History data-icon="inline-start" />
+              {t("row.previous")}
+            </Badge>
             <LaterFailure row={row} onViewLog={onViewLog} />
           </>
         );
       case "lastGood":
         return (
           <>
-            <StatusLine icon={ShieldCheck}>{t("row.lastGood")}</StatusLine>
+            <Badge variant="secondary">
+              <ShieldCheck data-icon="inline-start" />
+              {t("row.lastGood")}
+            </Badge>
             <LaterFailure row={row} onViewLog={onViewLog} />
           </>
         );
       case "queued":
         return (
-          <StatusLine icon={Loader2} iconClassName="animate-spin">
+          <Badge className={INFO_BADGE}>
+            <Loader2 data-icon="inline-start" className="animate-spin" />
             {t("row.queued")}
-          </StatusLine>
+          </Badge>
         );
       case "deploying":
         return (
           <>
-            <StatusLine icon={Loader2} iconClassName="animate-spin">
+            <Badge className={INFO_BADGE}>
+              <Loader2 data-icon="inline-start" className="animate-spin" />
               <DeployingLabel deployment={row.subject} />
-            </StatusLine>
+            </Badge>
             {viewLog}
           </>
         );
       case "held":
-        return <StatusLine icon={Lock}>{t("row.held")}</StatusLine>;
+        return (
+          <Badge className={WARNING_BADGE}>
+            <Lock data-icon="inline-start" />
+            {t("row.held")}
+          </Badge>
+        );
       case "failed":
         return (
           <>
-            <StatusLine icon={CircleAlert} className="text-destructive">
+            <Badge variant="destructive">
+              <CircleAlert data-icon="inline-start" />
               {t("row.failed")}
-            </StatusLine>
+            </Badge>
             {viewLog}
           </>
         );
       case "skipped":
         return (
-          <StatusLine icon={SkipForward} className="text-muted-foreground">
+          <Badge variant="outline">
+            <SkipForward data-icon="inline-start" />
             {t("row.skipped")}
-          </StatusLine>
+          </Badge>
         );
-      case "deployedEarlier": {
-        const d = row.subject;
+      case "deployedEarlier":
         return (
           <>
-            <StatusLine icon={CheckCircle2} className="text-muted-foreground">
-              {t("row.deployedEarlier")}{" "}
-              {d && <RelativeTime date={d.finishedAt ?? d.createdAt} />}
-            </StatusLine>
+            <Badge variant="secondary">
+              <CheckCircle2 data-icon="inline-start" />
+              {t("row.deployedEarlier")}
+            </Badge>
             <LaterFailure row={row} onViewLog={onViewLog} />
           </>
         );
-      }
       default:
         return (
           <span className="text-sm text-muted-foreground">
@@ -448,7 +462,7 @@ function DeployingLabel({
   return t("row.deploying", { elapsed: duration(Math.max(0, elapsed)) ?? "" });
 }
 
-// Who deployed, whether it was a rollback, and how long it took.
+// Who deployed, how (an auto deploy's actor already says so) and how long it took.
 function SubjectMeta({
   deployment: d,
 }: {
@@ -458,12 +472,15 @@ function SubjectMeta({
   if (!d) return null;
   const duration = deploymentDurationMs(d);
   return (
-    <span className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+    <span
+      data-slot="row-meta"
+      className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground"
+    >
       <DeploymentActor deployment={d} />
-      {d.trigger === "rollback" && (
+      {d.trigger !== "auto" && (
         <>
           <span aria-hidden="true">·</span>
-          <span>{t("trigger.rollback")}</span>
+          <span>{t(`trigger.${d.trigger}`)}</span>
         </>
       )}
       {duration !== null && (

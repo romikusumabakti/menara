@@ -32,7 +32,11 @@ export type TimelineRow = {
   build: TimelineBuild | null;
   commitSha: string | null;
   commitMessage: string | null;
-  receivedAt: string | null;
+  /**
+   * When the row happened: the tag's latest deployment (finish, else
+   * creation), or the build's arrival if it was never deployed.
+   */
+  shownAt: string | null;
   sortAt: string | null;
   /** This tag's deployments, newest `createdAt` first, then id descending. */
   deployments: TimelineDeployment[];
@@ -211,7 +215,11 @@ export function buildTimeline(input: TimelineInput): TimelineRow[] {
         deployments.find((d) => d.build)?.build?.commitSha ??
         null,
       commitMessage: firstLine(build?.commitMessage ?? null),
-      receivedAt: iso(build?.receivedAt),
+      shownAt: iso(
+        deployments[0]
+          ? (deployments[0].finishedAt ?? deployments[0].createdAt)
+          : build?.receivedAt
+      ),
       sortAt: iso(build?.receivedAt ?? deployments[0]?.createdAt),
       deployments,
       status,
@@ -250,6 +258,25 @@ const BUSY_STATUSES: ReadonlySet<RowStatusKind> = new Set([
 
 /** Rows the timeline shows at first. */
 export const PAGE_FIRST = 10;
+
+const TAG_SEPARATORS = /[-._/:]/;
+
+/**
+ * The prefix every tag shares, cut after its last separator so no word is
+ * split; "" when there is a single tag or nothing useful is shared.
+ */
+export function commonTagPrefix(tags: string[]): string {
+  const [first, ...rest] = tags;
+  if (first === undefined || rest.length === 0) return "";
+  let end = 0;
+  while (end < first.length && rest.every((tag) => tag[end] === first[end])) {
+    end += 1;
+  }
+  let cut = end;
+  while (cut > 0 && !TAG_SEPARATORS.test(first[cut - 1] ?? "")) cut -= 1;
+  const prefix = first.slice(0, cut);
+  return tags.every((tag) => tag.length > prefix.length) ? prefix : "";
+}
 
 export type HeaderState = {
   focal:

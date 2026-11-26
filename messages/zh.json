@@ -508,7 +508,8 @@
       "skipped": "已跳过——已有更新的部署运行过",
       "deployedEarlier": "部署于",
       "never": "未部署",
-      "history": "{count, plural, other {# 次更早的部署}}"
+      "history": "{count, plural, other {# 次更早的部署}}",
+      "copyTag": "复制标签 {tag}"
     },
     "loadFailed": "无法刷新部署，列表可能已过期。",
     "showMore": "{count, plural, other {再显示 # 条}}"

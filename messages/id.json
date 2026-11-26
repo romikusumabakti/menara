@@ -508,7 +508,8 @@
       "skipped": "Dilewati — deploy yang lebih baru sudah dijalankan",
       "deployedEarlier": "Di-deploy",
       "never": "Belum di-deploy",
-      "history": "{count, plural, other {# deploy sebelumnya}}"
+      "history": "{count, plural, other {# deploy sebelumnya}}",
+      "copyTag": "Salin tag {tag}"
     },
     "loadFailed": "Gagal menyegarkan deploy. Daftar mungkin sudah usang.",
     "showMore": "{count, plural, other {Tampilkan # lagi}}"

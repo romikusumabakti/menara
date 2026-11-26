@@ -1,6 +1,7 @@
 import { ScrollText, Zap } from "lucide-react";
 import { useFormatter, useTranslations } from "use-intl";
 import { Button } from "@/components/ui/button";
+import { UserName } from "@/components/user/user-name";
 import { runActorLabel } from "@/lib/deploy/run-actor";
 import type { TimelineDeployment } from "./timeline-model";
 
@@ -87,7 +88,14 @@ export function DeploymentActor({
   const { kind, text } = useDeploymentActor()(deployment);
   switch (kind) {
     case "user":
-      return <span>{text}</span>;
+      return deployment.userId ? (
+        <UserName
+          user={{ id: deployment.userId, name: text, image: null }}
+          avatar
+        />
+      ) : (
+        <span>{text}</span>
+      );
     case "autoUser":
     case "auto":
       return (

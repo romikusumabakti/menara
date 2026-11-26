@@ -117,7 +117,6 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
   let previousUrl: string | undefined;
   let svc: typeof import("@/server/services/backup-destination");
   let backups: typeof import("@/server/services/instance-backups");
-  let admin: typeof import("@/server/services/s3-connections");
   let storage: typeof import("@/server/services/environment-storage");
   let explorer: typeof import("@/server/services/explorer");
   let loadBackupDestination: typeof import("@/lib/instance-backup/destination")["loadBackupDestination"];
@@ -185,7 +184,6 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
     ({ encryptSecret, decryptSecret } = await import("@/lib/secrets"));
     svc = await import("@/server/services/backup-destination");
     backups = await import("@/server/services/instance-backups");
-    admin = await import("@/server/services/s3-connections");
     storage = await import("@/server/services/environment-storage");
     explorer = await import("@/server/services/explorer");
     ({ loadBackupDestination } = await import(
@@ -226,6 +224,7 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
       backup_s3_secret_key = null, backup_s3_force_path_style = true,
       backup_s3_key_prefix = null`;
     await sql`delete from s3_connections`;
+    await sql`delete from environment_storage`;
     const row = (
       id: string,
       name: string,
@@ -527,24 +526,42 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
   });
 
   describe("restricted targets", () => {
-    const src = (connectionId: string) => ({
+    const src = (environmentId: string) => ({
       kind: "s3" as const,
-      connectionId,
+      environmentId,
     });
+    // The environment's one storage, on the destination's bucket.
+    const storeAt = (keyPrefix: string) =>
+      sql`insert into environment_storage (environment_id, endpoint, region,
+          bucket, key_prefix, access_key_id, secret_key)
+        values (${ENV}, ${ENDPOINT}, 'auto', ${BUCKET}, ${keyPrefix},
+          'AKSTORE', ${encryptSecret("s-store")})
+        on conflict (environment_id) do update set
+          key_prefix = excluded.key_prefix`;
 
-    it("an environment's connection on the destination's bucket and prefix is never browsable from it", async () => {
+    it("an environment's storage on the destination's bucket and prefix is never browsable from it", async () => {
       await svc.saveBackupDestination(destination());
+      await storeAt("acme/dumps/");
       as(ENGINEER, "engineer");
-      expect(
-        await refusal(explorer.listEntries(src(CONN_SAME), ""))
-      ).toMatchObject({ status: 403 });
+      expect(await refusal(explorer.listEntries(src(ENV), ""))).toMatchObject({
+        status: 403,
+      });
+      // Nor probed as the environment's storage.
       expect(
         await refusal(
-          storage.updateEnvironmentStorage(ENV, CONN_SAME, { name: "x" })
+          storage.testEnvironmentStorage(ENV, {
+            endpoint: ENDPOINT,
+            region: "auto",
+            bucket: BUCKET,
+            accessKeyId: "AKSAME",
+            forcePathStyle: true,
+            keyPrefix: "acme/dumps/",
+          })
         )
-      ).toEqual({ status: 409, code: "s3BackupDestinationRestricted" });
+      ).toEqual({ status: 409, code: "s3BackupDestinationOverlap" });
       // Beside the destination's prefix, the same bucket is the environment's.
-      expect(await explorer.listEntries(src(CONN_OTHER), "")).toMatchObject({
+      await storeAt("uploads/");
+      expect(await explorer.listEntries(src(ENV), "")).toMatchObject({
         success: true,
       });
       expect(s3.opened).toHaveLength(1);
@@ -556,8 +573,7 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
       for (const keyPrefix of [null, "acme/", "acme/sub/"]) {
         expect(
           await refusal(
-            storage.createEnvironmentStorage(ENV, {
-              name: "Sneaky",
+            storage.saveEnvironmentStorage(ENV, {
               endpoint: `${ENDPOINT}/`,
               region: "auto",
               bucket: BUCKET,
@@ -572,14 +588,18 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
       }
       expect(
         await refusal(
-          storage.updateEnvironmentStorage(ENV, CONN_OTHER, {
+          storage.saveEnvironmentStorage(ENV, {
+            endpoint: ENDPOINT,
+            region: "auto",
+            bucket: BUCKET,
+            accessKeyId: "AKOTHER",
+            forcePathStyle: true,
             keyPrefix: "acme/",
             secretKey: "s-other-new",
           })
         )
       ).toEqual({ status: 409, code: "s3BackupDestinationOverlap" });
-      const created = await storage.createEnvironmentStorage(ENV, {
-        name: "Reports",
+      const created = await storage.saveEnvironmentStorage(ENV, {
         endpoint: ENDPOINT,
         region: "auto",
         bucket: BUCKET,
@@ -599,31 +619,21 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
       await sql`update s3_connections
         set endpoint = 'https://192.0.2.44', bucket = ${BUCKET}
         where id = ${CONN_FREE}`;
-      expect(await refusal(admin.assignS3Connection(CONN_FREE, ENV))).toEqual({
-        status: 409,
-        code: "s3BackupDestinationNotAssignable",
-      });
-      // Pages hide Edit and Browse for it (isBackupDestination).
-      expect(
-        (await admin.listUnassignedS3Connections()).find(
-          (c) => c.id === CONN_FREE
-        )
-      ).toMatchObject({ isBackupDestination: true });
       as(ENGINEER, "engineer");
-      expect(
-        (await storage.listEnvironmentStorage(ENV)).map((c) => [
-          c.id,
-          c.isBackupDestination,
-        ])
-      ).toEqual(
-        expect.arrayContaining([
-          [CONN_SAME, true],
-          [CONN_OTHER, false],
-        ])
-      );
-      expect(
-        await refusal(explorer.listEntries(src(CONN_SAME), ""))
-      ).toMatchObject({ status: 403 });
+      // A stored config on an alias of the destination is flagged too.
+      await sql`insert into environment_storage (environment_id, endpoint,
+          region, bucket, key_prefix, access_key_id, secret_key)
+        values (${ENV}, 'https://alias.example.test:9000', 'auto', ${BUCKET},
+          'acme/dumps/', 'AKSAME', ${encryptSecret("s-same")})
+        on conflict (environment_id) do update set
+          endpoint = excluded.endpoint, bucket = excluded.bucket,
+          key_prefix = excluded.key_prefix`;
+      expect(await storage.getEnvironmentStorage(ENV)).toMatchObject({
+        isBackupDestination: true,
+      });
+      expect(await refusal(explorer.listEntries(src(ENV), ""))).toMatchObject({
+        status: 403,
+      });
       expect(s3.opened).toEqual([]);
       for (const endpoint of [
         "https://OBJECTS.example.test.:443/",
@@ -633,8 +643,7 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
       ]) {
         expect(
           await refusal(
-            storage.createEnvironmentStorage(ENV, {
-              name: "Sneaky",
+            storage.saveEnvironmentStorage(ENV, {
               endpoint,
               region: "auto",
               bucket: BUCKET,
@@ -649,8 +658,12 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
       }
       expect(
         await refusal(
-          storage.updateEnvironmentStorage(ENV, CONN_OTHER, {
+          storage.saveEnvironmentStorage(ENV, {
             endpoint: "https://alias.example.test",
+            region: "auto",
+            bucket: BUCKET,
+            accessKeyId: "AKOTHER",
+            forcePathStyle: true,
             keyPrefix: "acme/sub/",
             secretKey: "s-other-new",
           })
@@ -662,40 +675,12 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
       await svc.saveBackupDestination(
         destination({ bucket: "fictional-elsewhere", keyPrefix: null })
       );
-      expect(await refusal(admin.assignS3Connection(CONN_LEGACY, ENV))).toEqual(
-        { status: 409, code: "s3BackupDestinationNotAssignable" }
-      );
-      // The engineer grant never reaches it.
+      // No explorer source names a connection any more: by its id it is
+      // no environment's storage, so not found.
       as(ENGINEER, "engineer");
       expect(
         await refusal(explorer.listEntries(src(CONN_LEGACY), ""))
-      ).toMatchObject({ status: 403 });
-    });
-  });
-
-  describe("deleting connections", () => {
-    it("refuses the legacy backup destination and connections old archives live in", async () => {
-      await sql`insert into environment_archives (project_name,
-          environment_name, environment_slug, expires_at, location,
-          s3_connection_id, key_prefix)
-        values ('Heron', 'Heron old', 'old', now() + interval '30 days', 's3',
-          ${CONN_FREE}, 'menara-env-archives/menara/old/')`;
-      expect(
-        await refusal(admin.deleteUnassignedS3Connection(CONN_LEGACY))
-      ).toEqual({ status: 409, code: "s3BackupDestinationRestricted" });
-      expect(
-        await refusal(admin.deleteUnassignedS3Connection(CONN_FREE))
-      ).toEqual({ status: 409, code: "s3ConnectionHoldsArchives" });
-      const [kept] = await sql<{ count: number }[]>`
-        select count(*)::int as count from s3_connections
-        where id in (${CONN_LEGACY}, ${CONN_FREE})`;
-      expect(kept?.count).toBe(2);
-      await sql`delete from environment_archives`;
-      await admin.deleteUnassignedS3Connection(CONN_FREE);
-      const [gone] = await sql<{ count: number }[]>`
-        select count(*)::int as count from s3_connections
-        where id = ${CONN_FREE}`;
-      expect(gone?.count).toBe(0);
+      ).toMatchObject({ status: 404 });
     });
   });
 });

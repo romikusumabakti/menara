@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { redirect } from "@/i18n/navigation";
-import { legacyStorageIndexHref } from "./-components/storage-redirect";
+import { LEGACY_STORAGE_INDEX_HREF } from "./-components/storage-redirect";
 
-// Connections are added in their environment now; see storage.index.tsx.
+// Storage is configured in its environment's settings; see storage.index.tsx.
 export const Route = createFileRoute("/$locale/_app/storage/new")({
-  beforeLoad: async ({ params: { locale }, context: { queryClient } }) =>
-    redirect(await legacyStorageIndexHref(queryClient), locale),
+  beforeLoad: ({ params: { locale } }) =>
+    redirect(LEGACY_STORAGE_INDEX_HREF, locale),
 });

@@ -391,36 +391,21 @@ export type EnvironmentInput = z.infer<typeof environmentInputSchema>;
 // Storage explorer
 // =========================
 
-export const s3ConnectionInputSchema = z.object({
-  name: z.string().trim().min(1).max(200),
+// An environment's one storage (environment_storage): where its bucket is,
+// plus the key prefix it is confined to. The prefix is only bounded here; the
+// service normalises it (normalizeKeyPrefix) and answers a bad one with a
+// coded 400. A blank or omitted secret keeps the stored one, which the
+// service allows only while the location is unchanged.
+export const environmentStorageSchema = z.object({
   endpoint: z.url().max(2048),
   region: z.string().trim().min(1).max(100),
   bucket: z.string().trim().min(1).max(255),
   accessKeyId: z.string().trim().min(1).max(512),
-  secretKey: z.string().min(1).max(1024),
+  secretKey: z.string().max(1024).optional(),
   forcePathStyle: z.boolean(),
-});
-
-// Update allows omitting secretKey ("leave blank to keep"); everything else is
-// individually optional so partial edits round-trip.
-export const s3ConnectionUpdateSchema = s3ConnectionInputSchema
-  .partial()
-  .extend({ secretKey: z.string().min(1).max(1024).optional() });
-
-export type S3ConnectionInput = z.infer<typeof s3ConnectionInputSchema>;
-
-// An environment's storage connection: the same fields plus the key prefix it
-// is confined to. The prefix is only bounded here; the service normalises it
-// (normalizeKeyPrefix) and answers a bad one with a coded 400.
-export const environmentStorageInputSchema = s3ConnectionInputSchema.extend({
   keyPrefix: z.string().max(2048).nullish(),
 });
-export const environmentStorageUpdateSchema = s3ConnectionUpdateSchema.extend({
-  keyPrefix: z.string().max(2048).nullish(),
-});
-export type EnvironmentStorageInput = z.infer<
-  typeof environmentStorageInputSchema
->;
+export type EnvironmentStorageInput = z.infer<typeof environmentStorageSchema>;
 
 // The longest key S3 accepts is 1024 bytes; a prefix must leave room for one.
 const MAX_KEY_PREFIX_BYTES = 1000;
@@ -624,10 +609,11 @@ export const jiraProjectLinkSchema = z.object({
 export type JiraConnectionInput = z.infer<typeof jiraConnectionInputSchema>;
 export type JiraProjectLinkInput = z.infer<typeof jiraProjectLinkSchema>;
 
-// A browsed location. `kind` selects the backend; the id names the connection
-// or server. Credentials are NEVER part of this — the action layer loads them.
+// A browsed location. `kind` selects the backend; the id names the
+// environment (whose one object storage is browsed) or the server.
+// Credentials are NEVER part of this — the action layer loads them.
 export const explorerSourceSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("s3"), connectionId: z.uuid() }),
+  z.object({ kind: z.literal("s3"), environmentId: z.uuid() }),
   z.object({ kind: z.literal("sftp"), serverId: z.uuid() }),
 ]);
 

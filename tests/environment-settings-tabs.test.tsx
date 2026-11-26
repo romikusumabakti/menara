@@ -379,13 +379,14 @@ describe("environment settings tabs", () => {
       el.textContent?.trim()
     );
 
-  it("renders seven tabs for an engineer, Variables after General", async () => {
+  it("renders eight tabs for an engineer, Variables after General, Storage after Database", async () => {
     await mount();
     expect(tabLabels()).toEqual([
       t.tabGeneral,
       t.tabVariables,
       t.tabSourceDeploy,
       t.tabDatabase,
+      t.tabStorage,
       t.tabDomain,
       t.tabMailMockTime,
       t.tabDanger,
@@ -423,7 +424,7 @@ describe("environment settings tabs", () => {
 
   it("an environment without services still opens Settings", async () => {
     await mount({ environment: { ...environment, services: [] } });
-    expect(document.querySelectorAll('[role="tab"]').length).toBe(7);
+    expect(document.querySelectorAll('[role="tab"]').length).toBe(8);
     await openTab(t.tabMailMockTime);
     expect(document.body.textContent).not.toContain("has no backend service");
   });

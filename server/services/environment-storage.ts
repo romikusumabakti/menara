@@ -1,23 +1,20 @@
-import { and, eq } from "drizzle-orm";
-import type { z } from "zod";
+import { eq, sql } from "drizzle-orm";
 import { recordActivity } from "@/lib/activity";
 import { assertStrongSession, requireProjectPermission } from "@/lib/authz";
 import { db } from "@/lib/db";
 import { one } from "@/lib/db/one";
 import {
-  environments,
-  type SafeS3Connection,
-  s3Connections,
+  type EnvironmentStorage,
+  environmentStorage,
+  type SafeEnvironmentStorage,
 } from "@/lib/db/schema";
+import { drainLegacyConnections } from "@/lib/environment-storage";
+import { environmentName } from "@/lib/environments";
 import { testS3Connection } from "@/lib/explorer/s3";
-import {
-  isRestrictedSource,
-  overlapsBackupDestination,
-} from "@/lib/restricted-targets";
+import { overlapsBackupDestination } from "@/lib/restricted-targets";
 import { decryptSecret, encryptSecret } from "@/lib/secrets";
 import {
   type EnvironmentStorageInput,
-  type environmentStorageUpdateSchema,
   normalizeKeyPrefix,
 } from "@/lib/validation";
 import { badRequest, CodedHTTPException, notFound } from "@/server/errors";
@@ -25,32 +22,25 @@ import { getServerTranslator } from "@/server/i18n";
 import {
   changesS3Location,
   SECRET_REQUIRED_FOR_LOCATION_CHANGE,
-  toSafeS3Connection,
-  toSafeS3Connections,
 } from "@/server/services/s3-connections";
 
-// An environment's storage: the S3 connections (application buckets) it owns,
-// each optionally confined to a key prefix. Viewing them takes what viewing
-// the environment takes (project `project:read`); adding, editing, deleting
-// and testing take what editing its settings takes (project
-// `environment:update`, as updateEnvironment) plus a strong sign-in, since
-// they store or use bucket credentials. An environment the caller can't see,
-// and a connection that is not this environment's, are both a 404. Secrets
-// are never returned (toSafeS3Connection) and never logged, and a stored
-// secret is only ever used with the location it was given for
-// (changesS3Location): moving a connection to another endpoint, bucket,
-// prefix, access key or addressing style takes a new secret. The instance
-// backup destination is never handled here, wherever it sits (409), and no
-// connection is added or moved into it (409 s3BackupDestinationOverlap).
+// An environment's one object storage (environment_storage, 1:1; row present
+// = configured). Viewing it takes what viewing the environment takes
+// (project `project:read`); saving, removing and testing take what editing
+// its settings takes (project `environment:update`, as updateEnvironment)
+// plus a strong sign-in, since they store or use bucket credentials. An
+// environment the caller can't see is a 404. The secret is never returned
+// (toSafe) and never logged, and a stored secret is only ever used with the
+// location it was given for (changesS3Location): pointing the storage at
+// another endpoint, region, bucket, prefix, access key or addressing style
+// takes a new secret. No config is saved or probed inside the instance
+// backup destination (409 s3BackupDestinationOverlap); one that became
+// restricted later (an admin moved the destination onto it) can still be
+// removed or replaced by one outside it. Every save and remove also drains
+// the environment's old s3_connections rows (lib/environment-storage).
 
 const VIEW = { project: ["read"] } as const;
 const MANAGE = { environment: ["update"] } as const;
-
-type EnvironmentStorageUpdate = z.infer<typeof environmentStorageUpdateSchema>;
-
-async function requireView(environmentId: string) {
-  return requireProjectPermission({ environmentId }, VIEW);
-}
 
 async function requireManage(environmentId: string) {
   const access = await requireProjectPermission({ environmentId }, MANAGE);
@@ -58,45 +48,10 @@ async function requireManage(environmentId: string) {
   return access;
 }
 
-async function environmentName(environmentId: string): Promise<string> {
-  const [row] = await db
-    .select({ name: environments.name })
-    .from(environments)
-    .where(eq(environments.id, environmentId))
-    .limit(1);
-  return row?.name ?? notFound();
+async function nameOf(environmentId: string): Promise<string> {
+  return (await environmentName(environmentId)) ?? notFound();
 }
 
-// The connection, only when it belongs to this environment.
-async function ownedConnection(environmentId: string, connectionId: string) {
-  const [row] = await db
-    .select()
-    .from(s3Connections)
-    .where(
-      and(
-        eq(s3Connections.id, connectionId),
-        eq(s3Connections.environmentId, environmentId)
-      )
-    )
-    .limit(1);
-  return row ?? notFound();
-}
-
-// The instance backup destination (dumps of the Menara database) is Admin ›
-// Instance's: never edited, deleted or probed as an environment's storage.
-async function refuseRestricted(connectionId: string): Promise<void> {
-  if (!(await isRestrictedSource({ kind: "s3", connectionId }))) return;
-  const t = await getServerTranslator("actionErrors");
-  throw new CodedHTTPException(
-    409,
-    "s3BackupDestinationRestricted",
-    t("s3BackupDestinationRestricted")
-  );
-}
-
-// An environment's connection never points into the instance backup
-// destination (the same bucket name on any endpoint, overlapping key
-// prefix): its managers could then browse and edit Menara's dumps.
 async function refuseBackupDestinationOverlap(location: {
   endpoint: string;
   bucket: string;
@@ -129,192 +84,190 @@ async function keyPrefixOf(
   badRequest(t("s3KeyPrefixInvalid"), "s3KeyPrefixInvalid");
 }
 
-export async function listEnvironmentStorage(
-  environmentId: string
-): Promise<SafeS3Connection[]> {
-  await requireView(environmentId);
-  const rows = await db
-    .select()
-    .from(s3Connections)
-    .where(eq(s3Connections.environmentId, environmentId))
-    .orderBy(s3Connections.name);
-  return toSafeS3Connections(rows);
-}
+// The location fields, in changesS3Location's order (activity lists them so).
+const LOCATION_FIELDS = [
+  "endpoint",
+  "region",
+  "bucket",
+  "keyPrefix",
+  "accessKeyId",
+  "forcePathStyle",
+] as const;
 
-export async function getEnvironmentStorage(
-  environmentId: string,
-  connectionId: string
-): Promise<SafeS3Connection> {
-  await requireView(environmentId);
-  const [row] = await toSafeS3Connections([
-    await ownedConnection(environmentId, connectionId),
-  ]);
-  return row ?? notFound();
-}
+type Location = Pick<EnvironmentStorage, (typeof LOCATION_FIELDS)[number]>;
 
-export async function createEnvironmentStorage(
-  environmentId: string,
-  data: EnvironmentStorageInput
-): Promise<SafeS3Connection> {
-  const { session } = await requireManage(environmentId);
-  const keyPrefix = await keyPrefixOf(data.keyPrefix);
-  await refuseBackupDestinationOverlap({ ...data, keyPrefix });
-  const environment = await environmentName(environmentId);
-  const created = one(
-    await db
-      .insert(s3Connections)
-      .values({
-        name: data.name,
-        endpoint: data.endpoint,
-        region: data.region,
-        bucket: data.bucket,
-        accessKeyId: data.accessKeyId,
-        secretKey: encryptSecret(data.secretKey),
-        forcePathStyle: data.forcePathStyle,
-        keyPrefix,
-        environmentId,
-      })
-      .returning(),
-    "S3 connection"
-  );
-  await recordActivity({
-    actorId: session.user.id,
-    action: "storage.created",
-    entityType: "s3Connection",
-    entityId: created.id,
-    data: { name: created.name, environment },
-  });
-  // Never restricted: the overlap check above refused those.
-  return toSafeS3Connection(created, false);
-}
-
-export async function updateEnvironmentStorage(
-  environmentId: string,
-  connectionId: string,
-  data: EnvironmentStorageUpdate
-): Promise<SafeS3Connection> {
-  const { session } = await requireManage(environmentId);
-  const stored = await ownedConnection(environmentId, connectionId);
-  await refuseRestricted(connectionId);
-  const { secretKey, keyPrefix: typedPrefix, ...fields } = data;
-  // Omitted = unchanged; sent (also blank or null) = set, blank = none.
-  const keyPrefix =
-    typedPrefix === undefined ? undefined : await keyPrefixOf(typedPrefix);
-  if (
-    !secretKey &&
-    changesS3Location(stored, {
-      ...fields,
-      ...(keyPrefix === undefined ? {} : { keyPrefix }),
-    })
-  ) {
-    await secretRequiredForLocationChange();
-  }
-  await refuseBackupDestinationOverlap({
-    endpoint: fields.endpoint ?? stored.endpoint,
-    bucket: fields.bucket ?? stored.bucket,
-    keyPrefix: keyPrefix === undefined ? stored.keyPrefix : keyPrefix,
-  });
-  const environment = await environmentName(environmentId);
-  const [updated] = await db
-    .update(s3Connections)
-    .set({
-      ...fields,
-      ...(keyPrefix === undefined ? {} : { keyPrefix }),
-      // Empty/omitted secretKey means "keep the stored one".
-      ...(secretKey ? { secretKey: encryptSecret(secretKey) } : {}),
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(s3Connections.id, connectionId),
-        eq(s3Connections.environmentId, environmentId)
-      )
-    )
-    .returning();
-  if (!updated) notFound();
-  await recordActivity({
-    actorId: session.user.id,
-    action: "storage.updated",
-    entityType: "s3Connection",
-    entityId: updated.id,
-    data: { name: updated.name, environment },
-  });
-  const [safe] = await toSafeS3Connections([updated]);
-  return safe ?? notFound();
-}
-
-export async function deleteEnvironmentStorage(
-  environmentId: string,
-  connectionId: string
-): Promise<void> {
-  const { session } = await requireManage(environmentId);
-  await ownedConnection(environmentId, connectionId);
-  await refuseRestricted(connectionId);
-  const environment = await environmentName(environmentId);
-  const [deleted] = await db
-    .delete(s3Connections)
-    .where(
-      and(
-        eq(s3Connections.id, connectionId),
-        eq(s3Connections.environmentId, environmentId)
-      )
-    )
-    .returning({ id: s3Connections.id, name: s3Connections.name });
-  if (!deleted) notFound();
-  await recordActivity({
-    actorId: session.user.id,
-    action: "storage.deleted",
-    entityType: "s3Connection",
-    entityId: deleted.id,
-    data: { name: deleted.name, environment },
-  });
-}
-
-export type EnvironmentStorageProbe = {
-  endpoint: string;
-  region: string;
-  bucket: string;
-  accessKeyId: string;
-  secretKey?: string;
-  forcePathStyle: boolean;
-  keyPrefix?: string | null;
-  connectionId?: string;
-};
-
-/**
- * Probe form values without saving them. In edit mode the secret may be
- * omitted: the stored one is used, but only for a connection of this
- * environment and only with its stored location (else the coded 400). The
- * probe lists under the prefix, as the explorer will.
- */
-export async function testEnvironmentStorage(
-  environmentId: string,
-  input: EnvironmentStorageProbe
-): Promise<{ ok: true } | { ok: false; message: string }> {
-  await requireManage(environmentId);
-  const keyPrefix = await keyPrefixOf(input.keyPrefix);
-  const location = {
+async function locationOf(input: EnvironmentStorageInput): Promise<Location> {
+  return {
     endpoint: input.endpoint.trim(),
     region: input.region.trim(),
     bucket: input.bucket.trim(),
+    keyPrefix: await keyPrefixOf(input.keyPrefix),
     accessKeyId: input.accessKeyId.trim(),
     forcePathStyle: input.forcePathStyle,
-    keyPrefix,
   };
-  let secretKey = input.secretKey;
-  if (input.connectionId !== undefined) {
-    const stored = await ownedConnection(environmentId, input.connectionId);
-    await refuseRestricted(input.connectionId);
-    if (!secretKey) {
-      if (changesS3Location(stored, location)) {
-        await secretRequiredForLocationChange();
-      }
-      secretKey = decryptSecret(stored.secretKey);
+}
+
+function toSafe(
+  row: EnvironmentStorage,
+  restricted: boolean
+): SafeEnvironmentStorage {
+  const { secretKey, ...rest } = row;
+  return {
+    ...rest,
+    hasSecret: secretKey.length > 0,
+    isBackupDestination: restricted,
+  };
+}
+
+async function toSafeChecked(
+  row: EnvironmentStorage
+): Promise<SafeEnvironmentStorage> {
+  return toSafe(row, await overlapsBackupDestination(row));
+}
+
+export async function getEnvironmentStorage(
+  environmentId: string
+): Promise<SafeEnvironmentStorage | null> {
+  await requireProjectPermission({ environmentId }, VIEW);
+  const [row] = await db
+    .select()
+    .from(environmentStorage)
+    .where(eq(environmentStorage.environmentId, environmentId))
+    .limit(1);
+  return row ? toSafeChecked(row) : null;
+}
+
+/**
+ * Creates or replaces the environment's storage. A blank or omitted secret
+ * keeps the stored one, which is allowed only when the location is
+ * unchanged (else, and for a first save, the coded 400
+ * s3SecretRequiredForLocationChange). Activity `storage.configured` lists
+ * the changed field names, never their values; a save that changes nothing
+ * and brings no new secret records none.
+ */
+export async function saveEnvironmentStorage(
+  environmentId: string,
+  input: EnvironmentStorageInput
+): Promise<SafeEnvironmentStorage> {
+  const { session } = await requireManage(environmentId);
+  const location = await locationOf(input);
+  await refuseBackupDestinationOverlap(location);
+  const environment = await nameOf(environmentId);
+  const secretKey = input.secretKey || undefined;
+
+  const { saved, fields } = await db.transaction(async (tx) => {
+    // Locked, so the secret-reuse check holds for the row that is replaced.
+    const [stored] = await tx
+      .select()
+      .from(environmentStorage)
+      .where(eq(environmentStorage.environmentId, environmentId))
+      .for("update");
+    if (!secretKey && (!stored || changesS3Location(stored, location))) {
+      await secretRequiredForLocationChange();
     }
+    const changed: string[] = LOCATION_FIELDS.filter(
+      (field) => !stored || stored[field] !== location[field]
+    );
+    if (secretKey) changed.push("secretKey");
+    const secretPatch = secretKey
+      ? { secretKey: encryptSecret(secretKey) }
+      : {};
+    const row = one(
+      await tx
+        .insert(environmentStorage)
+        .values({
+          environmentId,
+          ...location,
+          // A first save always has one (refused above otherwise).
+          secretKey: secretPatch.secretKey ?? "",
+        })
+        .onConflictDoUpdate({
+          target: environmentStorage.environmentId,
+          set: { ...location, ...secretPatch, updatedAt: sql`now()` },
+        })
+        .returning(),
+      "environment storage"
+    );
+    await drainLegacyConnections(tx, environmentId);
+    return { saved: row, fields: changed };
+  });
+
+  // An unchanged re-save without a new secret is no configuration change.
+  if (fields.length > 0) {
+    await recordActivity({
+      actorId: session.user.id,
+      action: "storage.configured",
+      entityType: "environment",
+      entityId: environmentId,
+      data: { environment, fields: fields.join(", ") },
+    });
   }
+  // Never restricted: the overlap check above refused those.
+  return toSafe(saved, false);
+}
+
+/**
+ * Removes the environment's storage. Always allowed to its managers, also
+ * for a config that has become restricted: removing exposes nothing.
+ */
+export async function removeEnvironmentStorage(
+  environmentId: string
+): Promise<void> {
+  const { session } = await requireManage(environmentId);
+  const environment = await nameOf(environmentId);
+  const removed = await db.transaction(async (tx) => {
+    const rows = await tx
+      .delete(environmentStorage)
+      .where(eq(environmentStorage.environmentId, environmentId))
+      .returning({ environmentId: environmentStorage.environmentId });
+    await drainLegacyConnections(tx, environmentId);
+    return rows.length > 0;
+  });
+  if (!removed) return;
+  await recordActivity({
+    actorId: session.user.id,
+    action: "storage.removed",
+    entityType: "environment",
+    entityId: environmentId,
+    data: { environment },
+  });
+}
+
+export type EnvironmentStorageTestResult =
+  | { ok: true }
+  // No secret typed and none stored to fall back on.
+  | { ok: false; code: "s3SecretRequiredForTest" }
+  // The S3 client's own error, the probe's answer (e.g. "NoSuchBucket").
+  | { ok: false; code: "s3ProbeFailed"; message: string };
+
+/**
+ * Probes form values without saving them, listing under the prefix as the
+ * explorer will. Without a typed secret the stored one is used, but only
+ * with its stored location (else the coded 400). Values inside the backup
+ * destination are never probed (409).
+ */
+export async function testEnvironmentStorage(
+  environmentId: string,
+  input: EnvironmentStorageInput
+): Promise<EnvironmentStorageTestResult> {
+  await requireManage(environmentId);
+  const location = await locationOf(input);
+  await refuseBackupDestinationOverlap(location);
+  let secretKey = input.secretKey || undefined;
   if (!secretKey) {
-    const t = await getServerTranslator("actionErrors");
-    return { ok: false, message: t("s3SecretRequiredForTest") };
+    const [stored] = await db
+      .select()
+      .from(environmentStorage)
+      .where(eq(environmentStorage.environmentId, environmentId))
+      .limit(1);
+    if (!stored) return { ok: false, code: "s3SecretRequiredForTest" as const };
+    if (changesS3Location(stored, location)) {
+      await secretRequiredForLocationChange();
+    }
+    secretKey = decryptSecret(stored.secretKey);
   }
-  return testS3Connection({ ...location, secretKey });
+  const result = await testS3Connection({ ...location, secretKey });
+  return result.ok
+    ? result
+    : { ok: false, code: "s3ProbeFailed" as const, message: result.message };
 }

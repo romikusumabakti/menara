@@ -5,9 +5,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // activity event for the signed-in user; failures and listings record none.
 
 const SERVER_ID = "0197f3a0-1b2c-7def-8000-000000000001";
-const BUCKET_ID = "0197f3a0-1b2c-7def-8000-0000000000b1";
+const ENV_ID = "0197f3a0-1b2c-7def-8000-0000000000b1";
 const sftp = { kind: "sftp", serverId: SERVER_ID } as const;
-const s3 = { kind: "s3", connectionId: BUCKET_ID } as const;
+const s3 = { kind: "s3", environmentId: ENV_ID } as const;
 
 const state = vi.hoisted(() => ({
   activity: [] as Record<string, unknown>[],
@@ -63,7 +63,7 @@ vi.mock("@/lib/explorer", () => {
   return {
     resolveBackend: async () => backend,
     targetName: async (source: { kind: string }) =>
-      source.kind === "s3" ? "assets-bucket" : "web-1",
+      source.kind === "s3" ? "ACME · Dev" : "web-1",
   };
 });
 
@@ -107,9 +107,9 @@ describe("explorer audit", () => {
       data: { target: "web-1", path: "etc/a.conf" },
     });
     expect(state.activity[2]).toMatchObject({
-      entityType: "s3Connection",
-      entityId: BUCKET_ID,
-      data: { target: "assets-bucket", path: "old.txt" },
+      entityType: "environment",
+      entityId: ENV_ID,
+      data: { target: "ACME · Dev", path: "old.txt" },
     });
     expect(state.activity[3]?.data).toEqual({
       target: "web-1",
@@ -182,7 +182,7 @@ describe("explorer audit", () => {
       expect.objectContaining({
         action: "files.download",
         actorId: "u1",
-        data: { target: "assets-bucket", path: "a.txt" },
+        data: { target: "ACME · Dev", path: "a.txt" },
       }),
     ]);
   });

@@ -13,7 +13,6 @@ import {
   Cog,
   Folder,
   FolderKanban,
-  HardDrive,
   KeyRound,
   Languages,
   LogOut,
@@ -374,15 +373,6 @@ export function CommandPalette({
               >
                 <Boxes />
                 {tNav("serviceCatalog")}
-              </CommandItem>
-            )}
-            {canOrg(orgRole, { storage: ["manage"] }) && (
-              <CommandItem
-                value="storage buckets s3 unassigned"
-                onSelect={() => run(() => router.push("/admin/storage"))}
-              >
-                <HardDrive />
-                {tNav("storage")}
               </CommandItem>
             )}
             {canOrg(orgRole, { instance: ["manage"] }) && (

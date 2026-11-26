@@ -36,6 +36,7 @@ import {
   type TeardownStep,
   teardownSteps,
 } from "@/lib/db/schema";
+import { drainLegacyConnections } from "@/lib/environment-storage";
 import { replaceSteps } from "@/lib/steps/replace-steps";
 import { holdEnvironmentExclusive } from "@/lib/teardown/guard";
 import { normaliseHost } from "@/lib/teardown/paths";
@@ -467,78 +468,90 @@ export async function deleteTeardownEnvironment(
   | { refusal: "environmentHasEscrowedVariables" }
   | null
 > {
-  return db.transaction(async (tx) => {
-    const [deleted] = await tx
-      .delete(environments)
-      .where(
-        escrowConfirmed
-          ? eq(environments.id, environmentId)
-          : and(
-              eq(environments.id, environmentId),
-              notExists(
-                tx
-                  .select({ id: environmentVariables.id })
-                  .from(environmentVariables)
-                  .where(
-                    and(
-                      eq(environmentVariables.environmentId, environmentId),
-                      eq(environmentVariables.escrow, true)
+  try {
+    return await db.transaction(async (tx) => {
+      // Before the row goes: its FK would only null environment_id.
+      await drainLegacyConnections(tx, environmentId);
+      const [deleted] = await tx
+        .delete(environments)
+        .where(
+          escrowConfirmed
+            ? eq(environments.id, environmentId)
+            : and(
+                eq(environments.id, environmentId),
+                notExists(
+                  tx
+                    .select({ id: environmentVariables.id })
+                    .from(environmentVariables)
+                    .where(
+                      and(
+                        eq(environmentVariables.environmentId, environmentId),
+                        eq(environmentVariables.escrow, true)
+                      )
                     )
-                  )
+                )
               )
-            )
-      )
-      .returning({ name: environments.name });
-    if (!deleted) {
-      const [still] = await tx
-        .select({ id: environments.id })
-        .from(environments)
-        .where(eq(environments.id, environmentId));
-      return still
-        ? { refusal: "environmentHasEscrowedVariables" as const }
-        : null;
-    }
-    const now = new Date();
-    const [closed] = await tx
-      .update(environmentArchives)
-      .set({
-        completedAt: now,
-        expiresAt: new Date(
-          now.getTime() + ENV_ARCHIVE_RETENTION_DAYS * DAY_MS
-        ),
-      })
-      .where(
-        and(
-          eq(environmentArchives.environmentId, environmentId),
-          isNull(environmentArchives.completedAt)
         )
-      )
-      .returning({ id: environmentArchives.id });
-    const [latest] = closed
-      ? [closed]
-      : await tx
-          .select({ id: environmentArchives.id })
-          .from(environmentArchives)
-          .where(eq(environmentArchives.environmentId, environmentId))
-          .orderBy(
-            desc(environmentArchives.createdAt),
-            desc(environmentArchives.id)
+        .returning({ name: environments.name });
+      if (!deleted) {
+        const [still] = await tx
+          .select({ id: environments.id })
+          .from(environments)
+          .where(eq(environments.id, environmentId));
+        // Refused: the drain above rolls back with it.
+        if (still) throw new EscrowRefused();
+        return null;
+      }
+      const now = new Date();
+      const [closed] = await tx
+        .update(environmentArchives)
+        .set({
+          completedAt: now,
+          expiresAt: new Date(
+            now.getTime() + ENV_ARCHIVE_RETENTION_DAYS * DAY_MS
+          ),
+        })
+        .where(
+          and(
+            eq(environmentArchives.environmentId, environmentId),
+            isNull(environmentArchives.completedAt)
           )
-          .limit(1);
-    const archiveId = latest?.id ?? null;
-    await tx.insert(activityLog).values({
-      actorId,
-      action: "environment.deleted",
-      entityType: "environment",
-      entityId: environmentId,
-      data: {
-        environment: deleted.name,
-        ...(archiveId ? { archiveId } : {}),
-      },
+        )
+        .returning({ id: environmentArchives.id });
+      const [latest] = closed
+        ? [closed]
+        : await tx
+            .select({ id: environmentArchives.id })
+            .from(environmentArchives)
+            .where(eq(environmentArchives.environmentId, environmentId))
+            .orderBy(
+              desc(environmentArchives.createdAt),
+              desc(environmentArchives.id)
+            )
+            .limit(1);
+      const archiveId = latest?.id ?? null;
+      await tx.insert(activityLog).values({
+        actorId,
+        action: "environment.deleted",
+        entityType: "environment",
+        entityId: environmentId,
+        data: {
+          environment: deleted.name,
+          ...(archiveId ? { archiveId } : {}),
+        },
+      });
+      return { environmentName: deleted.name, archiveId };
     });
-    return { environmentName: deleted.name, archiveId };
-  });
+  } catch (error) {
+    if (error instanceof EscrowRefused) {
+      return { refusal: "environmentHasEscrowedVariables" };
+    }
+    throw error;
+  }
 }
+
+// Thrown inside deleteTeardownEnvironment's transaction to roll it back.
+class EscrowRefused extends Error {}
 
 export async function environmentExists(
   environmentId: string

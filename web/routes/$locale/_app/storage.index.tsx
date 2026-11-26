@@ -1,11 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { redirect } from "@/i18n/navigation";
-import { legacyStorageIndexHref } from "./-components/storage-redirect";
+import { LEGACY_STORAGE_INDEX_HREF } from "./-components/storage-redirect";
 
-// The global Storage page is gone: connections live in their environment
-// (Admin › Storage for the unassigned ones). Old links land on the nearest
-// page the caller can open.
+// The global Storage page is gone: storage belongs to an environment. Old
+// links land on the projects page.
 export const Route = createFileRoute("/$locale/_app/storage/")({
-  beforeLoad: async ({ params: { locale }, context: { queryClient } }) =>
-    redirect(await legacyStorageIndexHref(queryClient), locale),
+  beforeLoad: ({ params: { locale } }) =>
+    redirect(LEGACY_STORAGE_INDEX_HREF, locale),
 });

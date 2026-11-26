@@ -1,0 +1,267 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "99334b3a-1c71-44af-a4bc-1e40df70eda7",
+  "prevIds": [
+    "0c0c6520-330f-439f-a962-926113748007"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "environment_storage"
+      ],
+      "writes": [
+        "s|tbl|public.environment_storage",
+        "n|tbl|public.environment_storage",
+        "e|tbl|public.environment_storage",
+        "n|rel|public.environment_storage",
+        "n|type|public.environment_storage",
+        "n|rel|public.environment_storage_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "environment_storage"
+      ],
+      "writes": [
+        "s|fk|public.environment_storage.environment_storage_environment_id_environments_id_fk",
+        "n|fk|public.environment_storage.environment_storage_environment_id_environments_id_fk",
+        "e|fk|public.environment_storage.environment_storage_environment_id_environments_id_fk",
+        "n|con|public.environment_storage.environment_storage_environment_id_environments_id_fk"
+      ],
+      "reads": [
+        "n|tbl|public.environment_storage",
+        "n|sch|public",
+        "n|tbl|public.environments",
+        "n|sch|public",
+        "n|col|public.environment_storage.environment_id",
+        "n|col|public.environments.id",
+        "e|uniqueness|public.environments.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "environment_storage",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "environment_storage",
+        "name": "environment_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "environment_storage",
+        "name": "endpoint",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "environment_storage",
+        "name": "region",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'us-east-1'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "environment_storage",
+        "name": "bucket",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "environment_storage",
+        "name": "key_prefix",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "environment_storage",
+        "name": "access_key_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "environment_storage",
+        "name": "secret_key",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "environment_storage",
+        "name": "force_path_style",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "true",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "environment_storage",
+        "name": "created_at",
+        "type": "timestamp",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "environment_storage",
+        "name": "updated_at",
+        "type": "timestamp",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "environment_storage",
+        "name": "environment_storage_environment_id_environments_id_fk",
+        "nameExplicit": true,
+        "columns": [
+          "environment_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "environments",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "environment_storage",
+        "name": "environment_storage_pkey",
+        "columns": [
+          "environment_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "environment_storage",
+        "name": "environment_storage_key_prefix_check",
+        "value": "\"key_prefix\" IS NULL OR (\"key_prefix\" <> '' AND left(\"key_prefix\", 1) <> '/' AND right(\"key_prefix\", 1) = '/')",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

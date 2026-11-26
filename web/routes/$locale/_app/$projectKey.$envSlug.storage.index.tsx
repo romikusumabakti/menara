@@ -1,66 +1,34 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Plus } from "lucide-react";
-import { useTranslations } from "use-intl";
-import { PageHeader } from "@/components/page-header";
-import { Button } from "@/components/ui/button";
-import { Link } from "@/i18n/navigation";
+import { FileExplorerSkeleton } from "@/components/skeletons/file-explorer-skeleton";
 import { SECTION_PERMS } from "@/lib/nav-path";
 import { canProject } from "@/lib/permissions";
 import { environmentStorageQuery } from "@/web/api/environment-storage";
+import { requireRole } from "@/web/project-guard";
 import { loaderQuery } from "@/web/query-client";
-import { StorageList } from "./-components/env/storage/storage-list";
-import { ListPending } from "./-components/list-pending";
+import { StorageExplorerPage } from "./-components/env/storage/storage-page";
 
-// An environment's storage connections. Anyone who sees the environment sees
-// the list; the controls follow the caller's role on the project.
+// The environment's Storage page is its file explorer. Reading objects takes
+// the variable-read right (the server checks it on every explorer request).
 export const Route = createFileRoute(
   "/$locale/_app/$projectKey/$envSlug/storage/"
 )({
+  beforeLoad: ({ context: { role } }) =>
+    requireRole(role, SECTION_PERMS.storage),
   loader: async ({ context: { queryClient, environmentId } }) => {
     await loaderQuery(queryClient, environmentStorageQuery(environmentId));
   },
-  pendingComponent: () => <ListPending />,
+  pendingComponent: FileExplorerSkeleton,
   component: StoragePage,
 });
 
 function StoragePage() {
   const { projectKey, envSlug } = Route.useParams();
   const { environmentId, role } = Route.useRouteContext();
-  const t = useTranslations("storage");
-  const connections = useSuspenseQuery(
-    environmentStorageQuery(environmentId)
-  ).data;
-  const basePath = `/${projectKey}/${envSlug}/storage`;
-  const canManage = canProject(role, SECTION_PERMS.settings);
-  // Browsing shows the bucket's objects, as reading the variables shows its
-  // secrets: both take the same project right.
-  const canBrowse = canProject(role, SECTION_PERMS.variables);
-
   return (
-    <>
-      <PageHeader
-        title={t("title")}
-        subtitle={t("subtitle")}
-        action={
-          canManage && connections.length > 0 ? (
-            <Button
-              nativeButton={false}
-              render={<Link href={`${basePath}/new`} />}
-            >
-              <Plus className="size-4" />
-              {t("addConnection")}
-            </Button>
-          ) : undefined
-        }
-      />
-      <StorageList
-        environmentId={environmentId}
-        basePath={basePath}
-        connections={connections}
-        canManage={canManage}
-        canBrowse={canBrowse}
-      />
-    </>
+    <StorageExplorerPage
+      environmentId={environmentId}
+      canManage={canProject(role, SECTION_PERMS.settings)}
+      settingsHref={`/${projectKey}/${envSlug}/settings?tab=storage`}
+    />
   );
 }

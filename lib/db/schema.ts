@@ -553,6 +553,42 @@ export const environmentMailpit = pgTable("environment_mailpit", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// The one S3-compatible bucket of an environment: 1:1, row present = storage
+// configured. Same reasoning as environment_mailpit for being a separate table:
+// whole environment rows reach the client, and `secretKey` must not.
+export const environmentStorage = pgTable(
+  "environment_storage",
+  {
+    environmentId: uuid("environment_id")
+      .primaryKey()
+      .references(() => environments.id, {
+        name: "environment_storage_environment_id_environments_id_fk",
+        onDelete: "cascade",
+      }),
+    endpoint: text("endpoint").notNull(),
+    region: text("region").notNull().default("us-east-1"),
+    bucket: text("bucket").notNull(),
+    // The part of the bucket this storage is confined to: no leading "/",
+    // ends in "/" (e.g. "team-a/"); null = the whole bucket.
+    keyPrefix: text("key_prefix"),
+    accessKeyId: text("access_key_id").notNull(),
+    // An `enc:v1:` envelope (encryptSecret; rows copied from legacy
+    // s3_connections may still hold plaintext, which decryptSecret passes
+    // through). Never crosses the server/client boundary (SafeEnvironmentStorage).
+    secretKey: text("secret_key").notNull(),
+    // Path-style addressing; required by Garage and most self-hosted S3.
+    forcePathStyle: boolean("force_path_style").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    check(
+      "environment_storage_key_prefix_check",
+      sql`${t.keyPrefix} IS NULL OR (${t.keyPrefix} <> '' AND left(${t.keyPrefix}, 1) <> '/' AND right(${t.keyPrefix}, 1) = '/')`
+    ),
+  ]
+);
+
 export const runStatusEnum = pgEnum("run_status", [
   "started",
   "success",
@@ -2187,7 +2223,7 @@ export const invitations = pgTable(
 // targets an admin points the explorer at (Garage, real S3, SeaweedFS, Ceph…).
 // Each one belongs to an environment (its application bucket); one without
 // an environment is "unassigned" and admin-only. `secretKey` never crosses
-// the server/client boundary (see SafeS3Connection).
+// the server/client boundary.
 export const s3Connections = pgTable(
   "s3_connections",
   {
@@ -2797,6 +2833,8 @@ export type EnvironmentSummaryWithOwner = EnvironmentSummary & {
 export type EnvironmentListItem = EnvironmentSummary & {
   key: string;
   hasMailpit: boolean;
+  // An environment_storage row exists (drives the sidebar's Storage entry).
+  hasStorage: boolean;
   // Roles of the services the environment has (backend always; db and
   // frontend optional). Drives which sidebar sections are shown.
   serviceRoles: ("db" | "backend" | "frontend")[];
@@ -2882,13 +2920,14 @@ export type NewInvitation = InferInsertModel<typeof invitations>;
 export type S3Connection = InferSelectModel<typeof s3Connections>;
 export type NewS3Connection = InferInsertModel<typeof s3Connections>;
 
-// Credential-free projection handed to the client. `secretKey` must never cross
-// the server/client boundary (RSC payloads are visible in the browser). Server
-// code loads the full row; anything passed to a client component is sanitized
-// to this shape first. `hasSecret` lets edit forms show a "leave blank to keep"
-// affordance without ever receiving the secret. `isBackupDestination` marks the
-// instance backup bucket, a restricted target (lib/restricted-targets).
-export type SafeS3Connection = Omit<S3Connection, "secretKey"> & {
+export type EnvironmentStorage = InferSelectModel<typeof environmentStorage>;
+export type NewEnvironmentStorage = InferInsertModel<typeof environmentStorage>;
+// Credential-free projection handed to the client: `secretKey` never crosses
+// the server/client boundary; `hasSecret` lets the form show a "leave blank
+// to keep" affordance without receiving it. `isBackupDestination` marks a
+// storage reaching into the instance backup destination, a restricted target
+// (lib/restricted-targets).
+export type SafeEnvironmentStorage = Omit<EnvironmentStorage, "secretKey"> & {
   hasSecret: boolean;
   isBackupDestination: boolean;
 };

@@ -7,6 +7,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // leaves an activity entry (names and count, never values). Releases are
 // never cascaded (their files live in Garage): a project with releases is
 // refused (409 projectHasReleases) for everyone until they are deleted.
+// Each environment's old s3_connections rows are drained inside the delete's
+// transaction, before the cascade, and a refused delete rolls them back.
 
 const PROJECT_ID = "0197f3a0-1b2c-7def-8000-0123456789f1";
 const ENV_A = "0197f3a0-1b2c-7def-8000-0123456789e1";
@@ -32,6 +34,10 @@ const state = vi.hoisted(() => ({
   deleteError: null as unknown,
   deletes: 0,
   activity: [] as unknown[],
+  // drainLegacyConnections calls: the environment, whether inside the
+  // transaction, and how many project deletes had run by then.
+  drained: [] as { id: string; inTx: boolean; deletesBefore: number }[],
+  rolledBack: false,
 }));
 
 vi.mock("@/lib/auth-session", () => ({
@@ -54,6 +60,15 @@ vi.mock("@/lib/authz", async (importOriginal) => ({
 vi.mock("@/lib/activity", () => ({
   recordActivity: async (entry: unknown) => {
     state.activity.push(entry);
+  },
+}));
+vi.mock("@/lib/environment-storage", () => ({
+  drainLegacyConnections: async (tx: { inTx?: boolean }, id: string) => {
+    state.drained.push({
+      id,
+      inTx: tx.inTx === true,
+      deletesBefore: state.deletes,
+    });
   },
 }));
 vi.mock("@/server/i18n", () => ({
@@ -105,6 +120,7 @@ vi.mock("@/lib/db", async () => {
     };
   };
   const tx = {
+    inTx: true,
     select,
     delete: remove,
     // The environment locks (pg_advisory_xact_lock on each id).
@@ -120,7 +136,14 @@ vi.mock("@/lib/db", async () => {
     db: {
       select,
       delete: remove,
-      transaction: async (fn: (t: typeof tx) => unknown) => fn(tx),
+      transaction: async (fn: (t: typeof tx) => unknown) => {
+        try {
+          return await fn(tx);
+        } catch (error) {
+          state.rolledBack = true;
+          throw error;
+        }
+      },
     },
   };
 });
@@ -139,6 +162,8 @@ beforeEach(() => {
   state.deleteError = null;
   state.deletes = 0;
   state.activity = [];
+  state.drained = [];
+  state.rolledBack = false;
 });
 
 describe("removeProject and escrowed variables", () => {
@@ -301,5 +326,31 @@ describe("removeProject and Assistant database logins", () => {
     state.environments = [{ id: ENV_A }, { id: ENV_B }];
     expect(await removeProject(PROJECT_ID)).toMatchObject({ success: true });
     expect(state.locked).toEqual([ENV_A, ENV_B]);
+  });
+});
+
+describe("removeProject and the environments' old connections", () => {
+  it("drains each environment inside the transaction, before the delete", async () => {
+    state.environments = [{ id: ENV_A }, { id: ENV_B }];
+    expect(await removeProject(PROJECT_ID)).toMatchObject({ success: true });
+    expect(state.drained).toEqual([
+      { id: ENV_A, inTx: true, deletesBefore: 0 },
+      { id: ENV_B, inTx: true, deletesBefore: 0 },
+    ]);
+    expect(state.deletes).toBe(1);
+    expect(state.rolledBack).toBe(false);
+  });
+
+  it("rolls the drains back when the guarded delete matches nothing", async () => {
+    state.environments = [{ id: ENV_A }];
+    state.deleted = [];
+    state.rows = [
+      { environmentId: ENV_A, environment: "Dev", name: "APP", escrow: false },
+    ];
+    await expect(removeProject(PROJECT_ID)).rejects.toMatchObject({
+      status: 409,
+    });
+    expect(state.drained).toHaveLength(1);
+    expect(state.rolledBack).toBe(true);
   });
 });

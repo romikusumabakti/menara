@@ -1,7 +1,7 @@
 import { Readable } from "node:stream";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// An environment's storage connection is confined to bucket + key prefix:
+// An environment's storage is confined to bucket + key prefix:
 // every key the explorer reads, writes, deletes or lists is resolved under
 // the prefix, the client only ever sees paths relative to it, and a path that
 // could name a key outside it is refused before any request leaves. The S3
@@ -45,10 +45,9 @@ vi.mock("@aws-sdk/s3-request-presigner", () => ({
 const { createS3Backend, testS3Connection } = await import("@/lib/explorer/s3");
 const { PathError } = await import("@/lib/explorer/path");
 
+// An environment_storage row, as resolveBackend hands it over.
 const connection = (keyPrefix: string | null) => ({
-  id: "0197f3a0-1b2c-7def-8000-0000000000c1",
-  name: "Team A files",
-  environmentId: null,
+  environmentId: "0197f3a0-1b2c-7def-8000-0000000000e1",
   endpoint: "https://objects.example.test",
   region: "us-east-1",
   bucket: "fictional-bucket",

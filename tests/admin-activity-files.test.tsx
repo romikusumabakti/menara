@@ -339,12 +339,19 @@ describe("activity page storage events", () => {
         name: "Old bucket",
         environment: "Heron QA",
       }),
+      row("6", "storage.configured", {
+        environment: "Kestrel · QA",
+        fields: "bucket, secretKey",
+      }),
+      row("7", "storage.removed", { environment: "Kestrel · QA" }),
     ]);
     expect(text).toContain("Rina added the storage Uploads to Kestrel QA");
     expect(text).toContain("Rina updated the storage Uploads of Kestrel QA");
     expect(text).toContain("Rina removed the storage Uploads from Kestrel QA");
     expect(text).toContain("Rina deleted the unassigned storage Old bucket");
     expect(text).toContain("Rina assigned the storage Old bucket to Heron QA");
+    expect(text).toContain("Rina configured the storage of Kestrel · QA");
+    expect(text).toContain("Rina removed the storage of Kestrel · QA");
     expect(text).not.toContain("storage.");
   });
 });

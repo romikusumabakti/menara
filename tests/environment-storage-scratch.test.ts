@@ -15,12 +15,16 @@ import {
 // Storage per environment against a real Postgres: a throwaway database in the
 // local menara-postgres container (superuser password read from the
 // container, never printed), migrated with `menara migrate` and dropped
-// afterwards. Covers who may list, add, edit, delete and test an
-// environment's connections (view = sees the environment, manage = edits its
-// settings), that an environment the caller can't see answers 404 however the
-// ids are combined, that secrets never come back, the admin assignment of
-// unassigned connections, the activity rows, and the explorer's access rule
-// for a connection (its environment's rights; unassigned = admin only).
+// afterwards. Covers who may read, save, remove and test an environment's
+// one storage (view = sees the environment, manage = edits its settings +
+// a strong sign-in), that an environment the caller can't see answers 404,
+// that secrets never come back and stay with their location, the backup
+// destination refusals, the activity rows, that saves, removes, both
+// environment deletes and the project delete drain the environment's old
+// s3_connections rows (detaching those an archive or the legacy backup
+// setting still names), the
+// removal of the admin handling of unassigned connections, and the explorer's
+// access rule for an environment's storage (that environment's rights).
 //
 //   ENVIRONMENT_STORAGE_SCRATCH=1 env -u SECRETS_KEY bun --bun vitest run tests/environment-storage-scratch.test.ts
 const enabled = process.env.ENVIRONMENT_STORAGE_SCRATCH === "1";
@@ -126,8 +130,18 @@ const stored = (id: string) => ({
   keyPrefix: id === CONN_A ? "team-a/" : "team-b/",
 });
 
+// The same location as environment_storage columns.
+const storedColumns = (id: string) => {
+  const { accessKeyId, keyPrefix, forcePathStyle, ...rest } = stored(id);
+  return {
+    ...rest,
+    access_key_id: accessKeyId,
+    key_prefix: keyPrefix,
+    force_path_style: forcePathStyle,
+  };
+};
+
 const input = (over: Record<string, unknown> = {}) => ({
-  name: "Uploads",
   endpoint: "https://objects.example.test",
   region: "us-east-1",
   bucket: "fictional-app-bucket",
@@ -164,6 +178,18 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
     >`select name, environment_id, key_prefix, secret_key
       from s3_connections where id = ${id}`;
     return row;
+  };
+  const storageRow = async (environmentId: string) => {
+    const [row] = await sql<
+      { key_prefix: string | null; bucket: string; secret_key: string }[]
+    >`select key_prefix, bucket, secret_key from environment_storage
+      where environment_id = ${environmentId}`;
+    return row;
+  };
+  // After a delete test: ENV_A back (its rows come back in beforeEach).
+  const restoreEnvA = async () => {
+    await sql`insert into environments (id, project_id, name, slug) values
+      (${ENV_A}, ${PROJECT_A}, 'Kestrel QA', 'qa')`;
   };
 
   beforeAll(async () => {
@@ -278,6 +304,19 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
       row(CONN_FREE, "Old bucket", null, null, "fictional-secret-free"),
       row(CONN_BACKUP, "Menara backups", null, null, "fictional-secret-backup"),
     ])}`;
+    await sql`delete from environment_storage`;
+    await sql`insert into environment_storage ${sql([
+      {
+        environment_id: ENV_A,
+        ...storedColumns(CONN_A),
+        secret_key: encryptSecret(SECRET_A),
+      },
+      {
+        environment_id: ENV_B,
+        ...storedColumns(CONN_B),
+        secret_key: encryptSecret(SECRET_B),
+      },
+    ])}`;
     await sql`insert into instance_settings (id, backup_destination_id)
       values (1, ${CONN_BACKUP})
       on conflict (id) do update set backup_destination_id = ${CONN_BACKUP}`;
@@ -287,130 +326,110 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
   });
 
   describe("viewing an environment's storage", () => {
-    it("lists the environment's connections without secrets", async () => {
+    it("answers the environment's one storage without its secret", async () => {
       for (const [id, role] of [
         [ENGINEER, "engineer"],
         [QA, "qa"],
       ] as const) {
         as(id, role);
-        const rows = await svc.listEnvironmentStorage(ENV_A);
-        expect(rows.map((r) => r.id)).toEqual([CONN_A]);
-        expect(rows[0]).toMatchObject({
-          name: "Kestrel files",
+        const got = await svc.getEnvironmentStorage(ENV_A);
+        expect(got).toMatchObject({
           environmentId: ENV_A,
           keyPrefix: "team-a/",
           hasSecret: true,
           isBackupDestination: false,
         });
-        expect(rows[0]).not.toHaveProperty("secretKey");
-        expect(JSON.stringify(rows)).not.toContain(SECRET_A);
-        expect(JSON.stringify(rows)).not.toContain("enc:v1:");
+        expect(got).not.toHaveProperty("secretKey");
+        expect(JSON.stringify(got)).not.toContain(SECRET_A);
+        expect(JSON.stringify(got)).not.toContain("enc:v1:");
       }
       // A sibling environment of the same project has none of its own.
-      expect(await svc.listEnvironmentStorage(ENV_A2)).toEqual([]);
+      expect(await svc.getEnvironmentStorage(ENV_A2)).toBeNull();
     });
 
     it("answers 404 for an environment the caller can't see", async () => {
-      expect(await refusal(svc.listEnvironmentStorage(ENV_B))).toMatchObject({
+      expect(await refusal(svc.getEnvironmentStorage(ENV_B))).toMatchObject({
         status: 404,
       });
-      expect(
-        await refusal(svc.getEnvironmentStorage(ENV_B, CONN_B))
-      ).toMatchObject({ status: 404 });
-      expect(await refusal(svc.listEnvironmentStorage(MISSING))).toMatchObject({
+      expect(await refusal(svc.getEnvironmentStorage(MISSING))).toMatchObject({
         status: 404,
       });
       // staff is a member of Heron but sees no project at all.
       as(STAFF, "staff");
-      expect(await refusal(svc.listEnvironmentStorage(ENV_B))).toMatchObject({
+      expect(await refusal(svc.getEnvironmentStorage(ENV_B))).toMatchObject({
         status: 404,
       });
     });
 
-    it("answers 404 for a connection of another environment under a visible one", async () => {
-      expect(
-        await refusal(svc.getEnvironmentStorage(ENV_A, CONN_B))
-      ).toMatchObject({ status: 404 });
-      expect(
-        await refusal(svc.getEnvironmentStorage(ENV_A2, CONN_A))
-      ).toMatchObject({ status: 404 });
-      expect(
-        await refusal(svc.getEnvironmentStorage(ENV_A, CONN_FREE))
-      ).toMatchObject({ status: 404 });
-      const got = await svc.getEnvironmentStorage(ENV_A, CONN_A);
-      expect(got.id).toBe(CONN_A);
-      expect(got).not.toHaveProperty("secretKey");
-    });
-
-    it("serves the list over the API with the same answers", async () => {
+    it("serves it over the API with the same answers", async () => {
       const ok = await app.request(`/api/environments/${ENV_A}/storage`);
       expect(ok.status).toBe(200);
       const body = await ok.text();
-      expect(body).toContain(CONN_A);
+      expect(body).toContain(ENV_A);
       expect(body).not.toContain(SECRET_A);
       expect(body).not.toContain("secretKey");
+      const unset = await app.request(`/api/environments/${ENV_A2}/storage`);
+      expect(await unset.json()).toBeNull();
       const hidden = await app.request(`/api/environments/${ENV_B}/storage`);
       expect(hidden.status).toBe(404);
-      const crossed = await app.request(
-        `/api/environments/${ENV_A}/storage/${CONN_B}`
+      // The per-connection routes are gone.
+      const old = await app.request(
+        `/api/environments/${ENV_A}/storage/${CONN_A}`
       );
-      expect(crossed.status).toBe(404);
+      expect(old.status).toBe(404);
     });
   });
 
   describe("managing an environment's storage", () => {
-    it("never moves a connection to another environment through an edit", async () => {
-      const res = await app.request(
-        `/api/environments/${ENV_A}/storage/${CONN_A}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: "Moved?", environmentId: ENV_A2 }),
-        }
-      );
-      expect(res.status).toBe(200);
-      const body = await res.text();
-      expect(body).not.toContain(SECRET_A);
-      expect(body).not.toContain("secretKey");
-      expect(await connection(CONN_A)).toMatchObject({
-        name: "Moved?",
-        environment_id: ENV_A,
-      });
-      const created = await app.request(`/api/environments/${ENV_A}/storage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...input(), environmentId: ENV_B }),
-      });
-      expect(created.status).toBe(200);
-      const { id } = (await created.json()) as { id: string };
-      expect((await connection(id))?.environment_id).toBe(ENV_A);
-    });
-
-    it("creates a connection with a normalised prefix and an encrypted secret", async () => {
-      const created = await svc.createEnvironmentStorage(
-        ENV_A,
+    it("saves a first storage with a normalised prefix and an encrypted secret, draining the old rows", async () => {
+      const saved = await svc.saveEnvironmentStorage(
+        ENV_A2,
         input({ keyPrefix: "  /uploads/2026 " })
       );
-      expect(created).toMatchObject({
-        name: "Uploads",
-        environmentId: ENV_A,
+      expect(saved).toMatchObject({
+        environmentId: ENV_A2,
         keyPrefix: "uploads/2026/",
         hasSecret: true,
       });
-      expect(created).not.toHaveProperty("secretKey");
-      expect(JSON.stringify(created)).not.toContain("fictional-secret-new");
-      const stored = await connection(created.id);
-      expect(stored?.secret_key.startsWith("enc:v1:")).toBe(true);
-      expect(decryptSecret(stored?.secret_key ?? "")).toBe(
+      expect(saved).not.toHaveProperty("secretKey");
+      expect(JSON.stringify(saved)).not.toContain("fictional-secret-new");
+      const row = await storageRow(ENV_A2);
+      expect(row?.secret_key.startsWith("enc:v1:")).toBe(true);
+      expect(decryptSecret(row?.secret_key ?? "")).toBe(
         "fictional-secret-new-55aa"
       );
-      const rows = await activity("storage.created");
-      expect(rows).toEqual([
+      // ENV_A's old connection stays: only the saved environment is drained.
+      expect(await connection(CONN_A)).toBeDefined();
+      await svc.saveEnvironmentStorage(ENV_A, {
+        ...stored(CONN_A),
+        secretKey: undefined,
+      });
+      expect(await connection(CONN_A)).toBeUndefined();
+      expect(await connection(CONN_B)).toBeDefined();
+      expect(await activity("storage.configured")).toEqual([
         {
-          entity_id: created.id,
-          data: { name: "Uploads", environment: "Kestrel QA" },
+          entity_id: ENV_A2,
+          data: {
+            environment: "Kestrel · UAT",
+            fields:
+              "endpoint, region, bucket, keyPrefix, accessKeyId, forcePathStyle, secretKey",
+          },
         },
+        // ENV_A's unchanged re-save records nothing.
       ]);
+    });
+
+    it("never writes another environment's row through the body", async () => {
+      const res = await app.request(`/api/environments/${ENV_A}/storage`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...input(), environmentId: ENV_B }),
+      });
+      expect(res.status).toBe(200);
+      expect(await res.text()).not.toContain("fictional-secret-new");
+      expect(decryptSecret((await storageRow(ENV_B))?.secret_key ?? "")).toBe(
+        SECRET_B
+      );
     });
 
     it.each([
@@ -423,139 +442,77 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
       "．．",
     ])("refuses the prefix %j with a coded 400", async (keyPrefix) => {
       expect(
-        await refusal(svc.createEnvironmentStorage(ENV_A, input({ keyPrefix })))
+        await refusal(svc.saveEnvironmentStorage(ENV_A, input({ keyPrefix })))
       ).toEqual({ status: 400, code: "s3KeyPrefixInvalid" });
-      expect(
-        await refusal(
-          svc.updateEnvironmentStorage(ENV_A, CONN_A, { keyPrefix })
-        )
-      ).toEqual({ status: 400, code: "s3KeyPrefixInvalid" });
-      expect((await connection(CONN_A))?.key_prefix).toBe("team-a/");
-      const [{ n } = { n: -1 }] = await sql<{ n: number }[]>`
-        select count(*)::int as n from s3_connections`;
-      expect(n).toBe(4);
+      expect((await storageRow(ENV_A))?.key_prefix).toBe("team-a/");
     });
 
-    it("updates a connection, keeping the stored secret when none is sent", async () => {
-      const updated = await svc.updateEnvironmentStorage(ENV_A, CONN_A, {
-        name: "Kestrel uploads",
-        keyPrefix: "team-a",
-      });
-      expect(updated).toMatchObject({
-        name: "Kestrel uploads",
-        keyPrefix: "team-a/",
-      });
-      expect(updated).not.toHaveProperty("secretKey");
-      const stored = await connection(CONN_A);
-      expect(decryptSecret(stored?.secret_key ?? "")).toBe(SECRET_A);
-      expect(stored?.environment_id).toBe(ENV_A);
-      await svc.updateEnvironmentStorage(ENV_A, CONN_A, {
-        secretKey: "fictional-secret-rotated",
-      });
-      const rotated = await connection(CONN_A);
-      expect(rotated?.secret_key.startsWith("enc:v1:")).toBe(true);
-      expect(decryptSecret(rotated?.secret_key ?? "")).toBe(
-        "fictional-secret-rotated"
-      );
-      const rows = await activity("storage.updated");
-      expect(rows.map((r) => r.data)).toEqual([
-        { name: "Kestrel uploads", environment: "Kestrel QA" },
-        { name: "Kestrel uploads", environment: "Kestrel QA" },
-      ]);
-      expect(JSON.stringify(rows)).not.toContain("fictional-secret");
-    });
-
-    it("deletes a connection of the environment", async () => {
-      await svc.deleteEnvironmentStorage(ENV_A, CONN_A);
+    it("removes the storage and the old rows", async () => {
+      await svc.removeEnvironmentStorage(ENV_A);
+      expect(await storageRow(ENV_A)).toBeUndefined();
       expect(await connection(CONN_A)).toBeUndefined();
-      expect(await activity("storage.deleted")).toEqual([
-        {
-          entity_id: CONN_A,
-          data: { name: "Kestrel files", environment: "Kestrel QA" },
-        },
+      expect(await activity("storage.removed")).toEqual([
+        { entity_id: ENV_A, data: { environment: "Kestrel · QA" } },
       ]);
+      // Removing nothing is fine and records nothing.
+      await svc.removeEnvironmentStorage(ENV_A);
+      expect(await activity("storage.removed")).toHaveLength(1);
     });
 
     it("refuses QA (view only) with a 403", async () => {
       as(QA, "qa");
-      expect(
-        await refusal(svc.createEnvironmentStorage(ENV_A, input()))
-      ).toMatchObject({ status: 403 });
-      expect(
-        await refusal(
-          svc.updateEnvironmentStorage(ENV_A, CONN_A, { name: "x" })
-        )
-      ).toMatchObject({ status: 403 });
-      expect(
-        await refusal(svc.deleteEnvironmentStorage(ENV_A, CONN_A))
-      ).toMatchObject({ status: 403 });
-      expect(
-        await refusal(
+      for (const call of [
+        () => svc.saveEnvironmentStorage(ENV_A, input()),
+        () => svc.removeEnvironmentStorage(ENV_A),
+        () =>
           svc.testEnvironmentStorage(ENV_A, {
-            ...input(),
+            ...stored(CONN_A),
             secretKey: undefined,
-            connectionId: CONN_A,
-          })
-        )
-      ).toMatchObject({ status: 403 });
-      expect((await connection(CONN_A))?.name).toBe("Kestrel files");
+          }),
+      ]) {
+        expect(await refusal(call())).toMatchObject({ status: 403 });
+      }
+      expect((await storageRow(ENV_A))?.key_prefix).toBe("team-a/");
     });
 
     it("refuses a weak sign-in for every change", async () => {
       as(ENGINEER, "engineer", "password");
-      expect(
-        await refusal(svc.createEnvironmentStorage(ENV_A, input()))
-      ).toMatchObject({ status: 403, code: "strong_sign_in_required" });
-      expect(
-        await refusal(svc.deleteEnvironmentStorage(ENV_A, CONN_A))
-      ).toMatchObject({ status: 403, code: "strong_sign_in_required" });
+      for (const call of [
+        () => svc.saveEnvironmentStorage(ENV_A, input()),
+        () => svc.removeEnvironmentStorage(ENV_A),
+        () => svc.testEnvironmentStorage(ENV_A, input()),
+      ]) {
+        expect(await refusal(call())).toMatchObject({
+          status: 403,
+          code: "strong_sign_in_required",
+        });
+      }
       // Reading is fine.
-      expect(await svc.listEnvironmentStorage(ENV_A)).toHaveLength(1);
+      expect(await svc.getEnvironmentStorage(ENV_A)).not.toBeNull();
     });
 
-    it("answers 404 for every change aimed at an invisible environment or a foreign connection", async () => {
-      expect(
-        await refusal(svc.createEnvironmentStorage(ENV_B, input()))
-      ).toMatchObject({ status: 404 });
-      for (const [env, conn] of [
-        [ENV_B, CONN_B],
-        [ENV_A, CONN_B],
-        [ENV_A2, CONN_A],
-        [ENV_A, CONN_FREE],
-        [ENV_A, CONN_BACKUP],
-        [ENV_A, MISSING],
-      ] as const) {
+    it("answers 404 for every change aimed at an invisible environment", async () => {
+      for (const env of [ENV_B, MISSING]) {
         expect(
-          await refusal(
-            svc.updateEnvironmentStorage(env, conn, { name: "Taken" })
-          )
+          await refusal(svc.saveEnvironmentStorage(env, input()))
         ).toMatchObject({ status: 404 });
+        expect(await refusal(svc.removeEnvironmentStorage(env))).toMatchObject({
+          status: 404,
+        });
         expect(
-          await refusal(svc.deleteEnvironmentStorage(env, conn))
-        ).toMatchObject({ status: 404 });
-        expect(
-          await refusal(
-            svc.testEnvironmentStorage(env, {
-              ...input(),
-              secretKey: undefined,
-              connectionId: conn,
-            })
-          )
+          await refusal(svc.testEnvironmentStorage(env, input()))
         ).toMatchObject({ status: 404 });
       }
-      expect((await connection(CONN_B))?.name).toBe("Heron files");
-      expect((await connection(CONN_FREE))?.name).toBe("Old bucket");
+      expect(await storageRow(ENV_B)).toBeDefined();
       expect(s3.probes).toEqual([]);
-      expect(await activity("storage.updated")).toEqual([]);
-      expect(await activity("storage.deleted")).toEqual([]);
+      expect(await activity("storage.configured")).toEqual([]);
     });
 
-    it("tests a saved connection with its stored secret and the prefix", async () => {
+    it("tests the saved storage with its stored secret and the prefix", async () => {
       const result = await svc.testEnvironmentStorage(ENV_A, {
         ...stored(CONN_A),
         keyPrefix: " /team-a",
         secretKey: undefined,
-        connectionId: CONN_A,
       });
       expect(result).toEqual({ ok: true });
       expect(s3.probes).toEqual([
@@ -567,12 +524,17 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
       ]);
       expect(
         await refusal(
-          svc.testEnvironmentStorage(ENV_A, {
-            ...input({ keyPrefix: "../x" }),
-            connectionId: CONN_A,
-          })
+          svc.testEnvironmentStorage(ENV_A, input({ keyPrefix: "../x" }))
         )
       ).toEqual({ status: 400, code: "s3KeyPrefixInvalid" });
+      // Nothing stored and nothing typed: a coded answer, no probe.
+      expect(
+        await svc.testEnvironmentStorage(ENV_A2, {
+          ...input(),
+          secretKey: undefined,
+        })
+      ).toEqual({ ok: false, code: "s3SecretRequiredForTest" });
+      expect(s3.probes).toHaveLength(1);
     });
   });
 
@@ -586,45 +548,40 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
       ["accessKeyId", "AKSOMEONEELSE"],
       ["forcePathStyle", false],
     ])("refuses changing %s without a new secret", async (field, value) => {
-      expect(
-        await refusal(
-          svc.updateEnvironmentStorage(ENV_A, CONN_A, { [field]: value })
-        )
-      ).toEqual({ status: 400, code: "s3SecretRequiredForLocationChange" });
-      const row = await connection(CONN_A);
+      const moved = { ...stored(CONN_A), [field]: value, secretKey: undefined };
+      expect(await refusal(svc.saveEnvironmentStorage(ENV_A, moved))).toEqual({
+        status: 400,
+        code: "s3SecretRequiredForLocationChange",
+      });
+      const row = await storageRow(ENV_A);
       expect(row?.key_prefix).toBe("team-a/");
       expect(decryptSecret(row?.secret_key ?? "")).toBe(SECRET_A);
       // The probe pairs the stored secret only with the stored location.
-      expect(
-        await refusal(
-          svc.testEnvironmentStorage(ENV_A, {
-            ...stored(CONN_A),
-            [field]: value,
-            connectionId: CONN_A,
-          })
-        )
-      ).toEqual({ status: 400, code: "s3SecretRequiredForLocationChange" });
+      expect(await refusal(svc.testEnvironmentStorage(ENV_A, moved))).toEqual({
+        status: 400,
+        code: "s3SecretRequiredForLocationChange",
+      });
       expect(s3.probes).toEqual([]);
     });
 
     it("accepts a location change that brings its own secret", async () => {
-      const updated = await svc.updateEnvironmentStorage(ENV_A, CONN_A, {
+      const saved = await svc.saveEnvironmentStorage(ENV_A, {
+        ...stored(CONN_A),
         keyPrefix: "team-a/archive",
         bucket: "fictional-other-bucket",
         secretKey: "fictional-secret-for-other",
       });
-      expect(updated).toMatchObject({
+      expect(saved).toMatchObject({
         keyPrefix: "team-a/archive/",
         bucket: "fictional-other-bucket",
       });
-      expect(decryptSecret((await connection(CONN_A))?.secret_key ?? "")).toBe(
+      expect(decryptSecret((await storageRow(ENV_A))?.secret_key ?? "")).toBe(
         "fictional-secret-for-other"
       );
       await svc.testEnvironmentStorage(ENV_A, {
         ...stored(CONN_A),
         bucket: "fictional-third-bucket",
         secretKey: "fictional-typed-secret",
-        connectionId: CONN_A,
       });
       expect(s3.probes).toEqual([
         expect.objectContaining({
@@ -634,49 +591,238 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
       ]);
     });
 
-    it("keeps the secret on a name-only edit or an unchanged re-save", async () => {
-      await svc.updateEnvironmentStorage(ENV_A, CONN_A, { name: "Renamed" });
-      await svc.updateEnvironmentStorage(ENV_A, CONN_A, {
+    it("keeps the secret on an unchanged re-save", async () => {
+      await svc.saveEnvironmentStorage(ENV_A, {
         ...stored(CONN_A),
         keyPrefix: "/team-a",
-        name: "Renamed again",
+        secretKey: "",
       });
-      const row = await connection(CONN_A);
-      expect(row?.name).toBe("Renamed again");
-      expect(decryptSecret(row?.secret_key ?? "")).toBe(SECRET_A);
+      expect(decryptSecret((await storageRow(ENV_A))?.secret_key ?? "")).toBe(
+        SECRET_A
+      );
     });
   });
 
-  describe("the instance backup destination", () => {
-    it("is never edited, deleted or probed as environment storage", async () => {
-      // A destination saved onto an environment's connection before the
-      // picker refused them.
-      await sql`update s3_connections set environment_id = ${ENV_A}
-        where id = ${CONN_BACKUP}`;
-      expect(
-        await refusal(
-          svc.updateEnvironmentStorage(ENV_A, CONN_BACKUP, { name: "x" })
-        )
-      ).toEqual({ status: 409, code: "s3BackupDestinationRestricted" });
-      expect(
-        await refusal(svc.deleteEnvironmentStorage(ENV_A, CONN_BACKUP))
-      ).toEqual({ status: 409, code: "s3BackupDestinationRestricted" });
-      expect(
-        await refusal(
-          svc.testEnvironmentStorage(ENV_A, {
-            ...stored(CONN_A),
-            keyPrefix: null,
-            accessKeyId: "AKMENARABACKUPS",
-            connectionId: CONN_BACKUP,
-          })
-        )
-      ).toEqual({ status: 409, code: "s3BackupDestinationRestricted" });
-      expect(await connection(CONN_BACKUP)).toMatchObject({
-        name: "Menara backups",
-      });
-      expect(s3.probes).toEqual([]);
+  describe("environment deletes drain the old rows", () => {
+    it("the row-only delete removes the environment's s3_connections rows", async () => {
+      const { deleteEnvironment } = await import(
+        "@/server/services/environments"
+      );
+      as(ADMIN, "admin");
+      expect(await deleteEnvironment(ENV_A)).toMatchObject({ success: true });
+      // Not left behind with a nulled environment_id.
+      expect(await connection(CONN_A)).toBeUndefined();
+      expect(await storageRow(ENV_A)).toBeUndefined();
+      expect(await connection(CONN_B)).toBeDefined();
+      await restoreEnvA();
     });
 
+    it("the teardown delete removes them too, and a refused one keeps them", async () => {
+      const { deleteTeardownEnvironment } = await import(
+        "@/lib/teardown/repository"
+      );
+      await sql`insert into environment_variables (environment_id, name,
+          kind, value, escrow)
+        values (${ENV_A}, 'DATA_ENCRYPTION_KEY', 'secret', 'fictional', true)`;
+      expect(
+        await deleteTeardownEnvironment(ENV_A, ADMIN, {
+          escrowConfirmed: false,
+        })
+      ).toEqual({ refusal: "environmentHasEscrowedVariables" });
+      expect(await connection(CONN_A)).toBeDefined();
+      expect(
+        await deleteTeardownEnvironment(ENV_A, ADMIN, { escrowConfirmed: true })
+      ).toMatchObject({ environmentName: "Kestrel QA" });
+      expect(await connection(CONN_A)).toBeUndefined();
+      await restoreEnvA();
+    });
+  });
+
+  describe("draining keeps the rows legacy code still reads", () => {
+    // Every drain caller, run on ENV_A; the deletes put ENV_A back after.
+    const callers: [string, () => Promise<unknown>][] = [
+      [
+        "save",
+        () =>
+          svc.saveEnvironmentStorage(ENV_A, {
+            ...stored(CONN_A),
+            secretKey: undefined,
+          }),
+      ],
+      ["remove", () => svc.removeEnvironmentStorage(ENV_A)],
+      [
+        "environment delete",
+        async () => {
+          const { deleteEnvironment } = await import(
+            "@/server/services/environments"
+          );
+          as(ADMIN, "admin");
+          await deleteEnvironment(ENV_A);
+        },
+      ],
+      [
+        "teardown delete",
+        async () => {
+          const { deleteTeardownEnvironment } = await import(
+            "@/lib/teardown/repository"
+          );
+          await deleteTeardownEnvironment(ENV_A, ADMIN, {
+            escrowConfirmed: true,
+          });
+        },
+      ],
+    ];
+    const run = async (call: () => Promise<unknown>) => {
+      await call();
+      const [env] = await sql`select 1 from environments where id = ${ENV_A}`;
+      if (!env) await restoreEnvA();
+    };
+
+    it.each(callers)(
+      "%s detaches a connection an archive still names",
+      async (_name, call) => {
+        const { loadArchiveStore } = await import(
+          "@/lib/teardown/archive-store"
+        );
+        await sql`insert into environment_archives (environment_id,
+            project_name, environment_name, environment_slug, expires_at,
+            location, s3_connection_id, key_prefix, completed_at)
+          values (${MISSING}, 'Kestrel', 'Kestrel Old', 'old',
+            now() + interval '30 days', 's3', ${CONN_A}, 'archives/old/',
+            now())`;
+        await run(call);
+        expect(await connection(CONN_A)).toMatchObject({
+          environment_id: null,
+        });
+        expect(
+          await loadArchiveStore({
+            inBackupDestination: false,
+            s3Endpoint: null,
+            s3Bucket: null,
+            s3ConnectionId: CONN_A,
+          })
+        ).not.toBeNull();
+      }
+    );
+
+    it.each(callers)(
+      "%s detaches the legacy backup destination's connection",
+      async (_name, call) => {
+        await sql`update instance_settings set backup_destination_id = ${CONN_A}
+          where id = 1`;
+        await run(call);
+        expect(await connection(CONN_A)).toMatchObject({
+          environment_id: null,
+        });
+        const [row] = await sql<{ backup_destination_id: string | null }[]>`
+          select backup_destination_id from instance_settings where id = 1`;
+        expect(row?.backup_destination_id).toBe(CONN_A);
+      }
+    );
+
+    it("the project delete drains each of its environments", async () => {
+      const { removeProject } = await import(
+        "@/server/services/project-catalog"
+      );
+      const PROJECT_C = "00000000-0000-7000-8000-00000000c001";
+      const ENV_C1 = "00000000-0000-7000-8000-00000000c0e1";
+      const ENV_C2 = "00000000-0000-7000-8000-00000000c0e2";
+      const CONN_C1 = "00000000-0000-7000-8000-00000000c0c1";
+      const CONN_C2 = "00000000-0000-7000-8000-00000000c0c2";
+      await sql`insert into projects (id, name, key)
+        values (${PROJECT_C}, 'Plover', 'PLO')`;
+      await sql`insert into environments (id, project_id, name, slug) values
+        (${ENV_C1}, ${PROJECT_C}, 'Plover QA', 'qa'),
+        (${ENV_C2}, ${PROJECT_C}, 'Plover UAT', 'uat')`;
+      await sql`insert into s3_connections (id, name, environment_id,
+          endpoint, region, bucket, access_key_id, secret_key)
+        values
+          (${CONN_C1}, 'Plover files', ${ENV_C1},
+            'https://objects.example.test', 'us-east-1', 'fictional-plover',
+            'AKPLOVER', ${encryptSecret("fictional-secret-plover")}),
+          (${CONN_C2}, 'Plover archive', ${ENV_C2},
+            'https://objects.example.test', 'us-east-1', 'fictional-plover',
+            'AKPLOVER', ${encryptSecret("fictional-secret-plover")})`;
+      await sql`insert into environment_archives (environment_id,
+          project_name, environment_name, environment_slug, expires_at,
+          location, s3_connection_id, key_prefix, completed_at)
+        values (${MISSING}, 'Plover', 'Plover Old', 'old',
+          now() + interval '30 days', 's3', ${CONN_C2}, 'archives/old/',
+          now())`;
+      as(ADMIN, "admin");
+      expect(await removeProject(PROJECT_C)).toEqual({ success: true });
+      // Not left behind unassigned with its secret.
+      expect(await connection(CONN_C1)).toBeUndefined();
+      // Still named by an archive: detached, kept.
+      expect(await connection(CONN_C2)).toMatchObject({
+        environment_id: null,
+      });
+      expect(await connection(CONN_A)).toBeDefined();
+    });
+
+    it.each(callers)(
+      "%s deletes an unreferenced connection",
+      async (_name, call) => {
+        await run(call);
+        expect(await connection(CONN_A)).toBeUndefined();
+        expect(await connection(CONN_B)).toBeDefined();
+      }
+    );
+  });
+
+  describe("the instance backup destination", () => {
+    it("is never saved or probed as environment storage, but a restricted one can be removed", async () => {
+      await sql`update instance_settings set
+          backup_s3_endpoint = 'https://objects.example.test',
+          backup_s3_region = 'us-east-1',
+          backup_s3_bucket = 'fictional-app-bucket',
+          backup_s3_access_key_id = 'AKMENARABACKUPS',
+          backup_s3_secret_key = ${encryptSecret("fictional-secret-backup")},
+          backup_s3_key_prefix = 'team-a/'
+        where id = 1`;
+      try {
+        // ENV_A's stored config now sits inside the destination.
+        expect(await svc.getEnvironmentStorage(ENV_A)).toMatchObject({
+          isBackupDestination: true,
+        });
+        expect(
+          await refusal(
+            svc.testEnvironmentStorage(ENV_A, {
+              ...stored(CONN_A),
+              secretKey: undefined,
+            })
+          )
+        ).toEqual({ status: 409, code: "s3BackupDestinationOverlap" });
+        for (const keyPrefix of [null, "team-a/", "team-a/sub/"]) {
+          expect(
+            await refusal(
+              svc.saveEnvironmentStorage(ENV_A2, input({ keyPrefix }))
+            ),
+            String(keyPrefix)
+          ).toEqual({ status: 409, code: "s3BackupDestinationOverlap" });
+        }
+        expect(await storageRow(ENV_A2)).toBeUndefined();
+        expect(s3.probes).toEqual([]);
+        // Replaced by one outside it, or removed.
+        await svc.saveEnvironmentStorage(
+          ENV_A,
+          input({ keyPrefix: "reports/" })
+        );
+        expect(await svc.getEnvironmentStorage(ENV_A)).toMatchObject({
+          isBackupDestination: false,
+        });
+        await sql`update environment_storage set key_prefix = 'team-a/'
+          where environment_id = ${ENV_A}`;
+        await svc.removeEnvironmentStorage(ENV_A);
+        expect(await storageRow(ENV_A)).toBeUndefined();
+      } finally {
+        await sql`update instance_settings set backup_s3_endpoint = null,
+            backup_s3_region = null, backup_s3_bucket = null,
+            backup_s3_access_key_id = null, backup_s3_secret_key = null,
+            backup_s3_key_prefix = null
+          where id = 1`;
+      }
+    });
     it("is no longer picked from the connections: the schedule save leaves the legacy setting alone", async () => {
       as(ADMIN, "admin");
       // An old client still sending destinationId: dropped by the schema.
@@ -696,101 +842,7 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
     });
   });
 
-  describe("unassigned connections (admin)", () => {
-    it("assigns only unassigned connections", async () => {
-      as(ADMIN, "admin");
-      expect(await refusal(admin.assignS3Connection(CONN_A, ENV_B))).toEqual({
-        status: 409,
-        code: "s3ConnectionAlreadyAssigned",
-      });
-      expect((await connection(CONN_A))?.environment_id).toBe(ENV_A);
-    });
-
-    it("never assigns a connection that still holds old archives", async () => {
-      as(ADMIN, "admin");
-      await sql`insert into environment_archives (project_name,
-          environment_name, environment_slug, expires_at, location,
-          s3_connection_id, key_prefix)
-        values ('Heron', 'Heron old', 'old', now() + interval '30 days', 's3',
-          ${CONN_FREE}, 'archives/heron-old/')`;
-      expect(await refusal(admin.assignS3Connection(CONN_FREE, ENV_A))).toEqual(
-        { status: 409, code: "s3ConnectionHoldsArchives" }
-      );
-      expect((await connection(CONN_FREE))?.environment_id).toBeNull();
-    });
-
-    it("lists only unassigned connections, for admins", async () => {
-      as(ADMIN, "admin");
-      const rows = await admin.listUnassignedS3Connections();
-      expect(rows.map((r) => r.id).sort()).toEqual(
-        [CONN_FREE, CONN_BACKUP].sort()
-      );
-      expect(JSON.stringify(rows)).not.toContain("fictional-secret");
-      for (const [id, role] of [
-        [ENGINEER, "engineer"],
-        [QA, "qa"],
-      ] as const) {
-        as(id, role);
-        expect(
-          await refusal(admin.listUnassignedS3Connections())
-        ).toMatchObject({ status: 403 });
-      }
-    });
-
-    it("assigns a connection to an existing environment", async () => {
-      as(ADMIN, "admin");
-      const assigned = await admin.assignS3Connection(CONN_FREE, ENV_B);
-      expect(assigned).toMatchObject({ id: CONN_FREE, environmentId: ENV_B });
-      expect(assigned).not.toHaveProperty("secretKey");
-      expect((await connection(CONN_FREE))?.environment_id).toBe(ENV_B);
-      expect(await activity("storage.assigned")).toEqual([
-        {
-          entity_id: CONN_FREE,
-          data: { name: "Old bucket", environment: "Heron QA" },
-        },
-      ]);
-      expect(
-        await refusal(admin.assignS3Connection(CONN_A, MISSING))
-      ).toMatchObject({ status: 404 });
-      expect(
-        await refusal(admin.assignS3Connection(MISSING, ENV_A))
-      ).toMatchObject({ status: 404 });
-      expect((await connection(CONN_A))?.environment_id).toBe(ENV_A);
-    });
-
-    it("never assigns the instance backup destination", async () => {
-      as(ADMIN, "admin");
-      expect(
-        await refusal(admin.assignS3Connection(CONN_BACKUP, ENV_A))
-      ).toEqual({ status: 409, code: "s3BackupDestinationNotAssignable" });
-      expect((await connection(CONN_BACKUP))?.environment_id).toBeNull();
-    });
-
-    it("refuses assignment to non-admins", async () => {
-      as(ENGINEER, "engineer");
-      expect(
-        await refusal(admin.assignS3Connection(CONN_FREE, ENV_A))
-      ).toMatchObject({ status: 403 });
-      expect((await connection(CONN_FREE))?.environment_id).toBeNull();
-    });
-
-    it("deletes an unassigned connection, and only an unassigned one", async () => {
-      as(ADMIN, "admin");
-      await admin.deleteUnassignedS3Connection(CONN_FREE);
-      expect(await connection(CONN_FREE)).toBeUndefined();
-      expect(await activity("storage.deleted")).toEqual([
-        { entity_id: CONN_FREE, data: { name: "Old bucket", environment: "" } },
-      ]);
-      expect(
-        await refusal(admin.deleteUnassignedS3Connection(CONN_A))
-      ).toMatchObject({ status: 404 });
-      expect(await connection(CONN_A)).toBeDefined();
-      as(ENGINEER, "engineer");
-      expect(
-        await refusal(admin.deleteUnassignedS3Connection(CONN_BACKUP))
-      ).toMatchObject({ status: 403 });
-    });
-
+  describe("removed connection routes", () => {
     it("has no org-wide list, read, create, edit, delete or probe any more", async () => {
       as(ADMIN, "admin");
       for (const [method, path] of [
@@ -800,6 +852,9 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
         ["POST", "/api/s3-connections/update-s3-connection"],
         ["POST", "/api/s3-connections/delete-s3-connection"],
         ["POST", "/api/s3-connections/test-s3-connection-action"],
+        ["GET", "/api/s3-connections/list-unassigned-s3-connections"],
+        ["POST", "/api/s3-connections/assign-s3-connection"],
+        ["POST", "/api/s3-connections/delete-unassigned-s3-connection"],
       ] as const) {
         const res = await app.request(path, {
           method,
@@ -857,7 +912,7 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
         }
       }
       // The observer sees every project, but not the unassigned connections
-      // (no storage:manage).
+      // (an unassigned connection has no location).
       as(OBSERVER, "observer");
       expect(await admin.getS3ConnectionLocation(CONN_B)).toMatchObject({
         kind: "environment",
@@ -869,36 +924,31 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
           `observer ${id}`
         ).toMatchObject({ status: 404 });
       }
-      expect(await refusal(admin.listUnassignedS3Connections())).toMatchObject({
-        status: 403,
-      });
       as(ENGINEER, "engineer");
       expect((await location(CONN_B)).status).toBe(404);
       expect((await location(MISSING)).status).toBe(404);
     });
 
-    it("sends the storage managers to Admin › Storage for an unassigned one", async () => {
+    it("answers 404 for an unassigned connection, even to the storage managers", async () => {
       for (const [user, role] of [
         [ADMIN, "admin"],
         [INFRA, "infra"],
       ] as const) {
         as(user, role);
-        for (const id of [CONN_FREE, CONN_BACKUP]) {
-          expect(await admin.getS3ConnectionLocation(id)).toEqual({
-            kind: "admin",
-          });
+        for (const id of [CONN_FREE, CONN_BACKUP, MISSING]) {
+          expect(
+            await refusal(admin.getS3ConnectionLocation(id)),
+            `${role} ${id}`
+          ).toMatchObject({ status: 404 });
         }
-        expect(
-          await refusal(admin.getS3ConnectionLocation(MISSING))
-        ).toMatchObject({ status: 404 });
       }
     });
   });
 
-  describe("the explorer on an environment's connection", () => {
-    const src = (connectionId: string) => ({ kind: "s3", connectionId });
+  describe("the explorer on an environment's storage", () => {
+    const src = (environmentId: string) => ({ kind: "s3", environmentId });
 
-    it("lists connections but opens no files for QA, BA, PM and observer", async () => {
+    it("shows the storage but opens no files for QA, BA, PM and observer", async () => {
       for (const [id, role] of [
         [QA, "qa"],
         [BA, "ba"],
@@ -906,20 +956,20 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
         [OBSERVER, "observer"],
       ] as const) {
         as(id, role);
-        expect(await svc.listEnvironmentStorage(ENV_A)).toHaveLength(1);
+        expect(await svc.getEnvironmentStorage(ENV_A)).not.toBeNull();
         for (const call of [
-          () => explorer.listEntries(src(CONN_A), ""),
-          () => explorer.getDownloadTarget(src(CONN_A), "a.txt"),
-          () => explorer.readFileText(src(CONN_A), "a.txt"),
-          () => explorer.folderStats(src(CONN_A), ""),
-          () => explorer.deleteEntry(src(CONN_A), "a.txt"),
+          () => explorer.listEntries(src(ENV_A), ""),
+          () => explorer.getDownloadTarget(src(ENV_A), "a.txt"),
+          () => explorer.readFileText(src(ENV_A), "a.txt"),
+          () => explorer.folderStats(src(ENV_A), ""),
+          () => explorer.deleteEntry(src(ENV_A), "a.txt"),
         ]) {
           expect(await refusal(call())).toMatchObject({ status: 403 });
         }
         for (const route of ["download", "archive"]) {
           const res = await app.request(
             `/api/explorer/${route}?source=${encodeURIComponent(
-              JSON.stringify(src(CONN_A))
+              JSON.stringify(src(ENV_A))
             )}&path=a.txt`
           );
           expect(res.status).toBe(403);
@@ -930,7 +980,7 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
 
     it("browses as an engineer, confined to the prefix", async () => {
       as(ENGINEER, "engineer");
-      expect(await explorer.listEntries(src(CONN_A), "")).toEqual({
+      expect(await explorer.listEntries(src(ENV_A), "")).toEqual({
         success: true,
         data: [],
       });
@@ -945,25 +995,25 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
 
     it("changes files with the environment's manage right", async () => {
       as(ENGINEER, "engineer");
-      expect(await explorer.deleteEntry(src(CONN_A), "a.txt")).toMatchObject({
+      expect(await explorer.deleteEntry(src(ENV_A), "a.txt")).toMatchObject({
         success: true,
       });
     });
 
-    it("answers 404 for a connection of an environment the caller can't see", async () => {
+    it("answers 404 for the storage of an environment the caller can't see", async () => {
       for (const [id, role] of [
         [ENGINEER, "engineer"],
         [QA, "qa"],
       ] as const) {
         as(id, role);
         expect(
-          await refusal(explorer.listEntries(src(CONN_B), ""))
+          await refusal(explorer.listEntries(src(ENV_B), ""))
         ).toMatchObject({ status: 404 });
         expect(
-          await refusal(explorer.deleteEntry(src(CONN_B), "a.txt"))
+          await refusal(explorer.deleteEntry(src(ENV_B), "a.txt"))
         ).toMatchObject({ status: 404 });
         expect(
-          await refusal(explorer.getDownloadTarget(src(CONN_B), "a.txt"))
+          await refusal(explorer.getDownloadTarget(src(ENV_B), "a.txt"))
         ).toMatchObject({ status: 404 });
         expect(
           await refusal(explorer.listEntries(src(MISSING), ""))
@@ -971,19 +1021,19 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
       }
       const download = await app.request(
         `/api/explorer/download?source=${encodeURIComponent(
-          JSON.stringify(src(CONN_B))
+          JSON.stringify(src(ENV_B))
         )}&path=a.txt`
       );
       expect(download.status).toBe(404);
       const archive = await app.request(
         `/api/explorer/archive?source=${encodeURIComponent(
-          JSON.stringify(src(CONN_B))
+          JSON.stringify(src(ENV_B))
         )}`
       );
       expect(archive.status).toBe(404);
       const form = new FormData();
       form.set("file", new File(["x"], "a.txt"));
-      form.set("source", JSON.stringify(src(CONN_B)));
+      form.set("source", JSON.stringify(src(ENV_B)));
       form.set("path", "");
       const upload = await app.request("/api/explorer/upload", {
         method: "POST",
@@ -998,7 +1048,7 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
       as(QA, "qa");
       const form = new FormData();
       form.set("file", new File(["x"], "a.txt"));
-      form.set("source", JSON.stringify(src(CONN_A)));
+      form.set("source", JSON.stringify(src(ENV_A)));
       form.set("path", "");
       const upload = await app.request("/api/explorer/upload", {
         method: "POST",
@@ -1009,26 +1059,40 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
       expect(s3.opened).toEqual([]);
     });
 
-    it("keeps unassigned connections for admins and infra", async () => {
+    it("answers 404 for an environment without storage, to admins too", async () => {
+      for (const [id, role] of [
+        [ENGINEER, "engineer"],
+        [ADMIN, "admin"],
+      ] as const) {
+        as(id, role);
+        expect(
+          await refusal(explorer.listEntries(src(ENV_A2), ""))
+        ).toMatchObject({ status: 404 });
+      }
+      expect(s3.opened).toEqual([]);
+    });
+
+    it("logs a file action against the environment", async () => {
       as(ENGINEER, "engineer");
-      expect(
-        await refusal(explorer.listEntries(src(CONN_FREE), ""))
-      ).toMatchObject({ status: 404 });
-      as(INFRA, "infra");
-      expect(await explorer.listEntries(src(CONN_FREE), "")).toMatchObject({
-        success: true,
-      });
-      as(ADMIN, "admin");
-      expect(await explorer.listEntries(src(CONN_BACKUP), "")).toMatchObject({
-        success: true,
-      });
+      await explorer.deleteEntry(src(ENV_A), "a.txt");
+      const rows = await sql<
+        { entity_type: string; entity_id: string; data: { target: string } }[]
+      >`select entity_type, entity_id, data from activity_log
+        where action = 'files.delete'`;
+      expect(rows).toEqual([
+        expect.objectContaining({
+          entity_type: "environment",
+          entity_id: ENV_A,
+        }),
+      ]);
+      expect(rows[0]?.data.target).toContain("Kestrel");
     });
 
     it("needs a strong sign-in to browse", async () => {
       as(ENGINEER, "engineer", "password");
-      expect(
-        await refusal(explorer.listEntries(src(CONN_A), ""))
-      ).toMatchObject({ status: 403, code: "strong_sign_in_required" });
+      expect(await refusal(explorer.listEntries(src(ENV_A), ""))).toMatchObject(
+        { status: 403, code: "strong_sign_in_required" }
+      );
       expect(s3.opened).toEqual([]);
     });
   });

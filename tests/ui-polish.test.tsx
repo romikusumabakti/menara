@@ -108,7 +108,7 @@ describe("databases page width", () => {
 });
 
 describe("cards that clip their own full-bleed edges", () => {
-  it("the live run panel clips its header and log footer", () => {
+  it("the live run view clips its header and log footer", () => {
     expect(src("components/live-run-panel.tsx")).toMatch(
       /"gap-0 py-0 overflow-hidden/
     );

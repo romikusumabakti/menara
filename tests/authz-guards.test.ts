@@ -55,7 +55,6 @@ const SCOPED_READS: Record<string, string[]> = {
     "listMyOpenIssues",
     "listRecentEnvironments",
     "listIssueProjects",
-    "getHomeAccess",
   ],
 };
 

@@ -238,14 +238,3 @@ export async function listIssueProjects(): Promise<IssueProject[]> {
     .where(inArray(projects.id, ids))
     .orderBy(asc(projects.name));
 }
-
-/** Does the caller operate any environment? Drives the attention section. */
-export async function getHomeAccess(): Promise<{ hasOpsAccess: boolean }> {
-  await requireSession();
-  const access = await getProjectAccess();
-  return {
-    hasOpsAccess: Object.values(access.roles).some((role) =>
-      canProject(role, { run: ["acknowledge"] })
-    ),
-  };
-}

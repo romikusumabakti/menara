@@ -317,8 +317,18 @@ const downloadLinks = () =>
     (a) => a.textContent === "Download"
   );
 
+const menuItems = () => [
+  ...document.body.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+];
+const rowTriggers = () => [
+  ...container.querySelectorAll<HTMLButtonElement>(
+    'button[aria-label^="Actions for "]'
+  ),
+];
+const clipboard = vi.fn().mockResolvedValue(undefined);
+
 describe("Releases page", () => {
-  it("groups rows by version and renders the total size", async () => {
+  it("lists one card per version, newest first, with the total size", async () => {
     await mountList(
       [
         release({ id: "r1", version: "2.0.0" }),
@@ -327,21 +337,45 @@ describe("Releases page", () => {
       ],
       "engineer"
     );
-    const titles = [...container.querySelectorAll("[data-slot=card-title]")];
-    expect(titles.map((n) => n.textContent)).toEqual([
-      "Version 2.0.0",
-      "Version 1.0.0",
-    ]);
-    expect(container.querySelectorAll("tbody tr")).toHaveLength(3);
+    const versions = [
+      ...container.querySelectorAll("[data-slot=card-title] > span.font-mono"),
+    ];
+    expect(versions.map((n) => n.textContent)).toEqual(["2.0.0", "1.0.0"]);
+    expect(container.querySelectorAll("[data-slot=release-row]")).toHaveLength(
+      3
+    );
     expect(container.textContent).toContain("Total size");
     expect(container.textContent).toContain("5 KB");
   });
 
-  it("shows each release's source branch, commit and tag", async () => {
-    await mountList([release({ tag: "hris-be-main-42" })], "engineer");
-    const row = container.querySelector("tbody tr");
-    expect(row?.textContent).toContain("main · abcdef1");
-    expect(row?.textContent).toContain("hris-be-main-42");
+  it("shows the version header: status, tested-on, creator, time", async () => {
+    await mountList(
+      [release({ createdBy: "u1", createdByName: "Alice Example" })],
+      "engineer"
+    );
+    const header = container.querySelector("[data-slot=card-header]");
+    expect(header?.textContent).toContain("Ready");
+    expect(header?.textContent).toContain("Tested on");
+    expect(header?.textContent).toContain("QA");
+    expect(header?.textContent).toContain("Alice Example");
+    expect(header?.textContent).toMatch(/ago|now|second/);
+    expect(header?.textContent).toContain("AE");
+  });
+
+  it("shows a component row on one line with the full sha and tag in titles", async () => {
+    await mountList([release({ tag: "acme-be-main-42" })], "engineer");
+    const row = container.querySelector("[data-slot=release-row]");
+    expect(row?.textContent).toContain("hris-be");
+    expect(row?.textContent).toContain("main · abcdef1 · acme-be-main-42");
+    expect(row?.textContent).toContain("2 KB");
+    const source = row?.querySelector("[data-slot=release-source]");
+    expect(source?.getAttribute("title")).toContain("abcdef1234567890");
+    expect(source?.getAttribute("title")).toContain("acme-be-main-42");
+  });
+
+  it("shows release notes", async () => {
+    await mountList([release({ notes: "Fixes the login." })], "engineer");
+    expect(container.textContent).toContain("Fixes the login.");
   });
 
   it("links Download to the release only when it is ready", async () => {
@@ -365,18 +399,62 @@ describe("Releases page", () => {
     expect(downloadLinks()).toHaveLength(0);
   });
 
-  it("offers Delete to admins only", async () => {
+  it("renders a superseded failed row muted, with its error", async () => {
+    const t0 = Date.now();
+    await mountList(
+      [
+        release({
+          id: "r1",
+          status: "failed",
+          error: "build exploded",
+          sizeBytes: null,
+          createdAt: new Date(t0 - 60_000).toISOString(),
+        }),
+        release({ id: "r2", createdAt: new Date(t0).toISOString() }),
+      ],
+      "engineer"
+    );
+    const rows = [
+      ...container.querySelectorAll<HTMLElement>("[data-slot=release-row]"),
+    ];
+    const failed = rows.find((r) => r.textContent?.includes("build exploded"));
+    expect(failed).toBeDefined();
+    expect(failed?.className).toContain("opacity-");
+    const header = container.querySelector("[data-slot=card-header]");
+    expect(header?.textContent).toContain("Ready");
+  });
+
+  it("copies the tag from the row menu", async () => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: clipboard },
+      configurable: true,
+    });
+    await mountList([release({ tag: "acme-be-main-42" })], "engineer");
+    await act(async () => rowTriggers()[0]?.click());
+    const copy = menuItems().find((el) => el.textContent === "Copy tag");
+    expect(copy).toBeDefined();
+    await act(async () => copy?.click());
+    expect(clipboard).toHaveBeenCalledWith("acme-be-main-42");
+  });
+
+  it("offers Delete in the menu to admins only, and it opens the confirm", async () => {
     await mountList([release()], "engineer");
-    const hasDelete = () =>
-      [...container.querySelectorAll("button")].some(
-        (b) => b.textContent === "Delete"
-      );
-    expect(hasDelete()).toBe(true);
+    await act(async () => rowTriggers()[0]?.click());
+    const del = menuItems().find((el) => el.textContent === "Delete");
+    expect(del).toBeDefined();
+    await act(async () => del?.click());
+    expect(
+      document.querySelector("[role=alertdialog],[role=dialog]")
+    ).not.toBeNull();
+    expect(document.body.textContent).toContain("Delete release 1.0.0?");
     act(() => root.unmount());
     container.remove();
+    document.body.innerHTML = "";
     api.orgRole = "engineer";
     await mountList([release()], "engineer");
-    expect(hasDelete()).toBe(false);
+    await act(async () => rowTriggers()[0]?.click());
+    expect(menuItems().some((el) => el.textContent === "Delete")).toBe(false);
+    expect(menuItems().some((el) => el.textContent === "Copy tag")).toBe(true);
   });
 });
 

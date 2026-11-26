@@ -2,6 +2,7 @@ import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import {
   CheckCircle2,
   CircleAlert,
+  Copy,
   Download,
   Loader2,
   PackageCheck,
@@ -23,16 +24,10 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { type RowAction, RowActions } from "@/components/ui/row-actions";
+import { UserName } from "@/components/user/user-name";
 import { canOrg } from "@/lib/permissions";
-import { formatBytes } from "@/lib/utils";
+import { cn, formatBytes } from "@/lib/utils";
 import {
   deleteRelease,
   listProjectReleasesQuery,
@@ -40,6 +35,7 @@ import {
   releaseDownloadHref,
 } from "@/web/api/releases";
 import { useMe } from "@/web/api/session";
+import { latestPerComponent, versionStatus } from "./releases-model";
 
 // While a release is being prepared, poll so it turns Ready without a reload.
 const PREPARING_POLL_MS = 5000;
@@ -56,8 +52,9 @@ function groupByVersion(releases: ReleaseListItem[]) {
 }
 
 /**
- * A project's releases, grouped by version. Download needs the engineer role
- * and a ready release; delete is for org admins. The API enforces the same.
+ * A project's releases as a list of versions, each a card of compact component
+ * rows. Download needs the engineer role and a ready release; delete is for
+ * org admins. The API enforces the same.
  */
 export function ReleasesList({ projectId }: { projectId: string }) {
   const t = useTranslations("releases");
@@ -99,40 +96,13 @@ export function ReleasesList({ projectId }: { projectId: string }) {
       ) : (
         <div className="flex flex-col gap-4">
           {groups.map(([version, rows]) => (
-            <Card key={version}>
-              <CardHeader>
-                <CardTitle className="font-mono">
-                  {t("versionGroup", { version })}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("colComponent")}</TableHead>
-                      <TableHead>{t("colSource")}</TableHead>
-                      <TableHead>{t("testedOn")}</TableHead>
-                      <TableHead>{t("colBy")}</TableHead>
-                      <TableHead>{t("colStatus")}</TableHead>
-                      <TableHead>{t("colSize")}</TableHead>
-                      <TableHead>
-                        <span className="sr-only">{t("download")}</span>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rows.map((release) => (
-                      <ReleaseRow
-                        key={release.id}
-                        release={release}
-                        canDownload={canDownload}
-                        canDelete={canDelete}
-                      />
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+            <VersionCard
+              key={version}
+              version={version}
+              rows={rows}
+              canDownload={canDownload}
+              canDelete={canDelete}
+            />
           ))}
         </div>
       )}
@@ -140,12 +110,81 @@ export function ReleasesList({ projectId }: { projectId: string }) {
   );
 }
 
+function VersionCard({
+  version,
+  rows,
+  canDownload,
+  canDelete,
+}: {
+  version: string;
+  rows: ReleaseListItem[];
+  canDownload: boolean;
+  canDelete: boolean;
+}) {
+  const t = useTranslations("releases");
+  const latest = new Set(latestPerComponent(rows).map((r) => r.id));
+  // The version was tested on one environment and made by one person: the
+  // newest row of the version speaks for it.
+  const [first] = [...rows].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+
+  return (
+    <Card>
+      <CardHeader className="border-b">
+        <CardTitle className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="font-mono">{version}</span>
+          <StatusBadge status={versionStatus(rows)} />
+        </CardTitle>
+        {first && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+            <span>
+              {t("testedOn")}{" "}
+              <span className="text-foreground">{first.environmentName}</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <UserName
+                avatar="xs"
+                user={
+                  first.createdBy && first.createdByName
+                    ? {
+                        id: first.createdBy,
+                        name: first.createdByName,
+                        image: null,
+                      }
+                    : null
+                }
+              />
+              <RelativeTime date={first.createdAt} />
+            </span>
+          </div>
+        )}
+      </CardHeader>
+      <CardContent className="p-0">
+        <ul className="divide-y">
+          {rows.map((release) => (
+            <ReleaseRow
+              key={release.id}
+              release={release}
+              superseded={!latest.has(release.id)}
+              canDownload={canDownload}
+              canDelete={canDelete}
+            />
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}
+
 function ReleaseRow({
   release,
+  superseded,
   canDownload,
   canDelete,
 }: {
   release: ReleaseListItem;
+  superseded: boolean;
   canDownload: boolean;
   canDelete: boolean;
 }) {
@@ -153,6 +192,15 @@ function ReleaseRow({
   const tCommon = useTranslations("common");
   const dialog = useDialog();
   const queryClient = useQueryClient();
+
+  async function onCopyTag() {
+    try {
+      await navigator.clipboard.writeText(release.tag);
+      toast.success(tCommon("copied"));
+    } catch {
+      toast.error(tCommon("copyFailed"));
+    }
+  }
 
   async function onDelete() {
     const ok = await dialog.confirm({
@@ -174,66 +222,80 @@ function ReleaseRow({
     }
   }
 
+  const items: RowAction[] = [
+    { label: t("copyTag"), icon: Copy, onSelect: onCopyTag },
+    ...(canDelete
+      ? [
+          {
+            label: t("delete"),
+            icon: Trash2,
+            destructive: true,
+            onSelect: onDelete,
+          },
+        ]
+      : []),
+  ];
+
   return (
-    <TableRow>
-      <TableCell>
-        <span className="font-mono text-sm">{release.componentKey}</span>
-        {release.notes && (
-          <span className="block max-w-[28rem] whitespace-pre-line text-xs text-muted-foreground">
-            {release.notes}
-          </span>
-        )}
-      </TableCell>
-      <TableCell
-        className="font-mono text-sm text-muted-foreground"
-        title={release.commitSha}
-      >
-        {release.branch} · {release.commitSha.slice(0, 7)}
-        <span className="block">{release.tag}</span>
-      </TableCell>
-      <TableCell className="text-muted-foreground">
-        {release.environmentName}
-      </TableCell>
-      <TableCell className="text-muted-foreground">
-        {release.createdByName}
-        {release.createdByName && " · "}
-        <RelativeTime date={release.createdAt} />
-      </TableCell>
-      <TableCell>
-        <ReleaseStatus release={release} />
-      </TableCell>
-      <TableCell className="text-muted-foreground">
-        {release.sizeBytes === null ? "" : formatBytes(release.sizeBytes)}
-      </TableCell>
-      <TableCell className="text-end">
-        <div className="flex justify-end gap-2">
-          {canDownload && release.status === "ready" && (
-            <Button
-              variant="outline"
-              size="sm"
-              render={<a href={releaseDownloadHref(release.id)} download />}
-              nativeButton={false}
-            >
-              <Download data-icon="inline-start" />
-              {t("download")}
-            </Button>
-          )}
-          {canDelete && (
-            <Button variant="ghost" size="sm" onClick={onDelete}>
-              <Trash2 data-icon="inline-start" />
-              {t("delete")}
-            </Button>
+    <li
+      data-slot="release-row"
+      className={cn(
+        "flex items-center gap-3 px-6 py-3",
+        superseded && "opacity-60"
+      )}
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-sm">{release.componentKey}</span>
+          {release.status !== "ready" && (
+            <StatusBadge status={release.status} />
           )}
         </div>
-      </TableCell>
-    </TableRow>
+        <p
+          data-slot="release-source"
+          className="truncate font-mono text-xs text-muted-foreground"
+          title={`${release.commitSha}\n${release.tag}`}
+        >
+          {release.branch} · {release.commitSha.slice(0, 7)} · {release.tag}
+        </p>
+        {release.status === "failed" && release.error && (
+          <p className="text-xs text-destructive">{release.error}</p>
+        )}
+        {release.notes && (
+          <p className="max-w-[40rem] whitespace-pre-line text-xs text-muted-foreground">
+            {release.notes}
+          </p>
+        )}
+      </div>
+      <span className="text-sm text-muted-foreground">
+        {release.sizeBytes === null ? "" : formatBytes(release.sizeBytes)}
+      </span>
+      {canDownload && release.status === "ready" && (
+        <Button
+          variant="outline"
+          size="sm"
+          render={<a href={releaseDownloadHref(release.id)} download />}
+          nativeButton={false}
+        >
+          <Download data-icon="inline-start" />
+          {t("download")}
+        </Button>
+      )}
+      <RowActions
+        label={t("rowActions", {
+          component: release.componentKey,
+          version: release.version,
+        })}
+        items={items}
+      />
+    </li>
   );
 }
 
-function ReleaseStatus({ release }: { release: ReleaseListItem }) {
+function StatusBadge({ status }: { status: ReleaseListItem["status"] }) {
   const t = useTranslations("releases");
-  const label = t(`status.${release.status}`);
-  switch (release.status) {
+  const label = t(`status.${status}`);
+  switch (status) {
     case "ready":
       return (
         <Badge className="bg-success/15 text-success border-transparent">
@@ -243,17 +305,10 @@ function ReleaseStatus({ release }: { release: ReleaseListItem }) {
       );
     case "failed":
       return (
-        <div className="flex flex-col gap-1">
-          <Badge variant="destructive">
-            <CircleAlert data-icon="inline-start" />
-            {label}
-          </Badge>
-          {release.error && (
-            <span className="max-w-[20rem] text-xs text-destructive">
-              {release.error}
-            </span>
-          )}
-        </div>
+        <Badge variant="destructive">
+          <CircleAlert data-icon="inline-start" />
+          {label}
+        </Badge>
       );
     default:
       return (

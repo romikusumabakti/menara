@@ -3949,23 +3949,20 @@
     "markTitle": "Tandai sebagai rilis",
     "markDescription": "Simpan {component} {tag} sebagai rilis yang bisa diunduh nanti.",
     "submit": "Tandai sebagai rilis",
-    "colComponent": "Component",
     "colSource": "Sumber",
     "testedOn": "Dites di",
-    "colBy": "Dibuat oleh",
-    "colStatus": "Status",
-    "colSize": "Ukuran",
     "download": "Unduh",
     "delete": "Hapus",
     "deleteTitle": "Hapus rilis {version}?",
     "deleteDescription": "File {component} yang tersimpan ikut dihapus. Tindakan ini tidak bisa dibatalkan.",
     "deleted": "Rilis dihapus",
-    "versionGroup": "Versi {version}",
     "status": {
       "preparing": "Disiapkan",
       "ready": "Siap",
       "failed": "Gagal"
-    }
+    },
+    "copyTag": "Salin tag",
+    "rowActions": "Aksi untuk {component} {version}"
   },
   "personPicker": {
     "search": "Cari nama atau email…",

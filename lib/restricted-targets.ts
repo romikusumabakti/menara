@@ -25,24 +25,7 @@ import { notFound } from "@/server/errors";
 // dumps of the Menara database: the backup destination (instance_settings
 // backup_s3_*), which is no environment's storage and so never an explorer
 // source, but any storage pointing into it (the same bucket name on any
-// endpoint, a key prefix inside the destination's or containing it). The
-// legacy s3_connections code also treats the connection backups went to
-// before the destination got its own credentials
-// (instance_settings.backup_destination_id) as restricted, until the
-// contract release drops both.
-
-/**
- * The S3 connection instance backups went to before the backup destination
- * got its own credentials (legacy backup_destination_id), or null.
- */
-export async function backupDestinationId(): Promise<string | null> {
-  const [row] = await db
-    .select({ id: instanceSettings.backupDestinationId })
-    .from(instanceSettings)
-    .where(eq(instanceSettings.id, 1))
-    .limit(1);
-  return row?.id ?? null;
-}
+// endpoint, a key prefix inside the destination's or containing it).
 
 type S3Location = {
   endpoint: string;
@@ -72,10 +55,9 @@ function prefixKey(prefix: string | null): string {
   return normalised.ok ? (normalised.prefix ?? "") : "";
 }
 
-async function loadRestrictedLocations() {
+async function loadBackupDestinationLocation(): Promise<S3Location | null> {
   const [row] = await db
     .select({
-      legacyId: instanceSettings.backupDestinationId,
       endpoint: instanceSettings.backupS3Endpoint,
       bucket: instanceSettings.backupS3Bucket,
       keyPrefix: instanceSettings.backupS3KeyPrefix,
@@ -83,42 +65,17 @@ async function loadRestrictedLocations() {
     .from(instanceSettings)
     .where(eq(instanceSettings.id, 1))
     .limit(1);
-  return {
-    legacyId: row?.legacyId ?? null,
-    destination:
-      row?.endpoint && row.bucket
-        ? {
-            endpoint: row.endpoint,
-            bucket: row.bucket,
-            keyPrefix: row.keyPrefix,
-          }
-        : null,
-  };
+  return row?.endpoint && row.bucket
+    ? { endpoint: row.endpoint, bucket: row.bucket, keyPrefix: row.keyPrefix }
+    : null;
 }
 
-/** Whether a location (an environment's new or moved connection) reaches into the backup destination. */
+/** Whether a location (an environment's new or moved storage) reaches into the backup destination. */
 export async function overlapsBackupDestination(
   location: S3Location
 ): Promise<boolean> {
-  const { destination } = await loadRestrictedLocations();
+  const destination = await loadBackupDestinationLocation();
   return destination !== null && locationsOverlap(location, destination);
-}
-
-type S3ConnectionLocation = S3Location & { id: string };
-
-/**
- * The restricted-connection check for the legacy s3_connections code, loaded
- * once for many rows: whether a connection is the legacy backup destination
- * connection or reaches into the backup destination (locationsOverlap).
- */
-export async function restrictedConnectionCheck(): Promise<
-  (connection: S3ConnectionLocation) => boolean
-> {
-  const restricted = await loadRestrictedLocations();
-  return (connection) =>
-    connection.id === restricted.legacyId ||
-    (restricted.destination !== null &&
-      locationsOverlap(connection, restricted.destination));
 }
 
 // The location of an environment's storage, or null when none is configured.
@@ -139,22 +96,16 @@ async function environmentStorageLocation(
 }
 
 /**
- * Whether an explorer source is a restricted target: an infra-only server,
- * or an environment storage reaching into the backup destination. An
- * unknown server or an environment without storage is not: the explorer
- * then answers it as not found.
+ * Whether a server explorer source is a restricted target (an infra-only
+ * server). An unknown server is not: the explorer then answers it as not
+ * found. An environment's storage is checked in authorizeExplorerSource
+ * (overlapsBackupDestination), the one rule for it.
  */
-export async function isRestrictedSource(
-  source: ExplorerSource
-): Promise<boolean> {
-  if (source.kind === "s3") {
-    const location = await environmentStorageLocation(source.environmentId);
-    return location !== null && (await overlapsBackupDestination(location));
-  }
+async function isRestrictedServer(serverId: string): Promise<boolean> {
   const [row] = await db
     .select({ infraOnly: servers.infraOnly })
     .from(servers)
-    .where(eq(servers.id, source.serverId))
+    .where(eq(servers.id, serverId))
     .limit(1);
   return row?.infraOnly ?? false;
 }
@@ -199,7 +150,7 @@ export const ENVIRONMENT_STORAGE_RIGHTS: Record<
  *   (ENVIRONMENT_STORAGE_RIGHTS by intent) plus a strong sign-in, as every
  *   file explorer needs. An environment the caller can't see is a 404, like
  *   one without storage.
- * - A storage reaching into the backup destination (isRestrictedSource): the
+ * - A storage reaching into the backup destination (overlapsBackupDestination): the
  *   org role's own `storage:files` (admin, infra), never the engineer grant
  *   nor an environment's rights; a 403 to everyone else.
  */
@@ -211,7 +162,7 @@ export async function authorizeExplorerSource(
     const session = await requireOrgPermission(SERVER_FILES);
     // The org role reaches every target; only the grant needs the lookup.
     if (canOrg(session.user.role, SERVER_FILES)) return session;
-    const restricted = await isRestrictedSource(source);
+    const restricted = await isRestrictedServer(source.serverId);
     if (!(await callerCanOrgTarget(session, SERVER_FILES, restricted))) {
       throw new ForbiddenError();
     }

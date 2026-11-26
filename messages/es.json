@@ -1918,12 +1918,9 @@
     "notConfiguredReadOnly": "Un miembro que pueda editar este entorno puede conectar su almacenamiento.",
     "openSettings": "Abrir ajustes de almacenamiento",
     "restrictedTitle": "Almacenamiento restringido",
-    "restrictedDescription": "Este almacenamiento contiene las copias de seguridad de la instancia, por lo que solo los roles con acceso a archivos de almacenamiento pueden explorarlo.",
-    "instanceBackups": "Copias de la instancia"
+    "restrictedDescription": "Este almacenamiento contiene las copias de seguridad de la instancia, por lo que solo los roles con acceso a archivos de almacenamiento pueden explorarlo."
   },
   "s3Form": {
-    "name": "Nombre",
-    "namePlaceholder": "Mi bucket",
     "endpoint": "Endpoint",
     "endpointInvalid": "Debe ser una URL válida",
     "bucket": "Bucket",

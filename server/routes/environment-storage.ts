@@ -32,19 +32,8 @@ export const environmentStorageRouter = sessionRouter()
   .post(
     "/:id/storage/test",
     envParam,
-    // A probe of unsaved form values: the S3 client's own error is the
-    // answer, so the fields are only bounded here.
-    json(
-      z.object({
-        endpoint: z.string().max(2048),
-        region: z.string().max(100),
-        bucket: z.string().max(255),
-        accessKeyId: z.string().max(512),
-        secretKey: z.string().max(1024).optional(),
-        forcePathStyle: z.boolean(),
-        keyPrefix: z.string().max(2048).nullish(),
-      })
-    ),
+    // A probe of unsaved form values, validated as a save would be.
+    json(environmentStorageSchema),
     async (c) =>
       c.json(
         await testEnvironmentStorage(

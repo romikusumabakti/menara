@@ -1918,12 +1918,9 @@
     "notConfiguredReadOnly": "A member who can edit this environment can connect its storage.",
     "openSettings": "Open storage settings",
     "restrictedTitle": "Restricted storage",
-    "restrictedDescription": "This storage holds the instance backups, so only roles with storage file access can browse it.",
-    "instanceBackups": "Instance backups"
+    "restrictedDescription": "This storage holds the instance backups, so only roles with storage file access can browse it."
   },
   "s3Form": {
-    "name": "Name",
-    "namePlaceholder": "My bucket",
     "endpoint": "Endpoint",
     "endpointInvalid": "Must be a valid URL",
     "bucket": "Bucket",

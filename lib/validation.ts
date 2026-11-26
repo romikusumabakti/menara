@@ -391,35 +391,20 @@ export type EnvironmentInput = z.infer<typeof environmentInputSchema>;
 // Storage explorer
 // =========================
 
-export const s3ConnectionInputSchema = z.object({
-  name: z.string().trim().min(1).max(200),
+// An environment's one storage (environment_storage): where its bucket is,
+// plus the key prefix it is confined to. The prefix is only bounded here; the
+// service normalises it (normalizeKeyPrefix) and answers a bad one with a
+// coded 400. A blank or omitted secret keeps the stored one, which the
+// service allows only while the location is unchanged.
+export const environmentStorageSchema = z.object({
   endpoint: z.url().max(2048),
   region: z.string().trim().min(1).max(100),
   bucket: z.string().trim().min(1).max(255),
   accessKeyId: z.string().trim().min(1).max(512),
-  secretKey: z.string().min(1).max(1024),
+  secretKey: z.string().max(1024).optional(),
   forcePathStyle: z.boolean(),
+  keyPrefix: z.string().max(2048).nullish(),
 });
-
-// Update allows omitting secretKey ("leave blank to keep"); everything else is
-// individually optional so partial edits round-trip.
-export const s3ConnectionUpdateSchema = s3ConnectionInputSchema
-  .partial()
-  .extend({ secretKey: z.string().min(1).max(1024).optional() });
-
-export type S3ConnectionInput = z.infer<typeof s3ConnectionInputSchema>;
-
-// An environment's one storage (environment_storage): the connection fields
-// without a name, plus the key prefix it is confined to. The prefix is only
-// bounded here; the service normalises it (normalizeKeyPrefix) and answers a
-// bad one with a coded 400. A blank or omitted secret keeps the stored one,
-// which the service allows only while the location is unchanged.
-export const environmentStorageSchema = s3ConnectionInputSchema
-  .omit({ name: true })
-  .extend({
-    secretKey: z.string().max(1024).optional(),
-    keyPrefix: z.string().max(2048).nullish(),
-  });
 export type EnvironmentStorageInput = z.infer<typeof environmentStorageSchema>;
 
 // The longest key S3 accepts is 1024 bytes; a prefix must leave room for one.

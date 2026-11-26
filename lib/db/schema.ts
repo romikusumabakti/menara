@@ -2223,7 +2223,7 @@ export const invitations = pgTable(
 // targets an admin points the explorer at (Garage, real S3, SeaweedFS, Ceph…).
 // Each one belongs to an environment (its application bucket); one without
 // an environment is "unassigned" and admin-only. `secretKey` never crosses
-// the server/client boundary (see SafeS3Connection).
+// the server/client boundary.
 export const s3Connections = pgTable(
   "s3_connections",
   {
@@ -2920,20 +2920,13 @@ export type NewInvitation = InferInsertModel<typeof invitations>;
 export type S3Connection = InferSelectModel<typeof s3Connections>;
 export type NewS3Connection = InferInsertModel<typeof s3Connections>;
 
-// Credential-free projection handed to the client. `secretKey` must never cross
-// the server/client boundary (RSC payloads are visible in the browser). Server
-// code loads the full row; anything passed to a client component is sanitized
-// to this shape first. `hasSecret` lets edit forms show a "leave blank to keep"
-// affordance without ever receiving the secret. `isBackupDestination` marks the
-// instance backup bucket, a restricted target (lib/restricted-targets).
-export type SafeS3Connection = Omit<S3Connection, "secretKey"> & {
-  hasSecret: boolean;
-  isBackupDestination: boolean;
-};
-
 export type EnvironmentStorage = InferSelectModel<typeof environmentStorage>;
 export type NewEnvironmentStorage = InferInsertModel<typeof environmentStorage>;
-// Same projection rules as SafeS3Connection.
+// Credential-free projection handed to the client: `secretKey` never crosses
+// the server/client boundary; `hasSecret` lets the form show a "leave blank
+// to keep" affordance without receiving it. `isBackupDestination` marks a
+// storage reaching into the instance backup destination, a restricted target
+// (lib/restricted-targets).
 export type SafeEnvironmentStorage = Omit<EnvironmentStorage, "secretKey"> & {
   hasSecret: boolean;
   isBackupDestination: boolean;

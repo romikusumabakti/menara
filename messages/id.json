@@ -1918,12 +1918,9 @@
     "notConfiguredReadOnly": "Anggota yang dapat mengubah environment ini dapat menghubungkan penyimpanannya.",
     "openSettings": "Buka pengaturan penyimpanan",
     "restrictedTitle": "Penyimpanan terbatas",
-    "restrictedDescription": "Penyimpanan ini menyimpan cadangan instance, sehingga hanya peran dengan akses berkas penyimpanan yang dapat menjelajahinya.",
-    "instanceBackups": "Backup instans"
+    "restrictedDescription": "Penyimpanan ini menyimpan cadangan instance, sehingga hanya peran dengan akses berkas penyimpanan yang dapat menjelajahinya."
   },
   "s3Form": {
-    "name": "Nama",
-    "namePlaceholder": "Bucket saya",
     "endpoint": "Endpoint",
     "endpointInvalid": "Harus berupa URL yang valid",
     "bucket": "Bucket",

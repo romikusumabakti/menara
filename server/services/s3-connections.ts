@@ -6,18 +6,15 @@ import {
   environments,
   projects,
   type S3Connection,
-  type SafeS3Connection,
   s3Connections,
 } from "@/lib/db/schema";
-import { restrictedConnectionCheck } from "@/lib/restricted-targets";
 import { notFound } from "@/server/errors";
 
-// S3 connection helpers shared across environments: where an old
-// /storage/<id> link leads (getS3ConnectionLocation) and the location and
-// safe-projection helpers. An environment's own connections are managed
-// through server/services/environment-storage, the only place a connection is
-// created, edited or probed. `secretKey` is stripped before any row reaches
-// the client.
+// What remains of the s3_connections service until the contract release:
+// where an old /storage/<id> link leads (getS3ConnectionLocation), and the
+// stored-secret location rule (changesS3Location) that
+// server/services/environment-storage applies to an environment's one
+// storage. No connection row reaches the client.
 
 type S3Location = Pick<
   S3Connection,
@@ -57,33 +54,6 @@ export function changesS3Location(
 /** The code (and actionErrors key) of that refusal. */
 export const SECRET_REQUIRED_FOR_LOCATION_CHANGE =
   "s3SecretRequiredForLocationChange";
-
-/**
- * The client-safe projection of a connection row: no secret.
- * `isBackupDestination` is whether the connection is a restricted target
- * (lib/restricted-targets#restrictedConnectionCheck: the legacy backup
- * destination connection, or one reaching into the backup destination), so
- * the pages hide Edit, Browse, Assign and Delete for it.
- */
-export function toSafeS3Connection(
-  row: S3Connection,
-  restricted: boolean
-): SafeS3Connection {
-  const { secretKey, ...rest } = row;
-  return {
-    ...rest,
-    hasSecret: secretKey.length > 0,
-    isBackupDestination: restricted,
-  };
-}
-
-/** Many rows, with the restricted check loaded once. */
-export async function toSafeS3Connections(
-  rows: S3Connection[]
-): Promise<SafeS3Connection[]> {
-  const isRestricted = await restrictedConnectionCheck();
-  return rows.map((row) => toSafeS3Connection(row, isRestricted(row)));
-}
 
 /** Where an old /storage/<id> link leads (see getS3ConnectionLocation). */
 export type S3ConnectionLocation = {

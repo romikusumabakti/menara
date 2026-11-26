@@ -1918,12 +1918,9 @@
     "notConfiguredReadOnly": "可编辑此环境的成员可以连接其存储。",
     "openSettings": "打开存储设置",
     "restrictedTitle": "受限存储",
-    "restrictedDescription": "此存储保存实例备份,因此只有拥有存储文件访问权限的角色才能浏览。",
-    "instanceBackups": "实例备份"
+    "restrictedDescription": "此存储保存实例备份,因此只有拥有存储文件访问权限的角色才能浏览。"
   },
   "s3Form": {
-    "name": "名称",
-    "namePlaceholder": "我的存储桶",
     "endpoint": "端点",
     "endpointInvalid": "必须是有效的 URL",
     "bucket": "存储桶",

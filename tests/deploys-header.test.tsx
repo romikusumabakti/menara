@@ -254,6 +254,11 @@ describe("Deploy target header", () => {
     expect(meta?.textContent).toContain("acme/app");
     expect(meta?.textContent).not.toContain("/srv/a");
     expect(meta?.textContent).not.toContain("app-a.service");
+    // Screen readers get the full path and unit on the focusable chip.
+    const chip = meta?.querySelector('[tabindex="0"]');
+    expect(chip?.getAttribute("aria-label")).toBe(
+      `app-a.jar, /srv/a/app-a.jar, ${d.serviceUnit.replace("{unit}", "app-a.service")}`
+    );
     act(() => root.unmount());
     container.remove();
     await mount([liveTarget({ deployDir: "/srv/acme-app" })]);

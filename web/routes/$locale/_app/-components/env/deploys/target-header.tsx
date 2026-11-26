@@ -237,6 +237,15 @@ function TargetSubtitle({
     target.kind === "jar"
       ? target.jarName
       : (target.deployDir.split("/").filter(Boolean).pop() ?? target.deployDir);
+  const unit = target.kind === "jar" ? target.systemdUnit : null;
+  // The tooltip is pointer/focus only; this is what a screen reader announces.
+  const artifactLabel = [
+    artifact,
+    path,
+    unit ? t("serviceUnit", { unit }) : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
   return (
     <CardDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
       <MetaItem icon={<GitBranch aria-hidden />}>
@@ -251,6 +260,8 @@ function TargetSubtitle({
             <span
               // biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard focus target for the path tooltip
               tabIndex={0}
+              role="group"
+              aria-label={artifactLabel}
               className="inline-flex items-center gap-1 break-all"
             />
           }
@@ -260,9 +271,7 @@ function TargetSubtitle({
         </TooltipTrigger>
         <TooltipContent className="flex-col items-start font-mono">
           <span>{path}</span>
-          {target.kind === "jar" && target.systemdUnit && (
-            <span>{t("serviceUnit", { unit: target.systemdUnit })}</span>
-          )}
+          {unit && <span>{t("serviceUnit", { unit })}</span>}
         </TooltipContent>
       </Tooltip>
       {target.repoFullName && (

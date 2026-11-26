@@ -32,7 +32,7 @@ import { UserAvatar } from "@/components/user/user-avatar";
 import { UserName } from "@/components/user/user-name";
 import { Link, useRouter } from "@/i18n/navigation";
 import type { LabelLite } from "@/lib/db/schema";
-import { formatBytes } from "@/lib/utils";
+import { cn, formatBytes } from "@/lib/utils";
 import {
   deleteIssueAttachment,
   type IssueAttachmentRow,
@@ -471,8 +471,9 @@ function IssueDetailView({
           </div>
         ) : null}
 
-        {/* Title */}
-        <div className="flex flex-col gap-1">
+        {/* Title, with its save status beside it: nothing reserved under it,
+            nothing shifts when "Saving…" appears. */}
+        <div className="flex items-center gap-3">
           {canEdit ? (
             <input
               ref={titleRef}
@@ -488,7 +489,7 @@ function IssueDetailView({
               }}
               placeholder={t("titlePlaceholder")}
               maxLength={300}
-              className="w-full rounded-sm bg-transparent text-xl font-semibold outline-none placeholder:text-muted-foreground/70 focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="min-w-0 flex-1 rounded-sm bg-transparent text-xl font-semibold outline-none placeholder:text-muted-foreground/70 focus-visible:ring-3 focus-visible:ring-ring/50"
             />
           ) : (
             <h2 className="text-xl font-semibold break-words">{issue.title}</h2>
@@ -498,6 +499,7 @@ function IssueDetailView({
               field="title"
               state={saveState.title}
               onRetry={() => saveText("title", title)}
+              inline
             />
           ) : null}
         </div>
@@ -773,15 +775,20 @@ function IssueDetailView({
   );
 }
 
-/** Inline save feedback under a field; announced politely. */
+/**
+ * Inline save feedback, announced politely: under a field (a fixed-height row,
+ * so the page doesn't shift), or `inline` beside it (no row reserved).
+ */
 function SaveStatus({
   field,
   state,
   onRetry,
+  inline = false,
 }: {
   field: TextField;
   state: SaveState;
   onRetry: () => void;
+  inline?: boolean;
 }) {
   const t = useTranslations("issueDetail");
   return (
@@ -789,7 +796,10 @@ function SaveStatus({
       data-slot="save-status"
       data-field={field}
       role="status"
-      className="flex min-h-5 items-center gap-2 text-xs text-muted-foreground"
+      className={cn(
+        "flex items-center gap-2 text-xs text-muted-foreground",
+        inline ? "shrink-0" : "min-h-5"
+      )}
     >
       {state === "saving" ? t("saving") : null}
       {state === "saved" ? t("saved") : null}

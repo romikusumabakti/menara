@@ -282,6 +282,19 @@ describe("issue page layout", () => {
     expect(created?.querySelector("button")).toBeNull();
   });
 
+  it("keeps the title's save status beside the title, reserving no row under it", async () => {
+    await mount();
+    const input = document.querySelector(
+      'input[aria-label="Title"]'
+    ) as HTMLElement;
+    const status = document.querySelector(
+      '[data-slot="save-status"][data-field="title"]'
+    ) as HTMLElement;
+    expect(status.parentElement).toBe(input.parentElement);
+    expect(input.parentElement?.className).not.toContain("flex-col");
+    expect(status.className).not.toContain("min-h-");
+  });
+
   it("shows the Parent row when there are candidates", async () => {
     await mount({
       siblings: [{ id: OTHER, number: 3, title: "Checkout epic" }],

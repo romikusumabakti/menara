@@ -929,7 +929,12 @@ describe("commonTagPrefix", () => {
     expect(commonTagPrefix(["acme-dev-1a2b3c4", "acme-dev-5d6e7f8"])).toBe(
       "acme-dev-"
     );
-    expect(commonTagPrefix(["v1.2.3", "v1.2.4"])).toBe("v1.2.");
+  });
+
+  it("drops the prefix when the remainders would be shorter than 6 characters", () => {
+    expect(commonTagPrefix(["v1.2.3", "v1.2.4"])).toBe("");
+    expect(commonTagPrefix(["v1.2.3", "v1.2.40"])).toBe("");
+    expect(commonTagPrefix(["acme-dev-1a2b3", "acme-dev-5d6e7"])).toBe("");
   });
 
   it("is empty for one tag, no shared separator, or a prefix that eats a tag", () => {

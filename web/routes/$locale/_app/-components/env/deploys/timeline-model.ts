@@ -261,9 +261,12 @@ export const PAGE_FIRST = 10;
 
 const TAG_SEPARATORS = /[-._/:]/;
 
+/** A shortened tag must keep enough to identify it (a short sha, not "3"). */
+const MIN_TAG_REMAINDER = 6;
+
 /**
  * The prefix every tag shares, cut after its last separator so no word is
- * split; "" when there is a single tag or nothing useful is shared.
+ * split; "" when there is a single tag or a remainder under 6 characters.
  */
 export function commonTagPrefix(tags: string[]): string {
   const [first, ...rest] = tags;
@@ -275,7 +278,9 @@ export function commonTagPrefix(tags: string[]): string {
   let cut = end;
   while (cut > 0 && !TAG_SEPARATORS.test(first[cut - 1] ?? "")) cut -= 1;
   const prefix = first.slice(0, cut);
-  return tags.every((tag) => tag.length > prefix.length) ? prefix : "";
+  return tags.every((tag) => tag.length - prefix.length >= MIN_TAG_REMAINDER)
+    ? prefix
+    : "";
 }
 
 export type HeaderState = {

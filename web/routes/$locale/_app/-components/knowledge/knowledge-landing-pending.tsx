@@ -4,10 +4,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function KnowledgeLandingPending() {
   return (
     <div className="h-full overflow-y-auto px-4 sm:px-6 lg:px-8">
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 py-10">
+      <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col justify-center gap-6 pt-10 pb-[12vh]">
         <div className="flex flex-col items-center gap-4">
           <Skeleton className="h-8 w-56" />
-          <Skeleton className="h-12 w-full max-w-xl rounded-xl" />
+          <Skeleton className="h-12 w-full rounded-xl" />
         </div>
         <div className="flex flex-col gap-2">
           <Skeleton className="h-4 w-32" />

@@ -150,8 +150,36 @@ describe("knowledge landing", () => {
     );
   });
 
-  it("has its own pending skeleton instead of the app-wide spinner", () => {
+  it("matches the assistant landing block: max-w-3xl, centred vertically, list at the search width", async () => {
+    state.collections = [COLLECTION];
+    await render();
+    const scroller = container.firstElementChild as HTMLElement;
+    const column = scroller.firstElementChild as HTMLElement;
+    expect([...column.classList]).toEqual(
+      expect.arrayContaining([
+        "max-w-3xl",
+        "min-h-full",
+        "justify-center",
+        "pb-[12vh]",
+      ])
+    );
+    expect([...column.classList]).not.toContain("max-w-2xl");
+  });
+
+  it("has its own pending skeleton instead of the app-wide spinner", async () => {
     expect(Route.options.pendingComponent).toBeTypeOf("function");
+    const Pending = Route.options.pendingComponent as React.ComponentType;
+    const holder = document.createElement("div");
+    document.body.append(holder);
+    const r = createRoot(holder);
+    await act(async () => r.render(<Pending />));
+    const scroller = holder.firstElementChild as HTMLElement;
+    expect(scroller.classList).toContain("overflow-y-auto");
+    expect([...(scroller.firstElementChild?.classList ?? [])]).toEqual(
+      expect.arrayContaining(["max-w-3xl", "min-h-full", "justify-center"])
+    );
+    await act(async () => r.unmount());
+    holder.remove();
   });
 
   it("shows no New document button to readers", async () => {

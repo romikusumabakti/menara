@@ -4192,6 +4192,21 @@ describe("context picker", () => {
       expect(text()).not.toContain("Start asking");
     });
 
+    it("the composer dock keeps max-w-3xl in both the centred and docked states", async () => {
+      await renderWorkspace();
+      expect(dock()?.className).toContain("max-w-3xl");
+      expect(dock()?.className).toContain("pb-[12vh]");
+      await act(async () => root.unmount());
+      container.innerHTML = "";
+      root = createRoot(container);
+      await renderWorkspace({ conversationId: CONV_ID }, [
+        userMessage("u1", contextOf("user", null, null)),
+        answer,
+      ]);
+      expect(dock()?.dataset.composerDock).toBe("bottom");
+      expect(dock()?.className).toContain("max-w-3xl");
+    });
+
     it("an open chat with messages docks the composer at the bottom, without the greeting", async () => {
       await renderWorkspace({ conversationId: CONV_ID }, [
         userMessage("u1", contextOf("user", null, null)),

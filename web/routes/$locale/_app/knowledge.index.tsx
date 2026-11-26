@@ -57,7 +57,7 @@ function KnowledgeHome() {
   return (
     // WorkspaceLayout's main neither scrolls nor pads, so the page does both.
     <div className="h-full overflow-y-auto px-4 sm:px-6 lg:px-8">
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 py-10">
+      <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col justify-center gap-6 pt-10 pb-[12vh]">
         <div className="flex flex-col gap-4 text-center">
           <h1 className="font-semibold text-2xl tracking-tight">
             {t("landingTitle")}

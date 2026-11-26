@@ -237,8 +237,8 @@ describe("Deploy timeline layout", () => {
     await mount([
       target({
         recentBuilds: [
-          build(`${prefix}a014b74`, at("09:00:00")),
-          build(`${prefix}b125c85`, at("08:00:00")),
+          build(`${prefix}1a2b3c4`, at("09:00:00")),
+          build(`${prefix}5d6e7f8`, at("08:00:00")),
         ],
       }),
     ]);
@@ -263,8 +263,8 @@ describe("Deploy timeline layout", () => {
 
   it("the second line has the short sha, a shortened tag and a copy button for the full tag", async () => {
     const prefix = "release-train-2026-";
-    const one = `${prefix}a014b74`;
-    const two = `${prefix}b125c85`;
+    const one = `${prefix}1a2b3c4`;
+    const two = `${prefix}5d6e7f8`;
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
@@ -279,7 +279,7 @@ describe("Deploy timeline layout", () => {
     const line = slot("row-ids", first) as HTMLElement;
     expect(line.querySelector("code")?.textContent).toBe(one.slice(0, 7));
     const tag = slot("row-tag", first) as HTMLElement;
-    expect(tag.textContent).toBe("…a014b74");
+    expect(tag.textContent).toBe("…1a2b3c4");
     expect(tag.getAttribute("title")).toBe(one);
     const copy = line.querySelector<HTMLButtonElement>(
       `button[aria-label="${d.row.copyTag.replace("{tag}", one)}"]`

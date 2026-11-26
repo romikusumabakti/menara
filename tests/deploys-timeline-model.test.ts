@@ -926,14 +926,14 @@ describe("shortSha", () => {
 
 describe("commonTagPrefix", () => {
   it("is the shared prefix up to its last separator", () => {
-    expect(commonTagPrefix(["mpl-ml-a014b74", "mpl-ml-b125c85"])).toBe(
-      "mpl-ml-"
+    expect(commonTagPrefix(["acme-dev-1a2b3c4", "acme-dev-5d6e7f8"])).toBe(
+      "acme-dev-"
     );
     expect(commonTagPrefix(["v1.2.3", "v1.2.4"])).toBe("v1.2.");
   });
 
   it("is empty for one tag, no shared separator, or a prefix that eats a tag", () => {
-    expect(commonTagPrefix(["mpl-ml-a014b74"])).toBe("");
+    expect(commonTagPrefix(["acme-dev-1a2b3c4"])).toBe("");
     expect(commonTagPrefix(["v1", "v2"])).toBe("");
     expect(commonTagPrefix(["a-", "a-b"])).toBe("");
   });

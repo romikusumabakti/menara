@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 const CARDS = 2;
 const ROWS = 5;
 
-/** Loading state shaped like the target cards: title, focal line, rows. */
+/** Loading state shaped like the target cards: header, then two-line rows. */
 export function DeploysPending() {
   return (
     <>
@@ -19,11 +19,17 @@ export function DeploysPending() {
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
               {Array.from({ length: ROWS }, (_, row) => (
-                <Skeleton
+                <div
                   key={row}
                   data-slot="timeline-row-skeleton"
-                  className="h-9 w-full"
-                />
+                  className="flex items-center gap-3"
+                >
+                  <Skeleton className="size-2.5 shrink-0 rounded-full" />
+                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                    <Skeleton className="h-4 w-2/3" />
+                    <Skeleton className="h-3 w-1/3" />
+                  </div>
+                </div>
               ))}
             </CardContent>
           </Card>

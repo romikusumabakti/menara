@@ -462,6 +462,9 @@ describe("Deploy timeline layout", () => {
         card.querySelectorAll('[data-slot="timeline-row-skeleton"]')
       ).toHaveLength(5);
     }
+    // Rows are two lines tall like the real ones.
+    const row = container.querySelector('[data-slot="timeline-row-skeleton"]');
+    expect(row?.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(3);
   });
 
   it("moves focus to the first newly shown row after Show more", async () => {

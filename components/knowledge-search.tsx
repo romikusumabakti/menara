@@ -84,7 +84,8 @@ export function useKnowledgeSearch() {
   return ctx;
 }
 
-// Owns the single search dialog, the "/" shortcut and the server search.
+// Owns the single search dialog and the server search; the "/" shortcut is
+// registered by the triggers, so it only exists where a trigger is rendered.
 // Mount once per knowledge area; triggers anywhere below open it via context.
 export function KnowledgeSearchProvider({ children }: { children: ReactNode }) {
   const t = useTranslations("knowledge");
@@ -95,24 +96,6 @@ export function KnowledgeSearchProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   // Guards against out-of-order responses: only the latest query's result wins.
   const seq = useRef(0);
-
-  // Open with "/" while not typing in a field, like many doc tools.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (
-        e.key === "/" &&
-        !["INPUT", "TEXTAREA"].includes(
-          (e.target as HTMLElement)?.tagName ?? ""
-        ) &&
-        !(e.target as HTMLElement)?.isContentEditable
-      ) {
-        e.preventDefault();
-        setOpen(true);
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, []);
 
   useEffect(() => {
     const q = query.trim();
@@ -184,7 +167,8 @@ export function KnowledgeSearchProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// Looks like the assistant's "Search chats" field, but opens the dialog.
+// Looks like the assistant's "Search chats" field, but opens the dialog. The
+// button is the one accessible control; the icon and "/" hint forward clicks.
 export function KnowledgeSearchTrigger({
   variant,
 }: {
@@ -192,6 +176,24 @@ export function KnowledgeSearchTrigger({
 }) {
   const t = useTranslations("knowledge");
   const { open } = useKnowledgeSearch();
+
+  // Open with "/" while not typing in a field, like many doc tools.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        e.key === "/" &&
+        !["INPUT", "TEXTAREA"].includes(target?.tagName ?? "") &&
+        !target?.isContentEditable
+      ) {
+        e.preventDefault();
+        open();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
   return (
     <InputGroup
       className={cn(
@@ -201,7 +203,7 @@ export function KnowledgeSearchTrigger({
           : "shrink-0"
       )}
     >
-      <InputGroupAddon>
+      <InputGroupAddon onClick={open}>
         <Search />
       </InputGroupAddon>
       <button
@@ -211,7 +213,7 @@ export function KnowledgeSearchTrigger({
       >
         {t("searchPlaceholder")}
       </button>
-      <InputGroupAddon align="inline-end">
+      <InputGroupAddon align="inline-end" onClick={open}>
         <kbd className="pointer-events-none hidden h-5 select-none items-center rounded border bg-background px-1.5 font-mono text-xs md:inline-flex">
           /
         </kbd>

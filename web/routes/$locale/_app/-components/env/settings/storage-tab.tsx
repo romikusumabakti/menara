@@ -97,7 +97,6 @@ export function StorageTab({ environmentId }: { environmentId: string }) {
 function RemoveStorage({ environmentId }: { environmentId: string }) {
   const t = useTranslations("environmentSettings");
   const tCommon = useTranslations("common");
-  const tErrors = useTranslations("actionErrors");
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -110,7 +109,7 @@ function RemoveStorage({ environmentId }: { environmentId: string }) {
         environmentStorageQuery(environmentId).queryKey,
         null
       );
-      toast.success(tErrors("s3Deleted"));
+      toast.success(t("storageRemoved"));
       setOpen(false);
     } catch (error) {
       if (error instanceof ApiError && error.status !== 401) {
@@ -167,6 +166,7 @@ function StorageForm({
   storage: EnvironmentStorageConfig | null;
 }) {
   const t = useTranslations("s3Form");
+  const tSettings = useTranslations("environmentSettings");
   const tCommon = useTranslations("common");
   const tErrors = useTranslations("actionErrors");
   const queryClient = useQueryClient();
@@ -292,7 +292,7 @@ function StorageForm({
         environmentStorageQuery(environmentId).queryKey,
         saved
       );
-      toast.success(tErrors(stored ? "s3Updated" : "s3Created"));
+      toast.success(tSettings("storageSaved"));
     } catch (error) {
       report(error);
       return;

@@ -143,6 +143,7 @@ describe("Settings › Storage tab", () => {
       bucket: "acme-files",
       secretKey: "s3cret",
     });
+    expect(mocks.toastSuccess).toHaveBeenCalledWith(t.storageSaved);
   });
 
   it("a first save requires the secret", async () => {
@@ -171,6 +172,7 @@ describe("Settings › Storage tab", () => {
     await click(button(s3.saveChanges));
     expect(mocks.save).toHaveBeenCalledTimes(1);
     expect(mocks.save.mock.calls[0]?.[1]).not.toHaveProperty("secretKey");
+    expect(mocks.toastSuccess).toHaveBeenCalledWith(t.storageSaved);
   });
 
   it("set: a changed bucket needs the secret again", async () => {
@@ -217,6 +219,7 @@ describe("Settings › Storage tab", () => {
       .at(-1);
     await click(confirm);
     expect(mocks.remove).toHaveBeenCalledWith(ENV_ID);
+    expect(mocks.toastSuccess).toHaveBeenCalledWith(t.storageRemoved);
   });
 
   it("restricted: a notice replaces the fields and Remove stays", async () => {

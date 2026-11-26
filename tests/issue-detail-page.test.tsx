@@ -282,6 +282,19 @@ describe("issue page layout", () => {
     expect(created?.querySelector("button")).toBeNull();
   });
 
+  it("keeps the title's save status beside the title, reserving no row under it", async () => {
+    await mount();
+    const input = document.querySelector(
+      'input[aria-label="Title"]'
+    ) as HTMLElement;
+    const status = document.querySelector(
+      '[data-slot="save-status"][data-field="title"]'
+    ) as HTMLElement;
+    expect(status.parentElement).toBe(input.parentElement);
+    expect(input.parentElement?.className).not.toContain("flex-col");
+    expect(status.className).not.toContain("min-h-");
+  });
+
   it("shows the Parent row when there are candidates", async () => {
     await mount({
       siblings: [{ id: OTHER, number: 3, title: "Checkout epic" }],
@@ -619,6 +632,12 @@ describe("without issue: write", () => {
     expect(editorDom()).toBeNull();
     expect(text()).toContain("Checkout total off by one");
     expect(text()).toContain("Seen on staging");
+    // The read-only title shares the title row: it must shrink and wrap.
+    const heading = [...document.querySelectorAll("h2")].find(
+      (h) => h.textContent === "Checkout total off by one"
+    );
+    expect(heading?.className).toContain("min-w-0");
+    expect(heading?.className).toContain("flex-1");
     expect(sidebar().querySelector("button")).toBeNull();
     expect(chipRow()?.querySelector("button")).toBeNull();
     expect(

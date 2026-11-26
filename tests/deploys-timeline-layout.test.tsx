@@ -388,6 +388,31 @@ describe("Deploy timeline layout", () => {
     expect(plain.textContent).toContain("Ada Example");
   });
 
+  it("keeps actor, trigger and duration on one line, truncating the actor", async () => {
+    await mount([
+      target({
+        currentTag: "v2",
+        currentStatus: "success",
+        recentBuilds: [build("v2", at("09:50:00"))],
+        recentDeployments: [
+          deployment("v2", "success", {
+            createdAt: at("10:00:00"),
+            finishedAt: at("10:01:30"),
+            trigger: "manual",
+          }),
+        ],
+      }),
+    ]);
+    const meta = slot("row-meta", rowOf("v2")) as HTMLElement;
+    expect(meta.className).not.toContain("flex-wrap");
+    expect(meta.className).toContain("min-w-0");
+    const actor = meta.querySelector('[data-slot="row-actor"]') as HTMLElement;
+    // A flex container, so the inline-flex actor (UserName link, auto chip)
+    // becomes a shrinkable flex item whose inner text truncates.
+    expect(actor.className).toContain("flex");
+    expect(actor.className).toContain("min-w-0");
+  });
+
   it("timeline sources use logical properties only", () => {
     for (const file of [
       "timeline.tsx",

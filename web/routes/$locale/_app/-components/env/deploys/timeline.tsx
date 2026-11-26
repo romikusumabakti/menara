@@ -476,19 +476,24 @@ function SubjectMeta({
   return (
     <span
       data-slot="row-meta"
-      className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground"
+      className="flex min-w-0 items-center gap-x-1.5 whitespace-nowrap text-xs text-muted-foreground"
     >
-      <DeploymentActor deployment={d} />
+      {/* One line: a long name truncates, the trigger and duration stay. */}
+      <span data-slot="row-actor" className="flex min-w-0 items-center">
+        <DeploymentActor deployment={d} />
+      </span>
       {d.trigger !== "auto" && (
         <>
           <span aria-hidden="true">·</span>
-          <span>{t(`trigger.${d.trigger}`)}</span>
+          <span className="shrink-0">{t(`trigger.${d.trigger}`)}</span>
         </>
       )}
       {duration !== null && (
         <>
           <span aria-hidden="true">·</span>
-          <DurationText ms={duration} />
+          <span className="shrink-0">
+            <DurationText ms={duration} />
+          </span>
         </>
       )}
     </span>

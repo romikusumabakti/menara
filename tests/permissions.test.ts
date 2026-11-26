@@ -12,6 +12,7 @@ import {
   normalizeOrgRole,
   ORG_ROLES,
   type OrgRole,
+  orgAc,
   PROJECT_ROLES,
   type ProjectRole,
   projectRoleForOrgRole,
@@ -212,7 +213,6 @@ const ORG_MATRIX: [string, string, Record<OrgRole, boolean>][] = [
   ["server", "terminal", { admin: true, infra: true, observer: false, engineer: false, qa: false, ba: false, pm: false, staff: false }],
   ["server", "files", { admin: true, infra: true, observer: false, engineer: false, qa: false, ba: false, pm: false, staff: false }],
   ["storage", "read", { admin: true, infra: true, observer: true, engineer: false, qa: false, ba: false, pm: false, staff: false }],
-  ["storage", "manage", { admin: true, infra: true, observer: false, engineer: false, qa: false, ba: false, pm: false, staff: false }],
   ["storage", "files", { admin: true, infra: true, observer: false, engineer: false, qa: false, ba: false, pm: false, staff: false }],
   ["tunnel", "read", { admin: true, infra: true, observer: true, engineer: false, qa: false, ba: false, pm: false, staff: false }],
   ["tunnel", "manage", { admin: true, infra: true, observer: false, engineer: false, qa: false, ba: false, pm: false, staff: false }],
@@ -341,6 +341,12 @@ describe("canOrg for the new roles", () => {
   });
 });
 
+describe("storage statement", () => {
+  it("has no manage right: an environment's storage is managed with its environment settings", () => {
+    expect(orgAc.statements.storage).toEqual(["read", "files"]);
+  });
+});
+
 describe("canOrgAccess", () => {
   const grant = [
     { server: ["read"] },
@@ -352,7 +358,6 @@ describe("canOrgAccess", () => {
   ] as const;
   const beyond = [
     { server: ["manage"] },
-    { storage: ["manage"] },
     { tunnel: ["read"] },
     { server: ["read", "manage"] },
     { audit: ["read"] },

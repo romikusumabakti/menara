@@ -1,4 +1,6 @@
 // @vitest-environment happy-dom
+
+import { readFileSync } from "node:fs";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { isNotFound, isRedirect } from "@tanstack/react-router";
 import { act } from "react";
@@ -12,13 +14,11 @@ import idMessages from "../messages/id.json";
 import zhMessages from "../messages/zh.json";
 
 // Storage per environment, browser side: the Storage page (the explorer, or
-// a not-configured state), the old per-connection URLs, Admin › Storage for
-// the unassigned connections, and the removed global /storage URLs.
+// a not-configured state), the old per-connection URLs, and the removed
+// global /storage URLs.
 
 const mocks = vi.hoisted(() => ({
   confirmTyping: vi.fn(),
-  assign: vi.fn(),
-  removeUnassigned: vi.fn(),
   explorer: vi.fn(),
 }));
 
@@ -41,22 +41,15 @@ vi.mock("@/components/file-explorer", () => ({
     return <div data-testid="explorer" />;
   },
 }));
-vi.mock("@/web/api/s3-connections", async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  assignS3Connection: mocks.assign,
-  deleteUnassignedS3Connection: mocks.removeUnassigned,
-}));
 
 import { ApiError } from "@/web/api/client";
 import { environmentStorageQuery } from "@/web/api/environment-storage";
 import { s3ConnectionLocationQuery } from "@/web/api/s3-connections";
 import { meQuery } from "@/web/api/session";
-import { UnassignedStorage } from "../web/routes/$locale/_app/-components/admin/storage/unassigned-storage";
 import { StorageExplorerPage } from "../web/routes/$locale/_app/-components/env/storage/storage-page";
 import { Route as EnvFiles } from "../web/routes/$locale/_app/$projectKey.$envSlug.storage.$connectionId.files";
 import { Route as EnvConnection } from "../web/routes/$locale/_app/$projectKey.$envSlug.storage.$connectionId.index";
 import { Route as EnvStorage } from "../web/routes/$locale/_app/$projectKey.$envSlug.storage.index";
-import { Route as AdminStorage } from "../web/routes/$locale/_app/admin.storage";
 import { Route as OldFiles } from "../web/routes/$locale/_app/storage.$id.files";
 import { Route as OldConnection } from "../web/routes/$locale/_app/storage.$id.index";
 import { Route as OldIndex } from "../web/routes/$locale/_app/storage.index";
@@ -68,23 +61,6 @@ import { Route as OldNew } from "../web/routes/$locale/_app/storage.new";
 
 const ENV_ID = "0197f3a0-1b2c-7def-8000-0000000000e1";
 const CONN_ID = "0197f3a0-1b2c-7def-8000-0000000000c1";
-
-const connection = (over: Record<string, unknown> = {}) => ({
-  id: CONN_ID,
-  name: "assets",
-  environmentId: ENV_ID,
-  endpoint: "https://s3.example.com",
-  region: "us-east-1",
-  bucket: "assets",
-  keyPrefix: "team-a/",
-  accessKeyId: "AKIAEXAMPLE",
-  forcePathStyle: true,
-  hasSecret: true,
-  isBackupDestination: false,
-  createdAt: "2026-11-01T00:00:00.000Z",
-  updatedAt: "2026-11-01T00:00:00.000Z",
-  ...over,
-});
 
 const storage = (over: Record<string, unknown> = {}) => ({
   environmentId: ENV_ID,
@@ -234,64 +210,10 @@ describe("environment storage page guards", () => {
 });
 
 describe("Admin › Storage", () => {
-  const options = [
-    { value: ENV_ID, label: "Heron Membership / Dev" },
-    { value: "e2", label: "Heron Membership / QA" },
-  ];
-
-  it("shows an empty state when every connection has an environment", async () => {
-    await render(<UnassignedStorage connections={[]} environments={options} />);
-    expect(container.textContent).toContain(enMessages.adminStorage.emptyTitle);
-  });
-
-  it("lists the unassigned connections", async () => {
-    await render(
-      <UnassignedStorage
-        connections={[connection({ environmentId: null })]}
-        environments={options}
-      />
-    );
-    expect(container.textContent).toContain("assets");
-    expect(container.textContent).toContain("https://s3.example.com");
-  });
-
-  it("keeps Assign and Delete off the instance backup bucket, saying why", async () => {
-    await render(
-      <UnassignedStorage
-        connections={[
-          connection({ environmentId: null, isBackupDestination: true }),
-        ]}
-        environments={options}
-      />
-    );
-    await act(async () =>
-      container
-        .querySelector<HTMLElement>(
-          `button[aria-label="${enMessages.common.openMenu}"]`
-        )
-        ?.click()
-    );
-    const items = [
-      ...document.body.querySelectorAll<HTMLElement>('[role="menuitem"]'),
-    ];
-    const item = (label: string) =>
-      items.find((el) => el.textContent?.startsWith(label));
-    for (const label of [
-      enMessages.adminStorage.assign,
-      enMessages.common.delete,
-    ]) {
-      expect(item(label)?.getAttribute("aria-disabled"), label).toBe("true");
-      expect(item(label)?.textContent).toContain(
-        enMessages.adminStorage.backupDestinationHint
-      );
-    }
-    await act(async () => item(enMessages.common.delete)?.click());
-    expect(mocks.confirmTyping).not.toHaveBeenCalled();
-    expect(mocks.removeUnassigned).not.toHaveBeenCalled();
-  });
-
-  it("guards the page with the org storage:manage right", () => {
-    expect(AdminStorage.options.beforeLoad).toBeTypeOf("function");
+  it("is not a route any more", () => {
+    const routeTree = readFileSync("web/routeTree.gen.ts", "utf8");
+    expect(routeTree).not.toContain("admin/storage");
+    expect(routeTree).not.toContain("AdminStorage");
   });
 });
 
@@ -393,7 +315,7 @@ describe("storage messages", () => {
     es: esMessages,
     zh: zhMessages,
   } as Record<string, Record<string, Record<string, unknown>>>;
-  const namespaces = ["storage", "adminStorage", "s3Form"];
+  const namespaces = ["storage", "s3Form"];
 
   it.each(Object.keys(locales))(
     "%s has every key of the English storage namespaces",

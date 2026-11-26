@@ -21,8 +21,8 @@ import {
 // that secrets never come back and stay with their location, the backup
 // destination refusals, the activity rows, that saves, removes and both
 // environment deletes drain the environment's old s3_connections rows, the
-// admin assignment of unassigned connections, and the explorer's access rule
-// for an environment's storage (that environment's rights).
+// removal of the admin handling of unassigned connections, and the explorer's
+// access rule for an environment's storage (that environment's rights).
 //
 //   ENVIRONMENT_STORAGE_SCRATCH=1 env -u SECRETS_KEY bun --bun vitest run tests/environment-storage-scratch.test.ts
 const enabled = process.env.ENVIRONMENT_STORAGE_SCRATCH === "1";
@@ -711,101 +711,7 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
     });
   });
 
-  describe("unassigned connections (admin)", () => {
-    it("assigns only unassigned connections", async () => {
-      as(ADMIN, "admin");
-      expect(await refusal(admin.assignS3Connection(CONN_A, ENV_B))).toEqual({
-        status: 409,
-        code: "s3ConnectionAlreadyAssigned",
-      });
-      expect((await connection(CONN_A))?.environment_id).toBe(ENV_A);
-    });
-
-    it("never assigns a connection that still holds old archives", async () => {
-      as(ADMIN, "admin");
-      await sql`insert into environment_archives (project_name,
-          environment_name, environment_slug, expires_at, location,
-          s3_connection_id, key_prefix)
-        values ('Heron', 'Heron old', 'old', now() + interval '30 days', 's3',
-          ${CONN_FREE}, 'archives/heron-old/')`;
-      expect(await refusal(admin.assignS3Connection(CONN_FREE, ENV_A))).toEqual(
-        { status: 409, code: "s3ConnectionHoldsArchives" }
-      );
-      expect((await connection(CONN_FREE))?.environment_id).toBeNull();
-    });
-
-    it("lists only unassigned connections, for admins", async () => {
-      as(ADMIN, "admin");
-      const rows = await admin.listUnassignedS3Connections();
-      expect(rows.map((r) => r.id).sort()).toEqual(
-        [CONN_FREE, CONN_BACKUP].sort()
-      );
-      expect(JSON.stringify(rows)).not.toContain("fictional-secret");
-      for (const [id, role] of [
-        [ENGINEER, "engineer"],
-        [QA, "qa"],
-      ] as const) {
-        as(id, role);
-        expect(
-          await refusal(admin.listUnassignedS3Connections())
-        ).toMatchObject({ status: 403 });
-      }
-    });
-
-    it("assigns a connection to an existing environment", async () => {
-      as(ADMIN, "admin");
-      const assigned = await admin.assignS3Connection(CONN_FREE, ENV_B);
-      expect(assigned).toMatchObject({ id: CONN_FREE, environmentId: ENV_B });
-      expect(assigned).not.toHaveProperty("secretKey");
-      expect((await connection(CONN_FREE))?.environment_id).toBe(ENV_B);
-      expect(await activity("storage.assigned")).toEqual([
-        {
-          entity_id: CONN_FREE,
-          data: { name: "Old bucket", environment: "Heron QA" },
-        },
-      ]);
-      expect(
-        await refusal(admin.assignS3Connection(CONN_A, MISSING))
-      ).toMatchObject({ status: 404 });
-      expect(
-        await refusal(admin.assignS3Connection(MISSING, ENV_A))
-      ).toMatchObject({ status: 404 });
-      expect((await connection(CONN_A))?.environment_id).toBe(ENV_A);
-    });
-
-    it("never assigns the instance backup destination", async () => {
-      as(ADMIN, "admin");
-      expect(
-        await refusal(admin.assignS3Connection(CONN_BACKUP, ENV_A))
-      ).toEqual({ status: 409, code: "s3BackupDestinationNotAssignable" });
-      expect((await connection(CONN_BACKUP))?.environment_id).toBeNull();
-    });
-
-    it("refuses assignment to non-admins", async () => {
-      as(ENGINEER, "engineer");
-      expect(
-        await refusal(admin.assignS3Connection(CONN_FREE, ENV_A))
-      ).toMatchObject({ status: 403 });
-      expect((await connection(CONN_FREE))?.environment_id).toBeNull();
-    });
-
-    it("deletes an unassigned connection, and only an unassigned one", async () => {
-      as(ADMIN, "admin");
-      await admin.deleteUnassignedS3Connection(CONN_FREE);
-      expect(await connection(CONN_FREE)).toBeUndefined();
-      expect(await activity("storage.deleted")).toEqual([
-        { entity_id: CONN_FREE, data: { name: "Old bucket", environment: "" } },
-      ]);
-      expect(
-        await refusal(admin.deleteUnassignedS3Connection(CONN_A))
-      ).toMatchObject({ status: 404 });
-      expect(await connection(CONN_A)).toBeDefined();
-      as(ENGINEER, "engineer");
-      expect(
-        await refusal(admin.deleteUnassignedS3Connection(CONN_BACKUP))
-      ).toMatchObject({ status: 403 });
-    });
-
+  describe("removed connection routes", () => {
     it("has no org-wide list, read, create, edit, delete or probe any more", async () => {
       as(ADMIN, "admin");
       for (const [method, path] of [
@@ -815,6 +721,9 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
         ["POST", "/api/s3-connections/update-s3-connection"],
         ["POST", "/api/s3-connections/delete-s3-connection"],
         ["POST", "/api/s3-connections/test-s3-connection-action"],
+        ["GET", "/api/s3-connections/list-unassigned-s3-connections"],
+        ["POST", "/api/s3-connections/assign-s3-connection"],
+        ["POST", "/api/s3-connections/delete-unassigned-s3-connection"],
       ] as const) {
         const res = await app.request(path, {
           method,
@@ -872,7 +781,7 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
         }
       }
       // The observer sees every project, but not the unassigned connections
-      // (no storage:manage).
+      // (an unassigned connection has no location).
       as(OBSERVER, "observer");
       expect(await admin.getS3ConnectionLocation(CONN_B)).toMatchObject({
         kind: "environment",
@@ -884,9 +793,6 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
           `observer ${id}`
         ).toMatchObject({ status: 404 });
       }
-      expect(await refusal(admin.listUnassignedS3Connections())).toMatchObject({
-        status: 403,
-      });
       as(ENGINEER, "engineer");
       expect((await location(CONN_B)).status).toBe(404);
       expect((await location(MISSING)).status).toBe(404);

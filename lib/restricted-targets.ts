@@ -9,12 +9,7 @@ import {
   requireProjectPermission,
 } from "@/lib/authz";
 import { db } from "@/lib/db";
-import {
-  environmentStorage,
-  instanceSettings,
-  s3Connections,
-  servers,
-} from "@/lib/db/schema";
+import { environmentStorage, instanceSettings, servers } from "@/lib/db/schema";
 import type { ExplorerSource } from "@/lib/explorer";
 import {
   canOrg,
@@ -124,30 +119,6 @@ export async function restrictedConnectionCheck(): Promise<
     connection.id === restricted.legacyId ||
     (restricted.destination !== null &&
       locationsOverlap(connection, restricted.destination));
-}
-
-/**
- * Whether a legacy s3_connections row is restricted (restrictedConnectionCheck);
- * an unknown connection is not. Looked up in SQL, with uuid semantics, and
- * the row's own id then compared, so "<UPPERCASE id>" is no way round.
- */
-export async function isRestrictedConnection(
-  connectionId: string
-): Promise<boolean> {
-  const [[connection], isRestricted] = await Promise.all([
-    db
-      .select({
-        id: s3Connections.id,
-        endpoint: s3Connections.endpoint,
-        bucket: s3Connections.bucket,
-        keyPrefix: s3Connections.keyPrefix,
-      })
-      .from(s3Connections)
-      .where(eq(s3Connections.id, connectionId))
-      .limit(1),
-    restrictedConnectionCheck(),
-  ]);
-  return connection ? isRestricted(connection) : false;
 }
 
 // The location of an environment's storage, or null when none is configured.

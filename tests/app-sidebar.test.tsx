@@ -155,13 +155,12 @@ describe("app sidebar", () => {
     );
   });
 
-  it("admin group: Users, Activity, Repositories, Storage, Instance, then Integrations: Jira, CI, Cloudflare, Assistant; no Tunnels", async () => {
+  it("admin group: Users, Activity, Repositories, Instance, then Integrations: Jira, CI, Cloudflare, Assistant; no Tunnels", async () => {
     await renderSidebar("admin", "/admin/activity");
     expect(groupRows(messages.nav.admin)).toEqual([
       messages.nav.users,
       messages.nav.activity,
       messages.nav.serviceCatalog,
-      messages.nav.storage,
       messages.nav.instance,
     ]);
     expect(groupRows(messages.nav.integrations)).toEqual([
@@ -198,12 +197,8 @@ describe("app sidebar", () => {
     expect(hrefs()).not.toContain("/servers");
   });
 
-  it("lists Admin › Storage for storage managers only", async () => {
+  it("has no Admin › Storage item for anyone", async () => {
     await renderSidebar("admin", "/admin/activity");
-    expect(hrefs()).toContain("/admin/storage");
-    act(() => root.unmount());
-    container.remove();
-    await renderSidebar("observer", "/admin/activity");
     expect(hrefs()).not.toContain("/admin/storage");
   });
 

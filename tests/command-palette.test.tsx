@@ -223,7 +223,6 @@ describe("command palette pages", () => {
     await openPalette("admin", "engineer");
     expect(labels()).toEqual(
       expect.arrayContaining([
-        messages.nav.storage,
         messages.nav.serviceCatalog,
         messages.nav.ci,
         messages.nav.cloudflare,
@@ -249,15 +248,18 @@ describe("command palette pages", () => {
       await act(async () => el?.click());
     };
     await open(messages.nav.serviceCatalog);
-    await open(messages.nav.storage);
     await open(messages.nav.ci);
     await open(messages.nav.cloudflare);
     expect(push.mock.calls.map(([path]) => path)).toEqual([
       "/admin/services",
-      "/admin/storage",
       "/admin/ci",
       "/admin/cloudflare",
     ]);
+  });
+
+  it("offers no Admin › Storage entry, even to an admin", async () => {
+    await openPalette("admin", "engineer");
+    expect(labels()).not.toContain(messages.nav.storage);
   });
 
   it("lists Servers, and no Storage page, to an engineer", async () => {

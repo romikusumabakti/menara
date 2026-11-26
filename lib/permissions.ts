@@ -40,7 +40,7 @@ const orgStatements = {
   user: [...defaultStatements.user, "invite", "offboard"],
   project: ["create", "delete"],
   server: ["read", "manage", "terminal", "files"],
-  storage: ["read", "manage", "files"],
+  storage: ["read", "files"],
   tunnel: ["read", "manage"],
   integration: ["manage"],
   knowledge: ["read", "write", "manage"],
@@ -55,7 +55,7 @@ export const orgAc = createAccessControl(orgStatements);
 
 const infraOps = {
   server: ["read", "manage", "terminal", "files"],
-  storage: ["read", "manage", "files"],
+  storage: ["read", "files"],
   tunnel: ["read", "manage"],
 } as const;
 

@@ -142,12 +142,6 @@ const adminItems: AdminItem[] = [
     perm: { integration: ["manage"] },
   },
   {
-    key: "storage",
-    url: "/admin/storage",
-    icon: HardDrive,
-    perm: { storage: ["manage"] },
-  },
-  {
     key: "instance",
     url: "/admin/instance",
     icon: Cog,

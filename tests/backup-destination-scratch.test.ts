@@ -117,7 +117,6 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
   let previousUrl: string | undefined;
   let svc: typeof import("@/server/services/backup-destination");
   let backups: typeof import("@/server/services/instance-backups");
-  let admin: typeof import("@/server/services/s3-connections");
   let storage: typeof import("@/server/services/environment-storage");
   let explorer: typeof import("@/server/services/explorer");
   let loadBackupDestination: typeof import("@/lib/instance-backup/destination")["loadBackupDestination"];
@@ -185,7 +184,6 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
     ({ encryptSecret, decryptSecret } = await import("@/lib/secrets"));
     svc = await import("@/server/services/backup-destination");
     backups = await import("@/server/services/instance-backups");
-    admin = await import("@/server/services/s3-connections");
     storage = await import("@/server/services/environment-storage");
     explorer = await import("@/server/services/explorer");
     ({ loadBackupDestination } = await import(
@@ -621,16 +619,6 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
       await sql`update s3_connections
         set endpoint = 'https://192.0.2.44', bucket = ${BUCKET}
         where id = ${CONN_FREE}`;
-      expect(await refusal(admin.assignS3Connection(CONN_FREE, ENV))).toEqual({
-        status: 409,
-        code: "s3BackupDestinationNotAssignable",
-      });
-      // Pages hide Edit and Browse for it (isBackupDestination).
-      expect(
-        (await admin.listUnassignedS3Connections()).find(
-          (c) => c.id === CONN_FREE
-        )
-      ).toMatchObject({ isBackupDestination: true });
       as(ENGINEER, "engineer");
       // A stored config on an alias of the destination is flagged too.
       await sql`insert into environment_storage (environment_id, endpoint,
@@ -687,41 +675,12 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
       await svc.saveBackupDestination(
         destination({ bucket: "fictional-elsewhere", keyPrefix: null })
       );
-      expect(await refusal(admin.assignS3Connection(CONN_LEGACY, ENV))).toEqual(
-        { status: 409, code: "s3BackupDestinationNotAssignable" }
-      );
       // No explorer source names a connection any more: by its id it is
       // no environment's storage, so not found.
       as(ENGINEER, "engineer");
       expect(
         await refusal(explorer.listEntries(src(CONN_LEGACY), ""))
       ).toMatchObject({ status: 404 });
-    });
-  });
-
-  describe("deleting connections", () => {
-    it("refuses the legacy backup destination and connections old archives live in", async () => {
-      await sql`insert into environment_archives (project_name,
-          environment_name, environment_slug, expires_at, location,
-          s3_connection_id, key_prefix)
-        values ('Heron', 'Heron old', 'old', now() + interval '30 days', 's3',
-          ${CONN_FREE}, 'menara-env-archives/menara/old/')`;
-      expect(
-        await refusal(admin.deleteUnassignedS3Connection(CONN_LEGACY))
-      ).toEqual({ status: 409, code: "s3BackupDestinationRestricted" });
-      expect(
-        await refusal(admin.deleteUnassignedS3Connection(CONN_FREE))
-      ).toEqual({ status: 409, code: "s3ConnectionHoldsArchives" });
-      const [kept] = await sql<{ count: number }[]>`
-        select count(*)::int as count from s3_connections
-        where id in (${CONN_LEGACY}, ${CONN_FREE})`;
-      expect(kept?.count).toBe(2);
-      await sql`delete from environment_archives`;
-      await admin.deleteUnassignedS3Connection(CONN_FREE);
-      const [gone] = await sql<{ count: number }[]>`
-        select count(*)::int as count from s3_connections
-        where id = ${CONN_FREE}`;
-      expect(gone?.count).toBe(0);
     });
   });
 });

@@ -38,7 +38,6 @@ import { Route as LocaleAppAdminAccessRouteImport } from './routes/$locale/_app/
 import { Route as LocaleAppAdminActivityRouteImport } from './routes/$locale/_app/admin.activity'
 import { Route as LocaleAppAdminAssistantRouteImport } from './routes/$locale/_app/admin.assistant'
 import { Route as LocaleAppAdminInstanceRouteImport } from './routes/$locale/_app/admin.instance'
-import { Route as LocaleAppAdminStorageRouteImport } from './routes/$locale/_app/admin.storage'
 import { Route as LocaleAppAdminUsersRouteImport } from './routes/$locale/_app/admin.users'
 import { Route as LocaleAppAppsIndexRouteImport } from './routes/$locale/_app/apps.index'
 import { Route as LocaleAppAppsNewRouteImport } from './routes/$locale/_app/apps.new'
@@ -260,11 +259,6 @@ const LocaleAppAdminAssistantRoute = LocaleAppAdminAssistantRouteImport.update({
 const LocaleAppAdminInstanceRoute = LocaleAppAdminInstanceRouteImport.update({
   id: '/instance',
   path: '/instance',
-  getParentRoute: () => LocaleAppAdminRouteRoute,
-} as any)
-const LocaleAppAdminStorageRoute = LocaleAppAdminStorageRouteImport.update({
-  id: '/storage',
-  path: '/storage',
   getParentRoute: () => LocaleAppAdminRouteRoute,
 } as any)
 const LocaleAppAdminUsersRoute = LocaleAppAdminUsersRouteImport.update({
@@ -693,7 +687,6 @@ export interface FileRoutesByFullPath {
   '/$locale/admin/activity': typeof LocaleAppAdminActivityRoute
   '/$locale/admin/assistant': typeof LocaleAppAdminAssistantRoute
   '/$locale/admin/instance': typeof LocaleAppAdminInstanceRoute
-  '/$locale/admin/storage': typeof LocaleAppAdminStorageRoute
   '/$locale/admin/users': typeof LocaleAppAdminUsersRoute
   '/$locale/apps/new': typeof LocaleAppAppsNewRoute
   '/$locale/environments/new': typeof LocaleAppEnvironmentsNewRoute
@@ -790,7 +783,6 @@ export interface FileRoutesByTo {
   '/$locale/admin/activity': typeof LocaleAppAdminActivityRoute
   '/$locale/admin/assistant': typeof LocaleAppAdminAssistantRoute
   '/$locale/admin/instance': typeof LocaleAppAdminInstanceRoute
-  '/$locale/admin/storage': typeof LocaleAppAdminStorageRoute
   '/$locale/admin/users': typeof LocaleAppAdminUsersRoute
   '/$locale/apps/new': typeof LocaleAppAppsNewRoute
   '/$locale/environments/new': typeof LocaleAppEnvironmentsNewRoute
@@ -893,7 +885,6 @@ export interface FileRoutesById {
   '/$locale/_app/admin/activity': typeof LocaleAppAdminActivityRoute
   '/$locale/_app/admin/assistant': typeof LocaleAppAdminAssistantRoute
   '/$locale/_app/admin/instance': typeof LocaleAppAdminInstanceRoute
-  '/$locale/_app/admin/storage': typeof LocaleAppAdminStorageRoute
   '/$locale/_app/admin/users': typeof LocaleAppAdminUsersRoute
   '/$locale/_app/apps/new': typeof LocaleAppAppsNewRoute
   '/$locale/_app/environments/new': typeof LocaleAppEnvironmentsNewRoute
@@ -996,7 +987,6 @@ export interface FileRouteTypes {
     | '/$locale/admin/activity'
     | '/$locale/admin/assistant'
     | '/$locale/admin/instance'
-    | '/$locale/admin/storage'
     | '/$locale/admin/users'
     | '/$locale/apps/new'
     | '/$locale/environments/new'
@@ -1093,7 +1083,6 @@ export interface FileRouteTypes {
     | '/$locale/admin/activity'
     | '/$locale/admin/assistant'
     | '/$locale/admin/instance'
-    | '/$locale/admin/storage'
     | '/$locale/admin/users'
     | '/$locale/apps/new'
     | '/$locale/environments/new'
@@ -1195,7 +1184,6 @@ export interface FileRouteTypes {
     | '/$locale/_app/admin/activity'
     | '/$locale/_app/admin/assistant'
     | '/$locale/_app/admin/instance'
-    | '/$locale/_app/admin/storage'
     | '/$locale/_app/admin/users'
     | '/$locale/_app/apps/new'
     | '/$locale/_app/environments/new'
@@ -1479,13 +1467,6 @@ declare module '@tanstack/react-router' {
       path: '/instance'
       fullPath: '/$locale/admin/instance'
       preLoaderRoute: typeof LocaleAppAdminInstanceRouteImport
-      parentRoute: typeof LocaleAppAdminRouteRoute
-    }
-    '/$locale/_app/admin/storage': {
-      id: '/$locale/_app/admin/storage'
-      path: '/storage'
-      fullPath: '/$locale/admin/storage'
-      preLoaderRoute: typeof LocaleAppAdminStorageRouteImport
       parentRoute: typeof LocaleAppAdminRouteRoute
     }
     '/$locale/_app/admin/users': {
@@ -1986,7 +1967,6 @@ interface LocaleAppAdminRouteRouteChildren {
   LocaleAppAdminActivityRoute: typeof LocaleAppAdminActivityRoute
   LocaleAppAdminAssistantRoute: typeof LocaleAppAdminAssistantRoute
   LocaleAppAdminInstanceRoute: typeof LocaleAppAdminInstanceRoute
-  LocaleAppAdminStorageRoute: typeof LocaleAppAdminStorageRoute
   LocaleAppAdminUsersRoute: typeof LocaleAppAdminUsersRoute
   LocaleAppAdminIndexRoute: typeof LocaleAppAdminIndexRoute
   LocaleAppAdminCiIdRoute: typeof LocaleAppAdminCiIdRoute
@@ -2019,7 +1999,6 @@ const LocaleAppAdminRouteRouteChildren: LocaleAppAdminRouteRouteChildren = {
   LocaleAppAdminActivityRoute: LocaleAppAdminActivityRoute,
   LocaleAppAdminAssistantRoute: LocaleAppAdminAssistantRoute,
   LocaleAppAdminInstanceRoute: LocaleAppAdminInstanceRoute,
-  LocaleAppAdminStorageRoute: LocaleAppAdminStorageRoute,
   LocaleAppAdminUsersRoute: LocaleAppAdminUsersRoute,
   LocaleAppAdminIndexRoute: LocaleAppAdminIndexRoute,
   LocaleAppAdminCiIdRoute: LocaleAppAdminCiIdRoute,

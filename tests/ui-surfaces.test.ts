@@ -15,10 +15,7 @@ const sources = execFileSync(
 
 // Not content boxes: the selectable tile in the data table, and skeletons,
 // which follow whatever they mimic.
-const HAND_BUILT_ALLOWLIST = [
-  "components/ui/data-table.tsx",
-  "admin/storage/unassigned-storage.tsx",
-];
+const HAND_BUILT_ALLOWLIST = ["components/ui/data-table.tsx"];
 
 describe("ui surfaces", () => {
   it("card uses the vega ring surface", () => {

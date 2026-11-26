@@ -13,7 +13,6 @@ const APP = "web/routes/$locale/_app";
 const src = (path: string) => readFileSync(path, "utf8");
 const attentionList = `${APP}/-components/home/attention-list.tsx`;
 const recentEnvs = `${APP}/-components/home/recent-envs-section.tsx`;
-const backupButton = `${APP}/-components/home/backup-button.tsx`;
 const bell = "components/notification-bell.tsx";
 const activeRuns = "components/active-runs-indicator.tsx";
 
@@ -60,7 +59,6 @@ describe("hover polish", () => {
     for (const f of [
       attentionList,
       recentEnvs,
-      backupButton,
       bell,
       activeRuns,
     ]) {
@@ -71,7 +69,7 @@ describe("hover polish", () => {
     }
   });
   it("ghost buttons in hoverable rows hover at full strength", () => {
-    for (const f of [attentionList, backupButton, bell]) {
+    for (const f of [attentionList, bell]) {
       expect(src(f)).toContain("dark:hover:bg-muted");
     }
   });
@@ -100,5 +98,16 @@ describe("users table", () => {
     const s = src(`${APP}/-components/admin/users/users-table.tsx`);
     expect(s).toContain('{ id: "name", desc: false }');
     expect(s).toContain("initialSorting=");
+  });
+});
+
+describe("full-width databases page", () => {
+  it("neither the page card nor its skeleton caps the width", () => {
+    for (const f of [
+      `${APP}/$projectKey.$envSlug.databases.tsx`,
+      `${APP}/-components/env/skeletons.tsx`,
+    ]) {
+      expect(src(f)).not.toContain("max-w-3xl");
+    }
   });
 });

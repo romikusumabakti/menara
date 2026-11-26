@@ -117,6 +117,9 @@ vi.mock("@/lib/db", async () => {
         where: () => ({ returning: async () => state.deleted }),
       };
     },
+    // The drain detaching the old rows an archive or the legacy backup
+    // setting still names.
+    update: () => ({ set: () => ({ where: async () => [] }) }),
     transaction: async (fn: (tx: unknown) => unknown) => fn(db),
   };
   return { db };

@@ -9,7 +9,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // rights (view = project read; writes = environment:update + a strong
 // sign-in) and the activity entries. While the old s3_connections table
 // still exists (expand/contract), every save, remove and environment delete
-// drains that environment's rows from it in the same transaction. The
+// drains that environment's rows from it in the same transaction (deletes
+// the unreferenced ones, detaches the rest; which is which is the scratch
+// suite's, on a real database). The
 // database is a recording fake: each statement is kept with its table, its
 // rendered WHERE and whether it ran inside a transaction.
 
@@ -283,6 +285,29 @@ const drains = () =>
   state.ops.filter(
     (op) => op.kind === "delete" && op.table === schema.s3Connections
   );
+// The rows the drain keeps (an archive or the legacy backup setting names
+// them): detached, environment_id set null.
+const detaches = () =>
+  state.ops.filter(
+    (op) => op.kind === "update" && op.table === schema.s3Connections
+  );
+// The environment a drain statement is aimed at (the fake's subqueries
+// render as opaque params; only the bound id is a string).
+const aimedAt = (op: (typeof state.ops)[number] | undefined) =>
+  render(op?.where).params.filter((p) => typeof p === "string");
+// Both drain statements: in the transaction, aimed at ENV, before `before`.
+const expectDrained = (before = state.ops.length) => {
+  const drain = state.ops.findIndex((op) => drains().includes(op));
+  const detach = state.ops.findIndex((op) => detaches().includes(op));
+  expect(drain).toBeGreaterThanOrEqual(0);
+  expect(detach).toBeGreaterThan(drain);
+  expect(detach).toBeLessThan(before);
+  for (const op of [state.ops[drain], state.ops[detach]]) {
+    expect(op?.inTx).toBe(true);
+    expect(aimedAt(op)).toEqual([ENV]);
+  }
+  expect(state.ops[detach]?.set).toEqual({ environmentId: null });
+};
 
 beforeEach(() => {
   state.role = "engineer";
@@ -342,9 +367,7 @@ describe("saveEnvironmentStorage", () => {
     );
     expect(upsert?.inTx).toBe(true);
     expect(upsert?.set).toBeDefined();
-    const [drain] = drains();
-    expect(drain?.inTx).toBe(true);
-    expect(render(drain?.where).params).toEqual([ENV]);
+    expectDrained();
 
     // A second save (same location, no secret) updates the same row and
     // keeps the stored secret.
@@ -498,9 +521,7 @@ describe("removeEnvironmentStorage", () => {
       (op) => op.kind === "delete" && op.table === schema.environmentStorage
     );
     expect(remove?.inTx).toBe(true);
-    const [drain] = drains();
-    expect(drain?.inTx).toBe(true);
-    expect(render(drain?.where).params).toEqual([ENV]);
+    expectDrained();
   });
 
   it("removing nothing records nothing", async () => {
@@ -613,14 +634,8 @@ describe("environment delete", () => {
     const envDelete = state.ops.findIndex(
       (op) => op.kind === "delete" && op.table === schema.environments
     );
-    const drain = state.ops.findIndex(
-      (op) => op.kind === "delete" && op.table === schema.s3Connections
-    );
-    expect(drain).toBeGreaterThanOrEqual(0);
     // Before the row goes (its FK would null environment_id), same transaction.
-    expect(drain).toBeLessThan(envDelete);
-    expect(state.ops[drain]?.inTx).toBe(true);
-    expect(render(state.ops[drain]?.where).params).toEqual([ENV]);
+    expectDrained(envDelete);
   });
 
   it("a row-only delete refused by a late escrow keeps the old rows (rolled back)", async () => {
@@ -639,13 +654,7 @@ describe("environment delete", () => {
     const envDelete = state.ops.findIndex(
       (op) => op.kind === "delete" && op.table === schema.environments
     );
-    const drain = state.ops.findIndex(
-      (op) => op.kind === "delete" && op.table === schema.s3Connections
-    );
-    expect(drain).toBeGreaterThanOrEqual(0);
-    expect(drain).toBeLessThan(envDelete);
-    expect(state.ops[drain]?.inTx).toBe(true);
-    expect(render(state.ops[drain]?.where).params).toEqual([ENV]);
+    expectDrained(envDelete);
   });
 
   it("a teardown delete refused by escrow keeps the old rows (rolled back)", async () => {

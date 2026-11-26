@@ -639,6 +639,98 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
     });
   });
 
+  describe("draining keeps the rows legacy code still reads", () => {
+    // Every drain caller, run on ENV_A; the deletes put ENV_A back after.
+    const callers: [string, () => Promise<unknown>][] = [
+      [
+        "save",
+        () =>
+          svc.saveEnvironmentStorage(ENV_A, {
+            ...stored(CONN_A),
+            secretKey: undefined,
+          }),
+      ],
+      ["remove", () => svc.removeEnvironmentStorage(ENV_A)],
+      [
+        "environment delete",
+        async () => {
+          const { deleteEnvironment } = await import(
+            "@/server/services/environments"
+          );
+          as(ADMIN, "admin");
+          await deleteEnvironment(ENV_A);
+        },
+      ],
+      [
+        "teardown delete",
+        async () => {
+          const { deleteTeardownEnvironment } = await import(
+            "@/lib/teardown/repository"
+          );
+          await deleteTeardownEnvironment(ENV_A, ADMIN, {
+            escrowConfirmed: true,
+          });
+        },
+      ],
+    ];
+    const run = async (call: () => Promise<unknown>) => {
+      await call();
+      const [env] = await sql`select 1 from environments where id = ${ENV_A}`;
+      if (!env) await restoreEnvA();
+    };
+
+    it.each(callers)(
+      "%s detaches a connection an archive still names",
+      async (_name, call) => {
+        const { loadArchiveStore } = await import(
+          "@/lib/teardown/archive-store"
+        );
+        await sql`insert into environment_archives (environment_id,
+            project_name, environment_name, environment_slug, expires_at,
+            location, s3_connection_id, key_prefix, completed_at)
+          values (${MISSING}, 'Kestrel', 'Kestrel Old', 'old',
+            now() + interval '30 days', 's3', ${CONN_A}, 'archives/old/',
+            now())`;
+        await run(call);
+        expect(await connection(CONN_A)).toMatchObject({
+          environment_id: null,
+        });
+        expect(
+          await loadArchiveStore({
+            inBackupDestination: false,
+            s3Endpoint: null,
+            s3Bucket: null,
+            s3ConnectionId: CONN_A,
+          })
+        ).not.toBeNull();
+      }
+    );
+
+    it.each(callers)(
+      "%s detaches the legacy backup destination's connection",
+      async (_name, call) => {
+        await sql`update instance_settings set backup_destination_id = ${CONN_A}
+          where id = 1`;
+        await run(call);
+        expect(await connection(CONN_A)).toMatchObject({
+          environment_id: null,
+        });
+        const [row] = await sql<{ backup_destination_id: string | null }[]>`
+          select backup_destination_id from instance_settings where id = 1`;
+        expect(row?.backup_destination_id).toBe(CONN_A);
+      }
+    );
+
+    it.each(callers)(
+      "%s deletes an unreferenced connection",
+      async (_name, call) => {
+        await run(call);
+        expect(await connection(CONN_A)).toBeUndefined();
+        expect(await connection(CONN_B)).toBeDefined();
+      }
+    );
+  });
+
   describe("the instance backup destination", () => {
     it("is never saved or probed as environment storage, but a restricted one can be removed", async () => {
       await sql`update instance_settings set

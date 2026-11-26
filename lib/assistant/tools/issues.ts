@@ -20,6 +20,7 @@ import {
   unknownProjectError,
   withWithheld,
 } from "./data-shared";
+import { type PersonRef, personRef } from "./links";
 
 /**
  * Issue tools: list_issues (the Issues page's filters) and get_issue (one
@@ -43,7 +44,7 @@ export type IssueRow = {
   status: string;
   type: string;
   priority: string;
-  assignee?: string;
+  assignee?: PersonRef;
   environment?: string;
   createdAt: string | null;
   updatedAt: string | null;
@@ -214,7 +215,7 @@ export async function listIssuesTool(
       status: i.status,
       type: i.type,
       priority: i.priority,
-      assignee: i.assignee?.name ?? null,
+      assignee: i.assignee ? personRef(i.assignee) : null,
       environment: i.environment?.name ?? null,
       createdAt: iso(i.createdAt),
       updatedAt: iso(i.updatedAt),
@@ -253,7 +254,7 @@ function detailData(
     });
   const comments = issue.comments.slice(-MAX_ISSUE_COMMENTS).map((c) =>
     compact({
-      author: c.author?.name ?? null,
+      author: c.author ? personRef(c.author) : null,
       at: iso(c.createdAt),
       body: text(c.body, MAX_ISSUE_COMMENT_BYTES),
     })
@@ -268,8 +269,8 @@ function detailData(
     priority: issue.priority,
     estimate: issue.estimate,
     environment: issue.environment?.name ?? null,
-    assignee: issue.assignee?.name ?? null,
-    createdBy: issue.createdBy?.name ?? null,
+    assignee: issue.assignee ? personRef(issue.assignee) : null,
+    createdBy: issue.createdBy ? personRef(issue.createdBy) : null,
     createdAt: iso(issue.createdAt),
     updatedAt: iso(issue.updatedAt),
     labels: issue.labels.map((l) => l.name),

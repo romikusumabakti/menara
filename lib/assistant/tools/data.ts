@@ -70,6 +70,7 @@ import {
   ISSUE_LIST_LIMIT,
   listIssuesTool,
 } from "./issues";
+import { personRef, projectRef } from "./links";
 
 /**
  * Data tools: read-only views of Menara data (environments, live status,
@@ -604,7 +605,7 @@ async function listEnvironmentsTool(
   ]);
   const projects = (await ctx.data.projects())
     .filter((p) => shown.some((e) => e.projectId === p.id))
-    .map((p) => ({ key: p.key, name: p.name }));
+    .map(projectRef);
   // One project's environments are few: each gets its last deploy and lock
   // from the Deploys page's cores. Across every project that would be a
   // query per environment, so the description points to a project instead.
@@ -622,7 +623,7 @@ async function listEnvironmentsTool(
           name: e.name,
           kind: e.kind,
           url: e.url,
-          owner: e.ownerId ? (owners.get(e.ownerId) ?? null) : null,
+          owner: ownerRef(e.ownerId, owners),
           ...deployState[i],
         })
       ),
@@ -704,7 +705,9 @@ async function environmentStatusTool(ctx: DataContext, given: string) {
       ...(lock.lock
         ? {
             lock: compact({
-              by: lock.lock.lockedBy?.name ?? null,
+              by: lock.lock.lockedBy?.name
+                ? personRef(lock.lock.lockedBy)
+                : null,
               reason: safeText(lock.lock.reason).text,
               expiresAt: iso(lock.lock.expiresAt),
             }),
@@ -777,6 +780,23 @@ type DeployEntry = Awaited<
   ReturnType<DataCores["listDeployTargets"]>
 >[number]["recentDeployments"][number];
 
+/**
+ * Who started a deploy: a person link when a Menara user is known, else the
+ * free-text trigger (a CI actor with no matching user) stays a string.
+ */
+function deployActor(d: DeployEntry) {
+  if (d.userId && d.userName) {
+    return personRef({ id: d.userId, name: d.userName });
+  }
+  if (d.autoUser) return personRef(d.autoUser);
+  return d.userName ?? d.triggeredBy ?? null;
+}
+
+function ownerRef(ownerId: string | null, owners: Map<string, string>) {
+  const name = ownerId ? owners.get(ownerId) : undefined;
+  return ownerId && name ? personRef({ id: ownerId, name }) : null;
+}
+
 function deploySummary(component: string, d: DeployEntry) {
   const seconds =
     d.startedAt && d.finishedAt
@@ -788,7 +808,7 @@ function deploySummary(component: string, d: DeployEntry) {
     tag: d.tag,
     status: d.status,
     trigger: d.trigger,
-    by: d.userName ?? d.autoUser?.name ?? d.triggeredBy ?? null,
+    by: deployActor(d),
     at: iso(d.createdAt),
     durationSeconds: seconds,
     branch: d.build?.branch ?? null,
@@ -1039,8 +1059,8 @@ async function listPeopleTool(
     }
     throw error;
   }
-  const keyOf = new Map(
-    (await ctx.data.projects()).map((p) => [p.id, p.key] as const)
+  const projectOf = new Map(
+    (await ctx.data.projects()).map((p) => [p.id, projectRef(p)] as const)
   );
   const matching = query?.trim()
     ? people.filter((p) => personMatchesQuery(p, query))
@@ -1050,14 +1070,14 @@ async function listPeopleTool(
     compact({
       people: shown.map((p) =>
         compact({
-          name: p.name,
+          ...personRef(p),
           callName: callName(p) === p.name ? null : callName(p),
           email: p.email,
           title: p.title,
           role: p.role,
           projects: p.projectIds.flatMap((id) => {
-            const key = keyOf.get(id);
-            return key ? [key] : [];
+            const ref = projectOf.get(id);
+            return ref ? [ref] : [];
           }),
           deactivated: p.deactivated || null,
         })
@@ -1110,8 +1130,7 @@ async function getOverviewTool(ctx: DataContext) {
     const open = (status: string) =>
       mine.find((c) => c.status === status)?.count ?? 0;
     return {
-      key: p.key,
-      name: p.name,
+      ...projectRef(p),
       environments: projectEnvs.map((e, i) => {
         const last = states[i]?.lastDeploy;
         const status = last?.status;
@@ -1206,7 +1225,10 @@ async function recentActivityTool(
     );
     return compact({
       action: r.action,
-      by: r.actorName,
+      by:
+        r.actorId && r.actorName
+          ? personRef({ id: r.actorId, name: r.actorName })
+          : r.actorName,
       at: iso(r.createdAt),
       details: Object.keys(details).length > 0 ? details : null,
     });

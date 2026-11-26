@@ -88,6 +88,7 @@ const listProjects = vi.fn(async () => [
   {
     key: "KST",
     name: "Kestrel",
+    url: "http://localhost:3000/KST",
     group: "Acme",
     description: "Membership",
     components: ["backend"],
@@ -658,6 +659,7 @@ describe("executeTool in automatic context", () => {
           {
             key: "KST",
             name: "Kestrel",
+            url: "http://localhost:3000/KST",
             group: "Acme",
             description: "Membership",
             components: ["backend"],

@@ -38,6 +38,12 @@ describe("buildSystemPrompt", () => {
   it("tells the model not to quote tool fields or raw JSON", () => {
     const text = buildSystemPrompt(ctx());
     expect(text).toContain("Never quote tool field names");
+    expect(text).toContain(
+      "Refer to a project by its name with its key in parentheses, linked to its url from the tools, e.g. [Acme Membership (ACME)](url). Never write a bare project key, except in code citations."
+    );
+    expect(text).toContain(
+      "Refer to a person by name, linked to their profileUrl from the tools. Use only URLs returned by tools; never construct one."
+    );
   });
 
   it("names no project: the cached part depends only on the user and the organisation", () => {

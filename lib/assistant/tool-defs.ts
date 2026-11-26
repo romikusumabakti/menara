@@ -43,6 +43,7 @@ import {
   runDatabaseTool,
 } from "./tools/database";
 import { getIssueTool, MAX_ISSUE_COMMENTS } from "./tools/issues";
+import type { ProjectRef } from "./tools/links";
 import { readUploadTool } from "./tools/uploads";
 import { MAX_UPLOAD_TEXT_CHARS } from "./upload-types";
 import type { AssistantViewer } from "./viewer";
@@ -522,9 +523,7 @@ export type ToolName =
   | DatabaseToolName;
 
 /** A project as list_projects returns it. */
-export type ListedProject = {
-  key: string;
-  name: string;
+export type ListedProject = ProjectRef & {
   group: string | null;
   description: string | null;
   components: string[];

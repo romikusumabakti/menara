@@ -114,6 +114,8 @@ export type TargetState = DeployTarget &
 
 /** A deployment as the Deploys page lists it. */
 export type DeploymentEntry = Deployment & {
+  /** Same user as `userName`; backs the assistant's profile links. */
+  userId: string | null;
   userName: string | null;
   triggeredBy: string | null;
   /** The Menara user `triggeredBy` resolves to; see {@link autoUsers}. */
@@ -130,6 +132,7 @@ export type DeploymentEntry = Deployment & {
 // tag names exactly one build of the component.
 const deploymentEntryColumns = {
   deployment: deployments,
+  userId: users.id,
   userName: users.name,
   triggeredBy: runs.triggeredBy,
   ...autoUserColumns,
@@ -157,6 +160,7 @@ function selectDeploymentEntries(componentKey: string) {
 
 function toDeploymentEntry(r: {
   deployment: Deployment;
+  userId: string | null;
   userName: string | null;
   triggeredBy: string | null;
   autoUserId: string | null;
@@ -166,6 +170,7 @@ function toDeploymentEntry(r: {
 }): DeploymentEntry {
   return {
     ...r.deployment,
+    userId: r.userId,
     userName: r.userName,
     triggeredBy: r.triggeredBy,
     autoUser: autoUserRef(r),

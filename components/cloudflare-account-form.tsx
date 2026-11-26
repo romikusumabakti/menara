@@ -40,7 +40,6 @@ export function CloudflareAccountForm({
       .string()
       .trim()
       .regex(/^[0-9a-f]{32}$/, t("accountIdInvalid")),
-    name: z.string().trim().min(1, tCommon("required")),
     // Blank keeps the stored token (required only for the first save).
     apiToken: z.string(),
     accessIdpId: z.string(),
@@ -50,7 +49,6 @@ export function CloudflareAccountForm({
     resolver: zodResolver(schema),
     defaultValues: {
       accountId: account?.accountId ?? "",
-      name: account?.name ?? "",
       apiToken: "",
       accessIdpId: account?.accessIdpId ?? "",
     },
@@ -70,7 +68,6 @@ export function CloudflareAccountForm({
     try {
       await saveCloudflareAccount({
         accountId: values.accountId.trim(),
-        name: values.name.trim(),
         ...(values.apiToken.trim() && { apiToken: values.apiToken.trim() }),
         accessIdpId: values.accessIdpId || null,
       });
@@ -107,23 +104,6 @@ export function CloudflareAccountForm({
   return (
     <form onSubmit={form.handleSubmit(onSubmit)}>
       <FieldGroup>
-        <Controller
-          name="name"
-          control={form.control}
-          render={({ field, fieldState }) => (
-            <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor="cloudflare-account-name">
-                {t("name")}
-              </FieldLabel>
-              <Input
-                {...field}
-                id="cloudflare-account-name"
-                aria-invalid={fieldState.invalid}
-              />
-              <FieldError errors={[fieldState.error]} />
-            </Field>
-          )}
-        />
         <Controller
           name="accountId"
           control={form.control}

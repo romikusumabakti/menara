@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { REDACTED_LINE } from "@/lib/assistant/secret-filter";
 import { executeTool, type ToolContext } from "@/lib/assistant/tool-defs";
 import {
@@ -31,6 +31,10 @@ vi.mock("@/lib/assistant/tools/context", async (importOriginal) => ({
   listIssueAttachments: jira.attachments,
 }));
 vi.mock("@/lib/jira/sync", () => ({ resolveLink: vi.fn(async () => null) }));
+
+beforeAll(() => {
+  vi.stubEnv("BETTER_AUTH_URL", "https://app.example.com");
+});
 
 const ACME_ID = "01900000-0000-7000-8000-000000000001";
 const BETA_ID = "01900000-0000-7000-8000-000000000002";
@@ -164,7 +168,10 @@ describe("list_issues", () => {
             status: "open",
             type: "bug",
             priority: "high",
-            assignee: "Sari",
+            assignee: {
+              name: "Sari",
+              profileUrl: "https://app.example.com/people/u2",
+            },
             createdAt: "2026-11-09T00:00:00Z",
             updatedAt: "2026-11-10T00:00:00Z",
           },
@@ -446,6 +453,50 @@ describe("get_issue", () => {
       "BETA",
       45
     );
+  });
+
+  it("returns assignee, reporter and comment authors as person refs", async () => {
+    const cores = fakeCores();
+    cores.getIssueDetail.mockResolvedValue(
+      detail({
+        assignee: { id: "u2", name: "Sari", image: null },
+        comments: [
+          {
+            author: { id: "u4", name: "Dewi", image: null },
+            createdAt: new Date("2026-11-03T00:00:00Z"),
+            body: "ok",
+          },
+          {
+            author: null,
+            createdAt: new Date("2026-11-04T00:00:00Z"),
+            body: "x",
+          },
+        ],
+      })
+    );
+    const result = await getIssueTool(contextFor(cores), "BETA-45", null);
+    expect(result).toMatchObject({
+      ok: true,
+      data: {
+        assignee: {
+          name: "Sari",
+          profileUrl: "https://app.example.com/people/u2",
+        },
+        createdBy: {
+          name: "Wati",
+          profileUrl: "https://app.example.com/people/u3",
+        },
+        comments: [
+          {
+            author: {
+              name: "Dewi",
+              profileUrl: "https://app.example.com/people/u4",
+            },
+          },
+          {},
+        ],
+      },
+    });
   });
 
   it("a Menara-only issue has no attachments", async () => {

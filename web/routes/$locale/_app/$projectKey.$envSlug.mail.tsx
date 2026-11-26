@@ -4,7 +4,14 @@ import { Mail } from "lucide-react";
 import { useTranslations } from "use-intl";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { useProjectName } from "@/hooks/use-project-name";
 import { Link } from "@/i18n/navigation";
 import { stripProjectPrefix } from "@/lib/nav-path";
@@ -60,12 +67,16 @@ function MailPage() {
     return (
       <>
         {header}
-        <EmptyState
-          icon={Mail}
-          title={t("notConfiguredTitle")}
-          description={t("notConfiguredDescription")}
-          action={
-            canProject(role, { environment: ["update"] }) ? (
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Mail />
+            </EmptyMedia>
+            <EmptyTitle>{t("notConfiguredTitle")}</EmptyTitle>
+            <EmptyDescription>{t("notConfiguredDescription")}</EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent className="empty:hidden">
+            {canProject(role, { environment: ["update"] }) ? (
               <Button
                 render={<Link href={`/${projectKey}/${envSlug}/settings`} />}
                 nativeButton={false}
@@ -73,9 +84,9 @@ function MailPage() {
               >
                 {t("openSettings")}
               </Button>
-            ) : undefined
-          }
-        />
+            ) : undefined}
+          </EmptyContent>
+        </Empty>
       </>
     );
   }

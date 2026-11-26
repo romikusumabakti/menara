@@ -10,7 +10,14 @@ import {
   type DataTableColumnDef,
   DataTableColumnHeader,
 } from "@/components/ui/data-table";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { RowActions } from "@/components/ui/row-actions";
 import { Link } from "@/i18n/navigation";
 import {
@@ -115,24 +122,26 @@ export function ZonesClient({
 
   if (optimistic.length === 0) {
     return (
-      <div className="rounded-lg border bg-card">
-        <EmptyState
-          icon={KeyRound}
-          title={t("emptyTitle")}
-          description={t("empty")}
-          action={
-            canManage ? (
-              <Button
-                nativeButton={false}
-                render={<Link href="/admin/cloudflare/zones/new" />}
-              >
-                <Plus className="size-4" />
-                {t("addZone")}
-              </Button>
-            ) : undefined
-          }
-        />
-      </div>
+      <Empty className="border border-dashed">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <KeyRound />
+          </EmptyMedia>
+          <EmptyTitle>{t("emptyTitle")}</EmptyTitle>
+          <EmptyDescription>{t("empty")}</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent className="empty:hidden">
+          {canManage ? (
+            <Button
+              nativeButton={false}
+              render={<Link href="/admin/cloudflare/zones/new" />}
+            >
+              <Plus className="size-4" />
+              {t("addZone")}
+            </Button>
+          ) : undefined}
+        </EmptyContent>
+      </Empty>
     );
   }
 

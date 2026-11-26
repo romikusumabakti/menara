@@ -2234,10 +2234,7 @@
     },
     "recent": {
       "title": "快速返回",
-      "empty": "暂无最近环境。",
-      "backup": "备份",
-      "backupStarted": "备份已开始",
-      "backupFailed": "无法开始备份。"
+      "empty": "暂无最近环境。"
     },
     "error": {
       "load": "无法加载此部分。",
@@ -2937,7 +2934,6 @@
     "subtitle": "{{APP_NAME}} 用于管理隧道、Access 应用和 DNS 记录的 Cloudflare 账户。",
     "formTitle": "账户",
     "formDescription": "一个 API 令牌涵盖隧道、Access 和 DNS。令牌留空则保留已存储的令牌。",
-    "name": "名称",
     "accountId": "账户 ID",
     "accountIdDescription": "Cloudflare 控制台中的 32 位账户 ID。",
     "accountIdInvalid": "请输入 32 位账户 ID",

@@ -3,7 +3,6 @@ import { useTranslations } from "use-intl";
 import { Link } from "@/i18n/navigation";
 import { qualifiedEnvName, stripProjectPrefix } from "@/lib/nav-path";
 import type { RecentEnvironment } from "@/web/api/home";
-import { BackupButton } from "./backup-button";
 import { CompactSection, HomeSection } from "./home-section";
 import { SectionError } from "./section-error";
 
@@ -45,11 +44,7 @@ export function RecentEnvsSection({
                   {env.projectName}
                 </span>
               </Link>
-              {env.hasDatabase && env.canBackup ? (
-                <BackupButton environmentId={env.id} />
-              ) : (
-                <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-              )}
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
             </li>
           ))}
         </ul>

@@ -1,4 +1,3 @@
-import { code } from "@streamdown/code";
 import { useQuery } from "@tanstack/react-query";
 import {
   FileText,
@@ -11,23 +10,16 @@ import {
   Server,
 } from "lucide-react";
 import * as React from "react";
-import {
-  type Components,
-  defaultComponents,
-  defaultRehypePlugins,
-  type ExtraProps,
-  Streamdown,
-  type StreamdownProps,
-} from "streamdown";
 import { useTranslations } from "use-intl";
 import { CopyButton } from "@/components/copy-button";
+import { Markdown } from "@/components/markdown";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { TooltipHint } from "@/components/ui/tooltip";
 import type { AssistantPart } from "@/lib/assistant/turn-parts";
 import { qualifiedEnvName } from "@/lib/nav-path";
-import { cn, formatBytes } from "@/lib/utils";
+import { formatBytes } from "@/lib/utils";
 import {
   type ConversationMessage,
   getAllowanceQuery,
@@ -40,139 +32,8 @@ import { shouldSend } from "./composer-keys";
 import { useAssistantErrorText } from "./error-text";
 import { MessageSources } from "./message-sources";
 
-type StyledTag = "thead" | "th" | "td" | "h1" | "h2" | "h3";
-type StyledProps = { className?: string } & ExtraProps;
-
-/** Streamdown's own renderer for `tag`, with `extra` merged over its classes. */
-function Restyled({
-  tag,
-  extra,
-  ...props
-}: StyledProps & { tag: StyledTag; extra: string }) {
-  const Base = defaultComponents[tag] as React.ComponentType<StyledProps>;
-  return <Base {...props} className={cn(extra, props.className)} />;
-}
-
-/**
- * How an answer's elements render: Streamdown's components (code blocks with
- * a copy button) at the chat's size, our own single-border table wrapper, a
- * semantic <strong>, and two safety overrides. Images are never loaded (an injected
- * `![](https://…?d=<data>)` would leak data without a click; only the alt
- * text stays), and links open in a new tab without access to this page.
- */
-const ANSWER_COMPONENTS: Components = {
-  table: ({ node: _node, className, ...props }) => (
-    <div
-      data-answer-table=""
-      className="my-4 overflow-x-auto rounded-lg border"
-    >
-      <table className={cn("w-full text-sm", className)} {...props} />
-    </div>
-  ),
-  thead: (props) => <Restyled tag="thead" extra="bg-muted" {...props} />,
-  th: (props) => <Restyled tag="th" extra="px-3 py-2" {...props} />,
-  td: (props) => <Restyled tag="td" extra="px-3 py-2" {...props} />,
-  h1: (props) => <Restyled tag="h1" extra="mt-4 text-lg" {...props} />,
-  h2: (props) => <Restyled tag="h2" extra="mt-4 text-base" {...props} />,
-  h3: (props) => <Restyled tag="h3" extra="mt-4 text-sm" {...props} />,
-  // A real <strong> (Streamdown's is a styled span), for assistive tech.
-  strong: ({ children }) => (
-    <strong className="font-semibold">{children}</strong>
-  ),
-  img: ({ alt }) => (alt ? <span>{alt}</span> : null),
-  a: ({ href, children }) => (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-primary underline underline-offset-4"
-    >
-      {children}
-    </a>
-  ),
-};
-
-type Pluggable = NonNullable<StreamdownProps["rehypePlugins"]>[number];
-
-// Streamdown's rehype-harden with a blocked link (javascript: and other
-// non-web URLs) left as its plain text: the default marks it with a
-// hard-coded English " [blocked]" and "Blocked URL" tooltip.
-const [harden, hardenOptions] = defaultRehypePlugins.harden as [
-  Extract<Pluggable, unknown[]>[0],
-  Record<string, unknown>,
-];
-const hardenTextOnly: Pluggable = [
-  harden,
-  { ...hardenOptions, linkBlockPolicy: "text-only" },
-];
-
-// Streamdown's rehype chain without `raw`, and `skipHtml` on the renderer:
-// HTML inside an answer is never parsed into elements; it is dropped from
-// the output (not shown as text).
-const ANSWER_REHYPE_PLUGINS: Pluggable[] = [
-  defaultRehypePlugins.sanitize,
-  defaultRehypePlugins.undoubleClobberPrefix,
-  hardenTextOnly,
-].filter((p): p is Pluggable => p !== undefined);
-
-const ANSWER_PLUGINS = { code };
-
-// Copy on code blocks only: the answer has its own copy action, and tables
-// grow with the answer rather than scrolling inside it.
-const ANSWER_CONTROLS = {
-  table: false,
-  code: { copy: true, download: false },
-  mermaid: false,
-  image: false,
-} as const;
-
-// Our own links (above) instead of Streamdown's confirm-before-open dialog.
-const ANSWER_LINK_SAFETY = { enabled: false };
-
-/**
- * An answer's markdown, read-only, with Streamdown: an unfinished answer
- * renders while it streams (open emphasis, half a table or code fence),
- * GFM tables scroll sideways, code is highlighted (Shiki, JavaScript regex
- * engine: no eval, no remote fetch). Embedded HTML is never rendered as
- * HTML; a link to a non-web URL (javascript:) is blocked. Each block
- * takes the direction of its own text (an Arabic UI may get an English
- * answer, and the reverse).
- */
-function AnswerMarkdown({
-  content,
-  streaming,
-}: {
-  content: string;
-  streaming: boolean;
-}) {
-  const t = useTranslations("assistant");
-  const tCommon = useTranslations("common");
-  const translations = React.useMemo(
-    () => ({ copyCode: t("copyCode"), copied: tCommon("copied") }),
-    [t, tCommon]
-  );
-  return (
-    <Streamdown
-      data-answer-markdown=""
-      dir="auto"
-      className="text-sm leading-relaxed break-words"
-      components={ANSWER_COMPONENTS}
-      rehypePlugins={ANSWER_REHYPE_PLUGINS}
-      skipHtml
-      plugins={ANSWER_PLUGINS}
-      controls={ANSWER_CONTROLS}
-      linkSafety={ANSWER_LINK_SAFETY}
-      tableMaxHeight={0}
-      isAnimating={streaming}
-      translations={translations}
-    >
-      {content}
-    </Streamdown>
-  );
-}
-
 const renderStepText = (text: string) => (
-  <AnswerMarkdown content={text} streaming={false} />
+  <Markdown mode="static" className="text-sm" content={text} />
 );
 
 /**
@@ -345,7 +206,10 @@ export function MessageView({
     // Automatic is the default: only a project or environment is named.
     const labelled = !!message.context && message.context.kind !== "auto";
     return (
-      <div className="group/message flex flex-col items-end gap-1">
+      <div
+        data-message-role="user"
+        className="group/message flex flex-col items-end gap-1"
+      >
         {editing && onEdit ? (
           <QuestionEditor
             initial={message.content}
@@ -358,8 +222,8 @@ export function MessageView({
           />
         ) : (
           <>
-            <div className="max-w-[85%] rounded-lg bg-muted px-3 py-2 text-sm whitespace-pre-wrap break-words">
-              {message.content}
+            <div className="max-w-[85%] rounded-lg bg-muted px-3 py-2 text-sm break-words">
+              <Markdown mode="static" lineBreaks content={message.content} />
             </div>
             <div data-message-actions className={actionsClass(false)}>
               <CopyButton value={message.content} label={t("copyQuestion")} />
@@ -428,7 +292,11 @@ export function MessageView({
   const layout = message.parts ? layoutAnswer(message.parts, !pending) : null;
   const answer = layout ? layout.answer : message.content;
   return (
-    <div className="group/message flex flex-col gap-2" aria-busy={pending}>
+    <div
+      data-message-role="assistant"
+      className="group/message flex flex-col gap-2"
+      aria-busy={pending}
+    >
       {layout && (
         <AnswerSteps
           steps={layout.steps}
@@ -437,7 +305,14 @@ export function MessageView({
           renderText={renderStepText}
         />
       )}
-      {answer && <AnswerMarkdown content={answer} streaming={pending} />}
+      {answer && (
+        <Markdown
+          mode="streaming"
+          animating={pending}
+          className="text-sm"
+          content={answer}
+        />
+      )}
       {pending && (
         <span className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" />

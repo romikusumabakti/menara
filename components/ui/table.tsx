@@ -2,6 +2,10 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+// The one plain border around a table or list. Boxed content areas use
+// <Card>; tables and lists sit in this lighter wrapper (no ring, no shadow).
+export const tableWrapperClass = "overflow-hidden rounded-md border";
+
 function Table({
   className,
   containerClassName,

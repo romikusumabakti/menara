@@ -10,7 +10,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ExplorerSource } from "@/lib/explorer";
 import { cn } from "@/lib/utils";
@@ -126,11 +132,15 @@ export default function FolderPickerDialog({
         <div className="flex flex-1 min-h-0 flex-col overflow-y-auto rounded-md border bg-card">
           {error ? (
             <div className="flex flex-1 items-center justify-center">
-              <EmptyState
-                icon={Folder}
-                title={t("loadFailed")}
-                description={error}
-              />
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <Folder />
+                  </EmptyMedia>
+                  <EmptyTitle>{t("loadFailed")}</EmptyTitle>
+                  <EmptyDescription>{error}</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             </div>
           ) : loading ? (
             <div className="flex flex-col gap-2 p-3">
@@ -140,7 +150,14 @@ export default function FolderPickerDialog({
             </div>
           ) : dirs.length === 0 ? (
             <div className="flex flex-1 items-center justify-center">
-              <EmptyState icon={Folder} title={t("noSubfolders")} />
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <Folder />
+                  </EmptyMedia>
+                  <EmptyTitle>{t("noSubfolders")}</EmptyTitle>
+                </EmptyHeader>
+              </Empty>
             </div>
           ) : (
             <ul>

@@ -12,6 +12,7 @@ import * as React from "react";
 import { useTranslations } from "use-intl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { TooltipHint } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
@@ -186,12 +187,12 @@ export function LiveRunPanel({ runId, onDismiss, onSuccess, onRetry }: Props) {
   const step = status === "started" ? lastStep(snapshot?.output) : null;
 
   return (
-    <div
+    <Card
       className={cn(
-        "rounded-lg border bg-card overflow-hidden transition-colors",
-        status === "success" && "border-success/40",
-        status === "failed" && "border-destructive/50",
-        status === "started" && "border-primary/30"
+        "gap-0 py-0 transition-colors",
+        status === "success" && "ring-success/40",
+        status === "failed" && "ring-destructive/50",
+        status === "started" && "ring-primary/30"
       )}
       aria-live="polite"
     >
@@ -298,7 +299,7 @@ export function LiveRunPanel({ runId, onDismiss, onSuccess, onRetry }: Props) {
           )}
         </pre>
       )}
-    </div>
+    </Card>
   );
 }
 

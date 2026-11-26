@@ -2234,10 +2234,7 @@
     },
     "recent": {
       "title": "Retomar",
-      "empty": "No hay entornos recientes.",
-      "backup": "Copia",
-      "backupStarted": "Copia de seguridad iniciada",
-      "backupFailed": "No se pudo iniciar la copia de seguridad."
+      "empty": "No hay entornos recientes."
     },
     "error": {
       "load": "No se pudo cargar esta sección.",
@@ -2937,7 +2934,6 @@
     "subtitle": "La cuenta de Cloudflare en la que {{APP_NAME}} gestiona túneles, apps de Access y registros DNS.",
     "formTitle": "Cuenta",
     "formDescription": "Un solo token de API cubre túneles, Access y DNS. Deja el token en blanco para conservar el guardado.",
-    "name": "Nombre",
     "accountId": "ID de cuenta",
     "accountIdDescription": "El ID de cuenta de 32 caracteres del panel de Cloudflare.",
     "accountIdInvalid": "Introduce el ID de cuenta de 32 caracteres",

@@ -16,7 +16,13 @@ import { RelativeTime } from "@/components/relative-time";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import {
   Table,
   TableBody,
@@ -81,13 +87,15 @@ export function ReleasesList({ projectId }: { projectId: string }) {
         }
       />
       {groups.length === 0 ? (
-        <div className="rounded-lg border bg-card">
-          <EmptyState
-            icon={PackageCheck}
-            title={t("title")}
-            description={t("empty")}
-          />
-        </div>
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <PackageCheck />
+            </EmptyMedia>
+            <EmptyTitle>{t("title")}</EmptyTitle>
+            <EmptyDescription>{t("empty")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <div className="flex flex-col gap-4">
           {groups.map(([version, rows]) => (

@@ -998,9 +998,11 @@ describe("answer stream", () => {
     ),
   });
   const answerMarkdown = () =>
-    [...container.querySelectorAll("[data-answer-markdown]")].filter(
-      (el) => !el.closest("[data-step-text]")
-    );
+    [
+      ...container.querySelectorAll(
+        '[data-message-role="assistant"] [data-markdown]'
+      ),
+    ].filter((el) => !el.closest("[data-step-text]"));
 
   it("follows a pending answer over the transport and refetches when it finishes", async () => {
     queryClient.setQueryData(key, conversation("queued"));
@@ -1594,7 +1596,9 @@ describe("answer stream", () => {
     );
     await render(<ChatThread conversationId="c1" />);
     const table = container.querySelector("table") as HTMLElement;
-    const root = container.querySelector("[data-answer-markdown]");
+    const root = container.querySelector(
+      '[data-message-role="assistant"] [data-markdown]'
+    );
     expect(table).not.toBeNull();
     expect(root).not.toBeNull();
     expect(table.className).not.toMatch(/\bborder\b/);
@@ -1608,7 +1612,7 @@ describe("answer stream", () => {
     }
     const bordered = chain.filter((el) => /\bborder\b/.test(el.className));
     expect(bordered).toHaveLength(1);
-    expect(bordered[0]?.hasAttribute("data-answer-table")).toBe(true);
+    expect(bordered[0]).toBe(table.parentElement);
     expect(chain.some((el) => el.className.includes("sidebar"))).toBe(false);
   });
 
@@ -1640,7 +1644,9 @@ describe("answer stream", () => {
   it("gives each block the direction of its own text", async () => {
     queryClient.setQueryData(key, answer("Iuran bulanan.\n\nمرحبا بكم"));
     await render(<ChatThread conversationId="c1" />);
-    const body = container.querySelector("[data-answer-markdown]");
+    const body = container.querySelector(
+      '[data-message-role="assistant"] [data-markdown]'
+    );
     const dirOf = (text: string) =>
       [...(body?.querySelectorAll("[dir]") ?? [])]
         .find((el) => el.textContent === text)
@@ -1660,6 +1666,19 @@ describe("answer stream", () => {
     expect(container.innerHTML).not.toContain("Blocked URL");
     expect(container.querySelector("[title]")).toBeNull();
   });
+  it("renders a blocked image as nothing, without the English marker", async () => {
+    queryClient.setQueryData(
+      key,
+      answer("before ![chart](javascript:alert(1)) after")
+    );
+    await render(<ChatThread conversationId="c1" />);
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.innerHTML).not.toContain("javascript:");
+    expect(text()).toContain("before");
+    expect(text()).not.toContain("Image blocked");
+    expect(text()).not.toContain("[Image");
+  });
+
   // happy-dom does no layout: give the scroller a fixed geometry.
   const scroller = () => {
     const el = container.querySelector<HTMLElement>(".overflow-y-auto");

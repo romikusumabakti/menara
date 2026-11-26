@@ -22,7 +22,13 @@ import { RelativeTime } from "@/components/relative-time";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { RowActions } from "@/components/ui/row-actions";
 import {
   Table,
@@ -31,6 +37,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  tableWrapperClass,
 } from "@/components/ui/table";
 import { canOrg } from "@/lib/permissions";
 import { useMe } from "@/web/api/session";
@@ -262,15 +269,17 @@ export function VariablesClient({
         )}
 
         {variables.length === 0 ? (
-          <div className="rounded-lg border bg-card">
-            <EmptyState
-              icon={KeyRound}
-              title={t("emptyTitle")}
-              description={t("emptyDescription")}
-            />
-          </div>
+          <Empty className="border border-dashed">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <KeyRound />
+              </EmptyMedia>
+              <EmptyTitle>{t("emptyTitle")}</EmptyTitle>
+              <EmptyDescription>{t("emptyDescription")}</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
-          <div className="rounded-lg border bg-card">
+          <div className={tableWrapperClass}>
             <Table>
               <TableHeader>
                 <TableRow>

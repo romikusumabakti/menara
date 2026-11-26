@@ -13,7 +13,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import type { ExplorerSource } from "@/lib/explorer";
@@ -133,11 +139,15 @@ export default function FileEditorDialog({
 
         {error ? (
           <div className="flex flex-1 min-h-0 items-center justify-center">
-            <EmptyState
-              icon={FileWarning}
-              title={t("editUnavailable")}
-              description={error}
-            />
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <FileWarning />
+                </EmptyMedia>
+                <EmptyTitle>{t("editUnavailable")}</EmptyTitle>
+                <EmptyDescription>{error}</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           </div>
         ) : loading ? (
           <div className="flex flex-1 min-h-0 flex-col gap-2 rounded-md border bg-card p-3">

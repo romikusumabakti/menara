@@ -140,7 +140,7 @@ function ProjectsPending() {
           {Array.from({ length: CARDS }, (_, c) => (
             <div
               key={`project-${c}`}
-              className="rounded-xl border bg-card overflow-hidden"
+              className="rounded-xl bg-card shadow-xs ring-1 ring-foreground/10 overflow-hidden"
             >
               <div className="flex items-start gap-2 px-4 py-3 border-b">
                 <div className="flex flex-col gap-1 min-w-0 flex-1">

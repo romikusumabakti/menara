@@ -5,7 +5,7 @@ import { useFormatter, useTranslations } from "use-intl";
 import { DocumentActions } from "@/components/document-actions";
 import { DocumentToc } from "@/components/document-toc";
 import { KnowledgeBreadcrumb } from "@/components/knowledge-breadcrumb";
-import { MarkdownContent } from "@/components/markdown-content";
+import { Markdown } from "@/components/markdown";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { UserName } from "@/components/user/user-name";
@@ -90,7 +90,12 @@ function DocumentPage() {
 
             {doc.content.trim() ? (
               <div id="doc-body">
-                <MarkdownContent content={doc.content} />
+                <Markdown
+                  mode="static"
+                  allowImages
+                  headingIds
+                  content={doc.content}
+                />
               </div>
             ) : (
               <p className="text-sm text-muted-foreground italic">

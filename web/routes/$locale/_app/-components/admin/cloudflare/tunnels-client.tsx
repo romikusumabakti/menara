@@ -10,7 +10,14 @@ import {
   type DataTableColumnDef,
   DataTableColumnHeader,
 } from "@/components/ui/data-table";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { RowActions } from "@/components/ui/row-actions";
 import { Link } from "@/i18n/navigation";
 import {
@@ -145,32 +152,36 @@ export function TunnelsClient({
 
   if (optimistic.length === 0) {
     return (
-      <div className="rounded-lg border bg-card">
-        <EmptyState
-          icon={Cloud}
-          title={t("emptyTitle")}
-          description={hasZones ? t("empty") : t("emptyNoZone")}
-          action={
-            !canManage ? undefined : hasZones ? (
-              <Button
-                nativeButton={false}
-                render={<Link href="/admin/cloudflare/local-tunnels/new" />}
-              >
-                <Plus className="size-4" />
-                {t("addTunnel")}
-              </Button>
-            ) : (
-              <Button
-                nativeButton={false}
-                render={<Link href="/admin/cloudflare/zones/new" />}
-              >
-                <Plus className="size-4" />
-                {t("addZone")}
-              </Button>
-            )
-          }
-        />
-      </div>
+      <Empty className="border border-dashed">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Cloud />
+          </EmptyMedia>
+          <EmptyTitle>{t("emptyTitle")}</EmptyTitle>
+          <EmptyDescription>
+            {hasZones ? t("empty") : t("emptyNoZone")}
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent className="empty:hidden">
+          {!canManage ? undefined : hasZones ? (
+            <Button
+              nativeButton={false}
+              render={<Link href="/admin/cloudflare/local-tunnels/new" />}
+            >
+              <Plus className="size-4" />
+              {t("addTunnel")}
+            </Button>
+          ) : (
+            <Button
+              nativeButton={false}
+              render={<Link href="/admin/cloudflare/zones/new" />}
+            >
+              <Plus className="size-4" />
+              {t("addZone")}
+            </Button>
+          )}
+        </EmptyContent>
+      </Empty>
     );
   }
 

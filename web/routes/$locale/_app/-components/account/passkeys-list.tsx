@@ -5,7 +5,13 @@ import { useFormatter, useTranslations } from "use-intl";
 import { useDialog } from "@/components/dialog-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import {
   authClient,
   isPasskeySupported,
@@ -126,11 +132,15 @@ export function PasskeysList() {
 
   if (!supported) {
     return (
-      <EmptyState
-        icon={Fingerprint}
-        title={t("unsupportedTitle")}
-        description={t("unsupportedDescription")}
-      />
+      <Empty className="border border-dashed">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Fingerprint />
+          </EmptyMedia>
+          <EmptyTitle>{t("unsupportedTitle")}</EmptyTitle>
+          <EmptyDescription>{t("unsupportedDescription")}</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 
@@ -147,11 +157,15 @@ export function PasskeysList() {
   return (
     <div className="flex flex-col gap-4">
       {items.length === 0 ? (
-        <EmptyState
-          icon={Fingerprint}
-          title={t("emptyTitle")}
-          description={t("emptyDescription")}
-        />
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Fingerprint />
+            </EmptyMedia>
+            <EmptyTitle>{t("emptyTitle")}</EmptyTitle>
+            <EmptyDescription>{t("emptyDescription")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <ul className="divide-y">
           {items.map((passkey) => (

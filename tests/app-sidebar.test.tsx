@@ -155,11 +155,11 @@ describe("app sidebar", () => {
     );
   });
 
-  it("admin group: Activity, Users, Repositories, Storage, Instance, then Integrations: Jira, CI, Cloudflare, Assistant; no Tunnels", async () => {
+  it("admin group: Users, Activity, Repositories, Storage, Instance, then Integrations: Jira, CI, Cloudflare, Assistant; no Tunnels", async () => {
     await renderSidebar("admin", "/admin/activity");
     expect(groupRows(messages.nav.admin)).toEqual([
-      messages.nav.activity,
       messages.nav.users,
+      messages.nav.activity,
       messages.nav.serviceCatalog,
       messages.nav.storage,
       messages.nav.instance,
@@ -210,8 +210,8 @@ describe("app sidebar", () => {
   it("shows an observer only the admin rows its role allows", async () => {
     await renderSidebar("observer", "/admin/activity");
     expect(groupRows(messages.nav.admin)).toEqual([
-      messages.nav.activity,
       messages.nav.users,
+      messages.nav.activity,
     ]);
     // No integration it may open, so no empty Integrations label.
     expect(

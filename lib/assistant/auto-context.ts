@@ -9,6 +9,7 @@ import type { PromptSource } from "./system-prompt";
 import type { ListedProject, ToolContext } from "./tool-defs";
 import type { SnapshotRef } from "./tools/code";
 import { createDataTurn } from "./tools/data";
+import { projectRef } from "./tools/links";
 import {
   type AssistantViewer,
   loadProjectEntries,
@@ -186,8 +187,7 @@ export function projectAccess(
         projects,
         LIST_PROJECTS_CONCURRENCY,
         async (project): Promise<ListedProject> => ({
-          key: project.key,
-          name: project.name,
+          ...projectRef(project),
           group: project.group,
           description: project.description,
           components: (await sources(project)).map((s) => s.componentKey),

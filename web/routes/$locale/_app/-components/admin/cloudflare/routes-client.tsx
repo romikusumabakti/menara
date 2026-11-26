@@ -17,7 +17,14 @@ import { TunnelRouteDialog } from "@/components/tunnel-route-dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { RowActions } from "@/components/ui/row-actions";
 import {
   Table,
@@ -26,6 +33,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  tableWrapperClass,
 } from "@/components/ui/table";
 import {
   attachTunnelNetwork,
@@ -149,23 +157,25 @@ export function RoutesClient({
       </div>
 
       {view.routes.length === 0 ? (
-        <div className="rounded-lg border bg-card">
-          <EmptyState
-            icon={Globe}
-            title={t("routesEmptyTitle")}
-            description={t("routesEmpty")}
-            action={
-              canManage ? (
-                <Button onClick={() => setAddOpen(true)}>
-                  <Plus className="size-4" />
-                  {t("addHostname")}
-                </Button>
-              ) : undefined
-            }
-          />
-        </div>
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Globe />
+            </EmptyMedia>
+            <EmptyTitle>{t("routesEmptyTitle")}</EmptyTitle>
+            <EmptyDescription>{t("routesEmpty")}</EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent className="empty:hidden">
+            {canManage ? (
+              <Button onClick={() => setAddOpen(true)}>
+                <Plus className="size-4" />
+                {t("addHostname")}
+              </Button>
+            ) : undefined}
+          </EmptyContent>
+        </Empty>
       ) : (
-        <div className="rounded-lg border bg-card">
+        <div className={tableWrapperClass}>
           <Table>
             <TableHeader>
               <TableRow>

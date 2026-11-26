@@ -22,7 +22,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { TooltipHint } from "@/components/ui/tooltip";
 import { Link } from "@/i18n/navigation";
@@ -81,16 +87,20 @@ export function ProjectSourcesTab({
   return (
     <div className="flex flex-col gap-4">
       {sources.length === 0 ? (
-        <EmptyState
-          title={t("emptyTitle")}
-          description={t("emptyDescription")}
-          action={
-            <div className="flex flex-wrap justify-center gap-2">
-              {addButton}
-              {newEnvironment}
-            </div>
-          }
-        />
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyTitle>{t("emptyTitle")}</EmptyTitle>
+            <EmptyDescription>{t("emptyDescription")}</EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            {
+              <div className="flex flex-wrap justify-center gap-2">
+                {addButton}
+                {newEnvironment}
+              </div>
+            }
+          </EmptyContent>
+        </Empty>
       ) : (
         <>
           {addButton && <div className="flex justify-end">{addButton}</div>}

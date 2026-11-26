@@ -18,12 +18,13 @@ import {
   TypeIcon,
 } from "@/components/issues-board";
 import type { EditorHandle } from "@/components/knowledge-editor";
-import { MarkdownContent } from "@/components/markdown-content";
+import { Markdown } from "@/components/markdown";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { MentionTextarea } from "@/components/mention-textarea";
 import { RelativeTime } from "@/components/relative-time";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { TooltipHint } from "@/components/ui/tooltip";
@@ -524,7 +525,12 @@ function IssueDetailView({
               />
             </>
           ) : issue.description.trim() ? (
-            <MarkdownContent content={issue.description} className="text-sm" />
+            <Markdown
+              mode="static"
+              allowImages
+              className="text-sm"
+              content={issue.description}
+            />
           ) : (
             <p className="text-sm text-muted-foreground">
               {t("noDescription")}
@@ -720,7 +726,7 @@ function IssueDetailView({
                       ?
                     </span>
                   )}
-                  <div className="flex-1 min-w-0 rounded-lg border bg-card p-3">
+                  <Card size="sm" className="flex-1 min-w-0 gap-0 p-3">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                       <UserName
                         user={c.author}
@@ -733,7 +739,7 @@ function IssueDetailView({
                     <p className="text-sm whitespace-pre-wrap break-words">
                       {c.body}
                     </p>
-                  </div>
+                  </Card>
                 </li>
               ))}
             </ul>

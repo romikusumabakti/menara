@@ -40,6 +40,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import {
   Link,
   usePathname,
   useRouter,
@@ -468,11 +474,15 @@ export function GlobalIssuesClient({
     [onAssigneeChange, onPriorityChange, onStatusChange, t, users]
   );
 
-  const emptyState = (
-    <div className="flex flex-col items-center justify-center gap-3 px-4 py-12 text-center">
-      <CircleDot className="size-6 text-muted-foreground" />
-      <p className="text-sm text-muted-foreground">{t("empty")}</p>
-    </div>
+  const renderEmpty = (className?: string) => (
+    <Empty className={className}>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <CircleDot />
+        </EmptyMedia>
+        <EmptyTitle>{t("empty")}</EmptyTitle>
+      </EmptyHeader>
+    </Empty>
   );
 
   const isBoard = filters.view === "board";
@@ -525,7 +535,7 @@ export function GlobalIssuesClient({
           }`}
         >
           {rows.length === 0 ? (
-            <div className="rounded-lg border border-dashed">{emptyState}</div>
+            renderEmpty("border border-dashed")
           ) : (
             <IssueBoard
               showProject
@@ -572,7 +582,7 @@ export function GlobalIssuesClient({
           initialSorting={DEFAULT_SORTING}
           manualRowCount={total}
           isPending={isPending}
-          emptyState={emptyState}
+          emptyState={renderEmpty()}
           renderCard={(issue) => (
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">

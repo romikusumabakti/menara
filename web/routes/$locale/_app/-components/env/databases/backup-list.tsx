@@ -7,7 +7,13 @@ import {
   type DataTableColumnDef,
   DataTableColumnHeader,
 } from "@/components/ui/data-table";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { RowActions } from "@/components/ui/row-actions";
 import type { Backup } from "@/lib/types";
 import type { DatabaseEntry } from "@/web/api/databases";
@@ -129,12 +135,15 @@ export function BackupList({
         getRowId={(row) => row.name}
         initialSorting={[{ id: "modifiedAt", desc: true }]}
         emptyState={
-          <EmptyState
-            icon={DatabaseBackup}
-            title={t("noBackupsTitle")}
-            description={t("noBackupsDescription")}
-            className="py-10"
-          />
+          <Empty className="py-10">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <DatabaseBackup />
+              </EmptyMedia>
+              <EmptyTitle>{t("noBackupsTitle")}</EmptyTitle>
+              <EmptyDescription>{t("noBackupsDescription")}</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         }
       />
     </div>

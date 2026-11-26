@@ -31,10 +31,17 @@ function renderText(node: AdfNode): string {
     // in Markdown too, so applying them would change the text.
     out = `\`${value}\``;
   } else {
-    out = value;
-    if (has("strong")) out = `**${out}**`;
-    if (has("em")) out = `*${out}*`;
-    if (has("strike")) out = `~~${out}~~`;
+    // Markdown does not open or close emphasis next to whitespace, so edge
+    // spaces stay outside the delimiters; whitespace-only text gets no marks.
+    const [, lead = "", core = "", trail = ""] =
+      value.match(/^(\s*)([\s\S]*?)(\s*)$/) ?? [];
+    let marked = core;
+    if (core) {
+      if (has("strong")) marked = `**${marked}**`;
+      if (has("em")) marked = `*${marked}*`;
+      if (has("strike")) marked = `~~${marked}~~`;
+    }
+    out = core ? `${lead}${marked}${trail}` : value;
   }
 
   const link = marks.find((m) => m.type === "link");

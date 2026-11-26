@@ -1,12 +1,17 @@
-import { Check, Tag } from "lucide-react";
+import { Combobox as ComboboxPrimitive } from "@base-ui/react/combobox";
+import { Tag } from "lucide-react";
+import { useMemo } from "react";
 import { useTranslations } from "use-intl";
 import type { PickerTrigger } from "@/components/compact-trigger";
 import { Button } from "@/components/ui/button";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox";
 import type { LabelLite } from "@/lib/db/schema";
 
 // A colored label pill. Color is a hex string; we tint the background and
@@ -59,8 +64,8 @@ export function LabelChips({
   );
 }
 
-// Multi-select label picker. Toggling a row calls `onChange` with the new id
-// set; the caller persists it.
+// Searchable multi-select label picker. Picking or unpicking a row calls
+// `onChange` with the new id set; the caller persists it.
 export function LabelPicker({
   allLabels,
   selected,
@@ -74,58 +79,55 @@ export function LabelPicker({
   trigger?: PickerTrigger;
 }) {
   const t = useTranslations("issueDetail");
-  const selectedSet = new Set(selected);
-
-  function toggle(id: string) {
-    const next = new Set(selectedSet);
-    if (next.has(id)) {
-      next.delete(id);
-    } else {
-      next.add(id);
-    }
-    onChange([...next]);
-  }
+  const tCommon = useTranslations("common");
+  const byId = useMemo(
+    () => new Map(allLabels.map((l) => [l.id, l])),
+    [allLabels]
+  );
+  const items = useMemo(() => allLabels.map((l) => l.id), [allLabels]);
 
   return (
-    <Popover>
+    <Combobox
+      multiple
+      autoHighlight
+      items={items}
+      value={selected}
+      onValueChange={(next: string[]) => onChange(next)}
+      itemToStringLabel={(id: string) => byId.get(id)?.name ?? ""}
+    >
       {trigger ? (
-        <PopoverTrigger render={trigger.render}>
+        <ComboboxPrimitive.Trigger render={trigger.render}>
           {trigger.content}
-        </PopoverTrigger>
+        </ComboboxPrimitive.Trigger>
       ) : (
-        <PopoverTrigger
+        <ComboboxPrimitive.Trigger
           render={
             <Button variant="outline" size="sm" className="h-8 justify-start" />
           }
         >
           <Tag className="size-3.5" />
           {t("labels")}
-        </PopoverTrigger>
+        </ComboboxPrimitive.Trigger>
       )}
-      <PopoverContent align="start" className="w-56 p-1">
-        <ul className="flex flex-col">
-          {allLabels.map((l) => {
-            const on = selectedSet.has(l.id);
+      <ComboboxContent className="w-64">
+        <ComboboxInput showTrigger={false} placeholder={tCommon("search")} />
+        <ComboboxEmpty>{tCommon("noResults")}</ComboboxEmpty>
+        <ComboboxList>
+          {(id: string) => {
+            const l = byId.get(id);
+            if (!l) return null;
             return (
-              <li key={l.id}>
-                <button
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => toggle(l.id)}
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent transition-colors"
-                >
-                  <span
-                    className="size-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: l.color }}
-                  />
-                  <span className="flex-1 text-start">{l.name}</span>
-                  {on ? <Check className="size-4 shrink-0" /> : null}
-                </button>
-              </li>
+              <ComboboxItem key={l.id} value={l.id}>
+                <span
+                  className="size-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: l.color }}
+                />
+                <span className="truncate">{l.name}</span>
+              </ComboboxItem>
             );
-          })}
-        </ul>
-      </PopoverContent>
-    </Popover>
+          }}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
   );
 }

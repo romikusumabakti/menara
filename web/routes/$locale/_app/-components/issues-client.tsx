@@ -22,6 +22,13 @@ import { PersonPicker } from "@/components/person-picker";
 import { RelativeTime } from "@/components/relative-time";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -37,6 +44,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  tableWrapperClass,
 } from "@/components/ui/table";
 import { TablePager } from "@/components/ui/table-pager";
 import { useProjectName } from "@/hooks/use-project-name";
@@ -49,6 +57,7 @@ import {
 import { DEFAULT_PAGE_SIZE, STATUS_ALL } from "@/lib/issue-query";
 import { stripProjectPrefix } from "@/lib/nav-path";
 import type { UserRef } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import type { IssueWithMeta } from "@/web/api/issues";
 import {
   bulkDeleteIssues,
@@ -409,15 +418,15 @@ export function IssuesClient({
       </div>
 
       {visible.length === 0 ? (
-        <div className="shrink-0 flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed px-4 py-12 text-center">
-          <CircleDot className="size-6 text-muted-foreground" />
-          <div>
-            <p className="font-medium">{t("empty")}</p>
-            <p className="text-sm text-muted-foreground">
-              {t("emptyDescription")}
-            </p>
-          </div>
-        </div>
+        <Empty className="shrink-0 flex-none border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <CircleDot />
+            </EmptyMedia>
+            <EmptyTitle>{t("empty")}</EmptyTitle>
+            <EmptyDescription>{t("emptyDescription")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : view === "board" ? (
         // The board has no bounded height of its own, so it gets the scroll
         // container here; columns grow and this wrapper scrolls.
@@ -483,7 +492,12 @@ export function IssuesClient({
               </Button>
             </div>
           ) : null}
-          <div className="flex max-h-full min-h-0 flex-col overflow-hidden rounded-lg border bg-card">
+          <div
+            className={cn(
+              tableWrapperClass,
+              "flex max-h-full min-h-0 flex-col"
+            )}
+          >
             {/* The table container is the scroll box (`flex-1 min-h-0`), so the
                 `sticky` header pins to it while rows scroll underneath. */}
             {/* Fixed layout: the header widths hold and the title takes the

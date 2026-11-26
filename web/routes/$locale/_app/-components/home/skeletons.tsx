@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 // 20px line box — not the 14px glyphs — is what sets the row height.
 function CardSkeleton({ rows }: { rows: number }) {
   return (
-    <div className="overflow-hidden rounded-xl border bg-card">
+    <div className="overflow-hidden rounded-xl bg-card shadow-xs ring-1 ring-foreground/10">
       <div className="flex items-center gap-2 border-b px-3 py-2.5">
         <Skeleton className="size-4 shrink-0" />
         <Skeleton className="h-5 w-32" />

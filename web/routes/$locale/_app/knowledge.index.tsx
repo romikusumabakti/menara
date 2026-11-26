@@ -3,7 +3,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { BookOpen, Plus } from "lucide-react";
 import { useTranslations } from "use-intl";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Link } from "@/i18n/navigation";
 import { canOrg } from "@/lib/permissions";
 import { listCollectionsQuery } from "@/web/api/knowledge";
@@ -25,29 +32,35 @@ function KnowledgeHome() {
 
   if (collections.length === 0) {
     return (
-      <EmptyState
-        className="h-full justify-center"
-        icon={BookOpen}
-        title={t("emptyTitle")}
-        description={t("emptyAdminHint")}
-      />
+      <Empty className="h-full border border-dashed">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <BookOpen />
+          </EmptyMedia>
+          <EmptyTitle>{t("emptyTitle")}</EmptyTitle>
+          <EmptyDescription>{t("emptyAdminHint")}</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 
   return (
-    <EmptyState
-      className="h-full justify-center"
-      icon={BookOpen}
-      title={t("landingTitle")}
-      description={t("landingHint")}
-      action={
-        canWrite ? (
+    <Empty className="h-full border border-dashed">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <BookOpen />
+        </EmptyMedia>
+        <EmptyTitle>{t("landingTitle")}</EmptyTitle>
+        <EmptyDescription>{t("landingHint")}</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent className="empty:hidden">
+        {canWrite ? (
           <Button nativeButton={false} render={<Link href="/knowledge/new" />}>
             <Plus className="size-4" />
             {t("newDocument")}
           </Button>
-        ) : undefined
-      }
-    />
+        ) : undefined}
+      </EmptyContent>
+    </Empty>
   );
 }

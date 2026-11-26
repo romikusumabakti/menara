@@ -6,7 +6,12 @@ import { useTranslations } from "use-intl";
 import { useDialog } from "@/components/dialog-provider";
 import { PersonPicker } from "@/components/person-picker";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import {
   Table,
   TableBody,
@@ -133,7 +138,12 @@ export function ProjectMembersClient({
 
       <div>
         {initialMembers.length === 0 ? (
-          <EmptyState title={t("empty")} description={t("emptyDescription")} />
+          <Empty className="border border-dashed">
+            <EmptyHeader>
+              <EmptyTitle>{t("empty")}</EmptyTitle>
+              <EmptyDescription>{t("emptyDescription")}</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <Table>
             <TableHeader>

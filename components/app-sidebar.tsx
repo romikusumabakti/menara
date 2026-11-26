@@ -123,13 +123,13 @@ type AdminItem = {
 };
 
 const adminItems: AdminItem[] = [
+  { key: "users", url: "/admin/users", icon: Users, perm: { user: ["list"] } },
   {
     key: "activity",
     url: "/admin/activity",
     icon: Activity,
     perm: { audit: ["read"] },
   },
-  { key: "users", url: "/admin/users", icon: Users, perm: { user: ["list"] } },
   {
     key: "serviceCatalog",
     url: "/admin/services",

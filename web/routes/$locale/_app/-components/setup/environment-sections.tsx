@@ -5,6 +5,7 @@ import { SearchSelect } from "@/components/search-select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Collapsible,
@@ -91,33 +92,31 @@ function SectionShell({
   const t = useTranslations("setupWizard");
   const [open, setOpen] = React.useState(defaultOpen);
   return (
-    <Collapsible
-      open={open}
-      onOpenChange={setOpen}
-      className="rounded-lg border bg-card"
-    >
-      <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-lg px-4 py-3 text-start outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-        {open ? (
-          <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="size-4 shrink-0 text-muted-foreground rtl:-scale-x-100" />
-        )}
-        <span className="text-sm font-medium">{title}</span>
-        {issues > 0 && (
-          <Badge variant="destructive">
-            {t("sections.issueCount", { count: issues })}
-          </Badge>
-        )}
-        {!open && (
-          <span className="ms-auto min-w-0 truncate text-sm text-muted-foreground">
-            {summary}
-          </span>
-        )}
-      </CollapsibleTrigger>
-      <CollapsibleContent className="flex flex-col gap-4 border-t px-4 py-4">
-        {children}
-      </CollapsibleContent>
-    </Collapsible>
+    <Card className="gap-0 py-0">
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-lg px-4 py-3 text-start outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+          {open ? (
+            <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground rtl:-scale-x-100" />
+          )}
+          <span className="text-sm font-medium">{title}</span>
+          {issues > 0 && (
+            <Badge variant="destructive">
+              {t("sections.issueCount", { count: issues })}
+            </Badge>
+          )}
+          {!open && (
+            <span className="ms-auto min-w-0 truncate text-sm text-muted-foreground">
+              {summary}
+            </span>
+          )}
+        </CollapsibleTrigger>
+        <CollapsibleContent className="flex flex-col gap-4 border-t px-4 py-4">
+          {children}
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
   );
 }
 

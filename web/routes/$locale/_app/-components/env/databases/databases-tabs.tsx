@@ -6,7 +6,13 @@ import {
 } from "lucide-react";
 import * as React from "react";
 import { useTranslations } from "use-intl";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { dbService } from "@/lib/services";
 import type { Backup } from "@/lib/types";
@@ -131,11 +137,17 @@ export function DatabasesTabs({
               <p>{backupListError}</p>
             </div>
           ) : backups.length === 0 && sourceEnvironments.length === 0 ? (
-            <EmptyState
-              icon={DatabaseBackup}
-              title={tRestore("backupsNotFound")}
-              description={tRestore("backupsNotFoundDescription")}
-            />
+            <Empty className="border border-dashed">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <DatabaseBackup />
+                </EmptyMedia>
+                <EmptyTitle>{tRestore("backupsNotFound")}</EmptyTitle>
+                <EmptyDescription>
+                  {tRestore("backupsNotFoundDescription")}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
             <>
               <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">

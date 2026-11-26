@@ -23,7 +23,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { TooltipHint } from "@/components/ui/tooltip";
 import { useModKey } from "@/hooks/use-is-mac";
@@ -387,11 +393,15 @@ export function AssistantWorkspace({
     return (
       <div className="flex h-full min-h-0 flex-col gap-6 overflow-y-auto">
         {heading}
-        <EmptyState
-          icon={Bot}
-          title={t("notEnabledTitle")}
-          description={tErrors("notConfigured")}
-        />
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Bot />
+            </EmptyMedia>
+            <EmptyTitle>{t("notEnabledTitle")}</EmptyTitle>
+            <EmptyDescription>{tErrors("notConfigured")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       </div>
     );
   }
@@ -400,11 +410,15 @@ export function AssistantWorkspace({
     return (
       <div className="flex h-full min-h-0 flex-col gap-6 overflow-y-auto">
         {heading}
-        <EmptyState
-          icon={Bot}
-          title={t("noProjectsTitle")}
-          description={t("noProjectsDescription")}
-        />
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Bot />
+            </EmptyMedia>
+            <EmptyTitle>{t("noProjectsTitle")}</EmptyTitle>
+            <EmptyDescription>{t("noProjectsDescription")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       </div>
     );
   }

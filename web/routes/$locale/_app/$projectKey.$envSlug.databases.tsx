@@ -102,7 +102,7 @@ function DatabasesPage() {
           tabs stay compact. It still carries `min-h-0` + `overflow-hidden` so
           the tall Manage tab shrinks to the available height and scrolls its
           list internally instead of pushing the page into a scroll. */}
-      <Card className="max-w-3xl w-full flex min-h-0 flex-col overflow-hidden">
+      <Card className="w-full flex min-h-0 flex-col overflow-hidden">
         <CardContent className="flex flex-1 min-h-0 flex-col">
           <Suspense fallback={<DatabasesTabsSkeleton />}>
             <DatabasesContent

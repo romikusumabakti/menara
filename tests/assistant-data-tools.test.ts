@@ -1,5 +1,5 @@
 import { HTTPException } from "hono/http-exception";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { REDACTED_LINE } from "@/lib/assistant/secret-filter";
 import { executeTool, type ToolContext } from "@/lib/assistant/tool-defs";
 import {
@@ -160,8 +160,12 @@ describe("list_environments", () => {
       ok: true,
       data: {
         projects: [
-          { key: "ACME", name: "Acme Membership" },
-          { key: "BETA", name: "Beta" },
+          {
+            key: "ACME",
+            name: "Acme Membership",
+            url: "https://app.example.com/ACME",
+          },
+          { key: "BETA", name: "Beta", url: "https://app.example.com/BETA" },
         ],
         environments: [
           { ref: "ACME/dev", name: "Dev" },
@@ -170,7 +174,10 @@ describe("list_environments", () => {
             name: "UAT",
             kind: "release",
             url: "https://uat.example.invalid",
-            owner: "Budi",
+            owner: {
+              name: "Budi",
+              profileUrl: "https://app.example.com/people/owner-1",
+            },
           },
           { ref: "BETA/qa", name: "QA", kind: "qa" },
         ],
@@ -561,7 +568,10 @@ describe("get_environment_status", () => {
           },
         ],
         lock: {
-          by: "Sari",
+          by: {
+            name: "Sari",
+            profileUrl: "https://app.example.com/people/u2",
+          },
           reason: "UAT in progress",
           expiresAt: "2026-11-18T10:00:00Z",
         },
@@ -632,6 +642,10 @@ describe("get_environment_status", () => {
   });
 });
 
+beforeAll(() => {
+  vi.stubEnv("BETTER_AUTH_URL", "https://app.example.com");
+});
+
 const deployEntry = (id: string, createdAt: string, over = {}) => ({
   id,
   targetId: "t1",
@@ -646,6 +660,7 @@ const deployEntry = (id: string, createdAt: string, over = {}) => ({
   heartbeatAt: null,
   scriptStartedAt: null,
   finishedAt: new Date(new Date(createdAt).getTime() + 90_000),
+  userId: "u-budi",
   userName: "Budi",
   triggeredBy: null,
   autoUser: null,
@@ -654,6 +669,51 @@ const deployEntry = (id: string, createdAt: string, over = {}) => ({
 });
 
 describe("list_deploys and get_deploy", () => {
+  it("links a matched auto user and keeps free-text triggers as strings", async () => {
+    const cores = fakeCores([env(1)]);
+    cores.listDeployTargets.mockResolvedValue([
+      {
+        componentKey: "backend",
+        sourceBranch: "main",
+        autoDeploy: true,
+        currentTag: "v1",
+        currentStatus: "success",
+        previousTag: null,
+        recentDeployments: [
+          deployEntry("c3", "2026-11-03T00:00:00Z", {
+            userId: null,
+            userName: null,
+            triggeredBy: "ci-bot",
+            autoUser: { id: "u-ana", name: "Ana", image: null },
+          }),
+          deployEntry("c2", "2026-11-02T00:00:00Z", {
+            userId: null,
+            userName: null,
+            triggeredBy: "ci-bot",
+          }),
+          deployEntry("c1", "2026-11-01T00:00:00Z", {
+            userId: null,
+            userName: null,
+            triggeredBy: null,
+          }),
+        ],
+      },
+    ]);
+    const result = await executeTool(
+      "list_deploys",
+      { environment: "ACME/env-1", limit: null },
+      contextFor(engineer, cores)
+    );
+    const by = (
+      result as { data: { deploys: Array<{ by?: unknown }> } }
+    ).data.deploys.map((d) => d.by);
+    expect(by).toEqual([
+      { name: "Ana", profileUrl: "https://app.example.com/people/u-ana" },
+      "ci-bot",
+      undefined,
+    ]);
+  });
+
   it("flattens the Deploys page's history newest first, at most 20", async () => {
     const cores = fakeCores([env(1)]);
     cores.listDeployTargets.mockResolvedValue([
@@ -707,7 +767,10 @@ describe("list_deploys and get_deploy", () => {
       tag: "v1",
       status: "success",
       trigger: "manual",
-      by: "Budi",
+      by: {
+        name: "Budi",
+        profileUrl: "https://app.example.com/people/u-budi",
+      },
       at: "2026-11-15T00:00:00Z",
       durationSeconds: 90,
       branch: "main",
@@ -918,6 +981,7 @@ describe("builds, issues and people", () => {
         people: [
           {
             name: "Budi Santoso",
+            profileUrl: "https://app.example.com/people/p1",
             callName: "Budi",
             email: "budi@example.invalid",
             title: "QA",
@@ -926,9 +990,17 @@ describe("builds, issues and people", () => {
           },
           {
             name: "Sari",
+            profileUrl: "https://app.example.com/people/p2",
             email: "sari@example.invalid",
             role: "engineer",
             deactivated: true,
+          },
+        ],
+        projects: [
+          {
+            key: "ACME",
+            name: "Acme Membership",
+            url: "https://app.example.com/ACME",
           },
         ],
       },
@@ -1096,6 +1168,7 @@ describe("get_overview", () => {
       expect(result.projects[1]).toEqual({
         key: "ACME",
         name: "Acme Membership",
+        url: "https://app.example.com/ACME",
         environments: [
           {
             ref: "ACME/env-1",
@@ -1191,6 +1264,31 @@ describe("servers and activity", () => {
     });
   });
 
+  it("keeps an activity actor without a user id as plain text", async () => {
+    const cores = fakeCores([]);
+    cores.listActivity.mockResolvedValue([
+      {
+        id: "a2",
+        action: "deploy.requested",
+        data: {},
+        actorId: null,
+        actorName: null,
+        actorImage: null,
+        createdAt: new Date("2026-11-18T01:00:00Z"),
+      },
+    ]);
+    const result = await executeTool(
+      "recent_activity",
+      { limit: 1 },
+      contextFor(admin, cores)
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      data: { entries: [{ action: "deploy.requested" }] },
+    });
+    expect(JSON.stringify(result)).not.toContain("profileUrl");
+  });
+
   it("reads the activity log with the limit capped at 50", async () => {
     const cores = fakeCores([]);
     cores.listActivity.mockResolvedValue([
@@ -1217,7 +1315,10 @@ describe("servers and activity", () => {
         entries: [
           {
             action: "deploy.requested",
-            by: "Budi",
+            by: {
+              name: "Budi",
+              profileUrl: "https://app.example.com/people/u1",
+            },
             at: "2026-11-18T01:00:00Z",
             details: { tag: "v1" },
           },

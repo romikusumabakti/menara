@@ -1612,7 +1612,7 @@ describe("answer stream", () => {
     }
     const bordered = chain.filter((el) => /\bborder\b/.test(el.className));
     expect(bordered).toHaveLength(1);
-    expect(bordered[0]?.contains(table)).toBe(true);
+    expect(bordered[0]).toBe(table.parentElement);
     expect(chain.some((el) => el.className.includes("sidebar"))).toBe(false);
   });
 
@@ -1666,6 +1666,19 @@ describe("answer stream", () => {
     expect(container.innerHTML).not.toContain("Blocked URL");
     expect(container.querySelector("[title]")).toBeNull();
   });
+  it("renders a blocked image as nothing, without the English marker", async () => {
+    queryClient.setQueryData(
+      key,
+      answer("before ![chart](javascript:alert(1)) after")
+    );
+    await render(<ChatThread conversationId="c1" />);
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.innerHTML).not.toContain("javascript:");
+    expect(text()).toContain("before");
+    expect(text()).not.toContain("Image blocked");
+    expect(text()).not.toContain("[Image");
+  });
+
   // happy-dom does no layout: give the scroller a fixed geometry.
   const scroller = () => {
     const el = container.querySelector<HTMLElement>(".overflow-y-auto");

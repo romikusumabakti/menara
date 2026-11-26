@@ -13,7 +13,6 @@ import {
   type StreamdownProps,
 } from "streamdown";
 import { useTranslations } from "use-intl";
-import { tableWrapperClass } from "@/components/ui/table";
 import { UserName } from "@/components/user/user-name";
 import { Link } from "@/i18n/navigation";
 import { classifyLink } from "@/lib/markdown-links";
@@ -23,14 +22,19 @@ type Pluggable = NonNullable<StreamdownProps["rehypePlugins"]>[number];
 
 // Streamdown's rehype-harden with a blocked link (javascript: and other
 // non-web URLs) left as its plain text: the default marks it with a
-// hard-coded English " [blocked]" and "Blocked URL" tooltip.
+// hard-coded English " [blocked]" and "Blocked URL" tooltip. Blocked images
+// likewise render nothing instead of the English "[Image blocked: ...]".
 const [harden, hardenOptions] = defaultRehypePlugins.harden as [
   Extract<Pluggable, unknown[]>[0],
   Record<string, unknown>,
 ];
 const hardenTextOnly: Pluggable = [
   harden,
-  { ...hardenOptions, linkBlockPolicy: "text-only" },
+  {
+    ...hardenOptions,
+    linkBlockPolicy: "text-only",
+    imageBlockPolicy: "text-only",
+  },
 ];
 
 // Streamdown's rehype chain without `raw`, and `skipHtml` on the renderer:
@@ -205,7 +209,7 @@ const COMPONENTS: Components = {
   ),
   hr: () => <hr className="my-6 border-border" />,
   table: ({ node: _node, className, ...props }) => (
-    <div className={cn(tableWrapperClass, "my-4 overflow-x-auto")}>
+    <div className="my-4 overflow-x-auto rounded-md border">
       <table className={cn("w-full text-sm", className)} {...props} />
     </div>
   ),

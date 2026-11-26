@@ -17,6 +17,8 @@ const ENV_EMPTY = "0197f3a0-1b2c-7def-8000-0000000000e2";
 const ENV_RESTRICTED = "0197f3a0-1b2c-7def-8000-0000000000e3";
 // In p2, a project the members below don't see.
 const ENV_OTHER = "0197f3a0-1b2c-7def-8000-0000000000e4";
+// In p2 too, its storage on the backup destination's bucket.
+const ENV_OTHER_RESTRICTED = "0197f3a0-1b2c-7def-8000-0000000000e5";
 
 const state = vi.hoisted(() => ({
   session: {
@@ -74,6 +76,7 @@ vi.mock("@/lib/db", async () => {
     [ENV_EMPTY]: { projectId: "p1", name: "QA" },
     [ENV_RESTRICTED]: { projectId: "p1", name: "Ops" },
     [ENV_OTHER]: { projectId: "p2", name: "Prod" },
+    [ENV_OTHER_RESTRICTED]: { projectId: "p2", name: "Ops" },
   };
   return {
     db: {
@@ -90,6 +93,9 @@ vi.mock("@/lib/db", async () => {
               if (id === ENV_OTHER) return [storage(ENV_OTHER, "beta-files")];
               if (id === ENV_RESTRICTED) {
                 return [storage(ENV_RESTRICTED, "acme-backups")];
+              }
+              if (id === ENV_OTHER_RESTRICTED) {
+                return [storage(ENV_OTHER_RESTRICTED, "acme-backups")];
               }
               return [];
             });
@@ -241,6 +247,20 @@ describe("explorer on an environment's storage", () => {
         status: 404,
       });
       expect((await download(s3(ENV_OTHER))).status).toBe(404);
+    }
+    expect(state.opened).toEqual([]);
+  });
+
+  it("answers 404, not the restricted 403, for a restricted storage the caller can't see", async () => {
+    for (const role of ["engineer", "qa"]) {
+      as(role, "passkey", "p1");
+      for (const call of [
+        () => listEntries(s3(ENV_OTHER_RESTRICTED), ""),
+        () => deleteEntry(s3(ENV_OTHER_RESTRICTED), "a.txt"),
+      ]) {
+        await expect(call(), role).rejects.toMatchObject({ status: 404 });
+      }
+      expect((await download(s3(ENV_OTHER_RESTRICTED))).status, role).toBe(404);
     }
     expect(state.opened).toEqual([]);
   });

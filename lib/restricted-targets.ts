@@ -118,6 +118,7 @@ async function isRestrictedServer(serverId: string): Promise<boolean> {
 export type ExplorerIntent = "read" | "write";
 
 const SERVER_FILES: OrgPermissions = { server: ["files"] };
+const VIEW_ENVIRONMENT: ProjectPermissions = { project: ["read"] };
 const STORAGE_FILES: OrgPermissions = { storage: ["files"] };
 
 /**
@@ -146,7 +147,9 @@ export const ENVIRONMENT_STORAGE_RIGHTS: Record<
  *
  * - A server: the org `server:files` permission, then, for a caller who has
  *   it only through the engineer grant, the infra-only check (unchanged).
- * - An environment's storage: that environment's rights
+ * - An environment's storage: first whether the caller sees the
+ *   environment (project `read`; a 404 otherwise, before any other rule),
+ *   then that environment's rights
  *   (ENVIRONMENT_STORAGE_RIGHTS by intent) plus a strong sign-in, as every
  *   file explorer needs. An environment the caller can't see is a 404, like
  *   one without storage.
@@ -170,6 +173,12 @@ export async function authorizeExplorerSource(
   }
 
   const session = await requireSession();
+  // Visibility first: an environment the caller can't see is a 404 whatever
+  // its storage, so the restricted 403 below reveals nothing.
+  await requireProjectPermission(
+    { environmentId: source.environmentId },
+    VIEW_ENVIRONMENT
+  );
   const location = await environmentStorageLocation(source.environmentId);
   if (!location) notFound();
   if (await overlapsBackupDestination(location)) {

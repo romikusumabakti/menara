@@ -16,8 +16,20 @@ describe("app header scroll shadow", () => {
     );
   });
 
+  it("hides the shadow by default so non-scrolling pages show none", () => {
+    expect(css).toMatch(
+      /\[data-app-header\]::after\s*{[^}]*pointer-events:\s*none[^}]*opacity:\s*0\s*;/
+    );
+  });
+
+  it("falls back to a header border without scroll-driven animations", () => {
+    expect(css).toMatch(
+      /@supports not \(animation-timeline: scroll\(\)\)\s*{\s*\[data-app-header\]\s*{[^}]*border-bottom:\s*1px solid var\(--border\)/
+    );
+  });
+
   it("marks the shell, header and main in the layout", () => {
-    expect(route).toMatch(/<header[^>]*data-app-header[^>]*relative z-10/s);
+    expect(route).toMatch(/<header[^>]*data-app-header[^>]*relative z-20/s);
     expect(route).toMatch(/<main[^>]*data-app-main/s);
     expect(route).not.toMatch(/<main[^>]*data-scroll-shadow/s);
     expect(route).toContain("data-app-shell");

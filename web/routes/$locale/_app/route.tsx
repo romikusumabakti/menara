@@ -155,7 +155,7 @@ function SignedInShell({
             <SidebarInset data-app-shell className="min-w-0">
               <header
                 data-app-header
-                className="relative z-10 flex h-14 shrink-0 items-center gap-2 bg-background px-4"
+                className="relative z-20 flex h-14 shrink-0 items-center gap-2 bg-background px-4"
               >
                 <SidebarTrigger className="-ms-1" />
                 <HeaderBreadcrumb

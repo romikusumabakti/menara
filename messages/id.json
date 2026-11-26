@@ -2175,7 +2175,6 @@
     },
     "attention": {
       "title": "Perlu perhatian",
-      "allClear": "Aman — tidak ada kegagalan yang belum ditangani dalam 7 hari terakhir.",
       "createIssue": "Issue",
       "acknowledge": "Tandai",
       "acknowledged": "Ditandai sudah ditangani",

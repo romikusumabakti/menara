@@ -2175,7 +2175,6 @@
     },
     "attention": {
       "title": "يحتاج انتباه",
-      "allClear": "كل شيء على ما يرام — لا إخفاقات غير معالجة في آخر 7 أيام.",
       "createIssue": "مشكلة",
       "acknowledge": "إقرار",
       "acknowledged": "تم الإقرار",

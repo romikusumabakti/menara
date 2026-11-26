@@ -329,6 +329,16 @@ describe("home ask-the-assistant card", () => {
     expect(api.createConversation).not.toHaveBeenCalled();
   });
 
+  it("is a registry card with the recent chats after a border", async () => {
+    await renderCard({ conversations: CONVERSATIONS });
+    const card = container.querySelector('[data-slot="card"]');
+    expect(card).not.toBeNull();
+    const recents = card?.querySelector("[data-recent-chats]");
+    expect(recents).not.toBeNull();
+    expect(recents?.className).toContain("border-t");
+    expect(card?.querySelector("textarea")).not.toBeNull();
+  });
+
   it("shows no recents with no conversations, and nothing while they load", async () => {
     await renderCard({});
     expect(container.querySelector("[data-recent]")).toBeNull();

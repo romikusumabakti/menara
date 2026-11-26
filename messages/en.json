@@ -2175,7 +2175,6 @@
     },
     "attention": {
       "title": "Needs attention",
-      "allClear": "All clear — no unresolved failures in the last 7 days.",
       "createIssue": "Issue",
       "acknowledge": "Ack",
       "acknowledged": "Acknowledged",

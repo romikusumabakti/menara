@@ -30,7 +30,6 @@ vi.mock("@/web/api/home", () => {
   return {
     getAttentionGroupsQuery: query("attention"),
     listMyOpenIssuesQuery: query("myIssues"),
-    getHomeAccessQuery: query("homeAccess"),
     listIssueProjectsQuery: query("issueProjects"),
     listRecentEnvironmentsQuery: query("recent"),
   };
@@ -39,6 +38,9 @@ vi.mock("@/web/routes/$locale/_app/-components/home/home-header", () => ({
   HomeHeader: ({ action }: { action?: React.ReactNode }) => (
     <h1>header{action}</h1>
   ),
+}));
+vi.mock("@/web/routes/$locale/_app/-components/home/attention-strip", () => ({
+  AttentionStrip: () => <section>attention-strip</section>,
 }));
 vi.mock("@/web/routes/$locale/_app/-components/home/main-column", () => ({
   MainColumn: () => <section>main-column</section>,
@@ -158,6 +160,7 @@ describe("Home for staff", () => {
     );
     expect(sections).toEqual([
       "new-issue",
+      "attention-strip",
       "main-column",
       "running-rail",
       "recent-envs",

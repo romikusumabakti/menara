@@ -2175,7 +2175,6 @@
     },
     "attention": {
       "title": "Necesita atención",
-      "allClear": "Todo en orden: sin fallos pendientes en los últimos 7 días.",
       "createIssue": "Incidencia",
       "acknowledge": "Reconocer",
       "acknowledged": "Reconocido",

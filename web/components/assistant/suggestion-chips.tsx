@@ -67,7 +67,7 @@ export function SuggestionChips({ draftKey }: { draftKey: DraftKey }) {
     <div
       role="group"
       aria-label={tSuggestions("groupLabel")}
-      className="flex flex-wrap justify-center gap-2"
+      className="flex flex-wrap justify-start gap-2"
       data-suggestions
     >
       {items.map((s, i) => {

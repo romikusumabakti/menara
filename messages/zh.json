@@ -2175,7 +2175,6 @@
     },
     "attention": {
       "title": "需要关注",
-      "allClear": "一切正常——过去 7 天内没有未处理的失败。",
       "createIssue": "事项",
       "acknowledge": "确认",
       "acknowledged": "已确认",

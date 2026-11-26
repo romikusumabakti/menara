@@ -1,33 +1,5 @@
 // Pure decisions for Home's layout and header. Client-safe.
 
-export type SectionMode = "full" | "compact" | "hidden";
-export type MainSection = { id: "attention" | "issues"; mode: SectionMode };
-
-/**
- * Role adaptation, driven by data instead of a job-role field. Attention leads
- * when there is something to fix and the user either operates environments or
- * has no issues of their own. An ops user with nothing failing sees a compact
- * "all clear"; anyone else with nothing failing doesn't see the section.
- */
-export function sectionOrder(input: {
-  hasOpsAccess: boolean;
-  attentionCount: number;
-  issueCount: number;
-}): MainSection[] {
-  const { hasOpsAccess, attentionCount, issueCount } = input;
-  const attention: MainSection = {
-    id: "attention",
-    mode: attentionCount > 0 ? "full" : hasOpsAccess ? "compact" : "hidden",
-  };
-  const issues: MainSection = {
-    id: "issues",
-    mode: issueCount > 0 ? "full" : "compact",
-  };
-  const attentionFirst =
-    attentionCount > 0 && (issueCount === 0 || hasOpsAccess);
-  return attentionFirst ? [attention, issues] : [issues, attention];
-}
-
 // Four buckets so Indonesian gets pagi/siang/sore/malam; other locales may map
 // two buckets to the same phrase.
 export type GreetingKey = "morning" | "midday" | "afternoon" | "night";

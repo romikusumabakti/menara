@@ -111,3 +111,11 @@ describe("full-width databases page", () => {
     }
   });
 });
+
+describe("knowledge editor", () => {
+  it("resets the first block's top margin", () => {
+    expect(src("components/knowledge-editor.tsx")).toContain(
+      "[&>*:first-child]:mt-0"
+    );
+  });
+});

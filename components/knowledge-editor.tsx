@@ -250,6 +250,8 @@ export function KnowledgeEditor({
           "[&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2",
           "[&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5",
           "[&_ul]:my-2 [&_ol]:my-2 [&_li]:my-0.5",
+          // The first block sits flush with the top, like the read-only Markdown.
+          "[&>*:first-child]:mt-0",
           "[&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground",
           "[&_pre]:bg-muted/50 [&_pre]:border [&_pre]:rounded-md [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-sm [&_pre]:my-3",
           "[&_code]:font-mono [&_code]:text-sm",

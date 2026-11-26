@@ -96,14 +96,45 @@ describe("users table", () => {
   });
 });
 
-describe("full-width databases page", () => {
-  it("neither the page card nor its skeleton caps the width", () => {
-    for (const f of [
-      `${APP}/$projectKey.$envSlug.databases.tsx`,
-      `${APP}/-components/env/skeletons.tsx`,
-    ]) {
-      expect(src(f)).not.toContain("max-w-3xl");
-    }
+describe("databases page width", () => {
+  it("matches Mock time and Settings (max-w-4xl), skeleton included", () => {
+    expect(src(`${APP}/$projectKey.$envSlug.databases.tsx`)).toMatch(
+      /<Card className="[^"]*max-w-4xl/
+    );
+    expect(src(`${APP}/-components/env/skeletons.tsx`)).toMatch(
+      /DatabasesPending[\s\S]*?max-w-4xl/
+    );
+  });
+});
+
+describe("cards that clip their own full-bleed edges", () => {
+  it("the live run view clips its header and log footer", () => {
+    expect(src("components/live-run-panel.tsx")).toMatch(
+      /"gap-0 py-0 overflow-hidden/
+    );
+  });
+
+  it("a long running tag wraps inside the Running card", () => {
+    expect(src(`${APP}/-components/env/running-card.tsx`)).toContain(
+      '<span className="min-w-0 break-all">{item.tag}</span>'
+    );
+  });
+});
+
+describe("project environments grid", () => {
+  it("pads its scroll box so card rings and hover shadows aren't clipped", () => {
+    expect(src(`${APP}/$projectKey.index.tsx`)).toMatch(
+      /grid content-start[^"]*-m-1[^"]*p-1|grid content-start[^"]*p-1[^"]*-m-1/
+    );
+  });
+
+  it("lets the name and host share the whole header row", () => {
+    const file = src(`${APP}/$projectKey.index.tsx`);
+    expect(file).toContain(
+      'className="flex flex-1 items-center gap-2 min-w-0"'
+    );
+    expect(file).toContain("urlHost(env.url)");
+    expect(file).not.toContain("max-w-[40%]");
   });
 });
 

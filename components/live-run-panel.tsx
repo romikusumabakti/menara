@@ -189,7 +189,8 @@ export function LiveRunPanel({ runId, onDismiss, onSuccess, onRetry }: Props) {
   return (
     <Card
       className={cn(
-        "gap-0 py-0 transition-colors",
+        // Full-bleed header and log footer: clip them to the rounded corners.
+        "gap-0 py-0 overflow-hidden transition-colors",
         status === "success" && "ring-success/40",
         status === "failed" && "ring-destructive/50",
         status === "started" && "ring-primary/30"

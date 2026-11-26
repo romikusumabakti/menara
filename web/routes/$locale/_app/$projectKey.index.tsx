@@ -2,7 +2,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { ChevronRight, Plus } from "lucide-react";
 import { useTranslations } from "use-intl";
-import { EnvironmentHost } from "@/components/nav/environment-host";
+import { EnvironmentHost, urlHost } from "@/components/nav/environment-host";
 import { EnvironmentOwner } from "@/components/nav/environment-owner";
 import { EnvironmentUrlButton } from "@/components/nav/environment-url";
 import { PageHeader } from "@/components/page-header";
@@ -21,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Link, redirect } from "@/i18n/navigation";
 import { stripProjectPrefix } from "@/lib/nav-path";
 import { canProject, SETUP_PERMISSIONS } from "@/lib/permissions";
+import { cn } from "@/lib/utils";
 import {
   getMyProjectAccessQuery,
   getProjectByKeyWithEnvironmentsQuery,
@@ -143,8 +144,10 @@ function ProjectOverviewPage() {
           // The card grid is the scroll box — there is nothing above it in
           // this panel to keep pinned. `content-start` because a grid that is
           // taller than its rows stretches them by default, which would blow
-          // up the cards to fill the panel when there are only a few.
-          <div className="grid content-start flex-1 min-h-0 grid-cols-1 gap-4 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
+          // up the cards to fill the panel when there are only a few. The
+          // scroll box clips at its padding box, so `p-1` (cancelled by
+          // `-m-1`) keeps the cards' outside ring and hover shadow visible.
+          <div className="grid content-start flex-1 min-h-0 -m-1 grid-cols-1 gap-4 overflow-y-auto p-1 sm:grid-cols-2 lg:grid-cols-3">
             {environments.map((env) => {
               const activity = lastActivity[env.id] ?? null;
               // The name link stretches over the whole card (after:inset-0),
@@ -155,10 +158,18 @@ function ProjectOverviewPage() {
                   <Card className="h-full py-0 group-hover:ring-primary/50 group-hover:shadow-sm transition-all">
                     <CardContent className="p-4 flex flex-col gap-2.5">
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
+                        <div className="flex flex-1 items-center gap-2 min-w-0">
                           <Link
                             href={`/${project.key}/${env.slug}`}
-                            className="font-medium truncate after:absolute after:inset-0 after:rounded-xl focus:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
+                            // With a host beside it the name keeps up to 60%
+                            // and the host takes the rest; alone it may use
+                            // the whole row.
+                            className={cn(
+                              urlHost(env.url)
+                                ? "max-w-[60%] shrink-0"
+                                : "min-w-0",
+                              "font-medium truncate after:absolute after:inset-0 after:rounded-xl focus:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
+                            )}
                           >
                             {stripProjectPrefix(env.name, project.name)}
                           </Link>
@@ -166,10 +177,7 @@ function ProjectOverviewPage() {
                             url={env.url}
                             className="relative z-10"
                           />
-                          <EnvironmentHost
-                            url={env.url}
-                            className="max-w-[40%]"
-                          />
+                          <EnvironmentHost url={env.url} className="flex-1" />
                           {env.kind ? (
                             <Badge
                               variant="outline"

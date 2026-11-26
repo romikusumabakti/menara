@@ -110,7 +110,7 @@ export function DatabasesPending() {
   return (
     <>
       <PageHeaderSkeleton withAction={false} />
-      <Card className="w-full flex min-h-0 flex-col overflow-hidden">
+      <Card className="w-full max-w-4xl flex min-h-0 flex-col overflow-hidden">
         <CardContent className="flex flex-1 min-h-0 flex-col">
           <DatabasesTabsSkeleton />
         </CardContent>

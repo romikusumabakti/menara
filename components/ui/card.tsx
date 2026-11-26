@@ -1,6 +1,11 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
+// The registry Card (base-vega) with one deliberate change: no
+// `overflow-hidden`. Pages render cards as flex items of the scrolling <main>
+// column, and an item that hides overflow gets min-height 0, so the column
+// would squeeze the card and clip its content instead of scrolling the page.
+// Cards that must clip (full-bleed headers, internal scroll) add it themselves.
 function Card({
   className,
   size = "default",
@@ -10,7 +15,7 @@ function Card({
     <div
       data-slot="card"
       data-size={size}
-      className={cn("bg-card text-card-foreground ring-foreground/10 group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl py-(--card-spacing) text-sm shadow-xs ring-1 [--card-spacing:--spacing(6)] has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(4)] *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl", className)}
+      className={cn("bg-card text-card-foreground ring-foreground/10 group/card flex flex-col gap-(--card-spacing) rounded-xl py-(--card-spacing) text-sm shadow-xs ring-1 [--card-spacing:--spacing(6)] has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(4)] *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl", className)}
       {...props}
     />
   )

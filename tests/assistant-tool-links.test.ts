@@ -8,7 +8,7 @@ import {
 
 const saved = process.env.BETTER_AUTH_URL;
 beforeEach(() => {
-  process.env.BETTER_AUTH_URL = "https://panel.example.com/some/path";
+  process.env.BETTER_AUTH_URL = "https://app.example.com/some/path";
 });
 afterEach(() => {
   if (saved === undefined) delete process.env.BETTER_AUTH_URL;
@@ -19,12 +19,12 @@ describe("assistant tool links", () => {
   it("builds absolute person and project urls on the instance origin", () => {
     expect(personRef({ id: "u1", name: "Ana" })).toEqual({
       name: "Ana",
-      profileUrl: "https://panel.example.com/people/u1",
+      profileUrl: "https://app.example.com/people/u1",
     });
     expect(projectRef({ key: "ACME", name: "Acme Membership" })).toEqual({
       key: "ACME",
       name: "Acme Membership",
-      url: "https://panel.example.com/ACME",
+      url: "https://app.example.com/ACME",
     });
   });
 
@@ -54,7 +54,7 @@ describe("assistant tool links", () => {
       {
         key: "ACME",
         name: "Acme Membership",
-        url: "https://panel.example.com/ACME",
+        url: "https://app.example.com/ACME",
         group: null,
         description: null,
         components: [],

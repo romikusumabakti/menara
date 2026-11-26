@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { classifyLink } from "@/lib/markdown-links";
 
-const ORIGIN = "https://panel.example.com";
+const ORIGIN = "https://app.example.com";
 const ID = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b";
 
 describe("classifyLink", () => {

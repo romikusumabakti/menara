@@ -33,7 +33,7 @@ vi.mock("@/lib/assistant/tools/context", async (importOriginal) => ({
 vi.mock("@/lib/jira/sync", () => ({ resolveLink: vi.fn(async () => null) }));
 
 beforeAll(() => {
-  vi.stubEnv("BETTER_AUTH_URL", "https://panel.example.com");
+  vi.stubEnv("BETTER_AUTH_URL", "https://app.example.com");
 });
 
 const ACME_ID = "01900000-0000-7000-8000-000000000001";
@@ -170,7 +170,7 @@ describe("list_issues", () => {
             priority: "high",
             assignee: {
               name: "Sari",
-              profileUrl: "https://panel.example.com/people/u2",
+              profileUrl: "https://app.example.com/people/u2",
             },
             createdAt: "2026-11-09T00:00:00Z",
             updatedAt: "2026-11-10T00:00:00Z",
@@ -480,17 +480,17 @@ describe("get_issue", () => {
       data: {
         assignee: {
           name: "Sari",
-          profileUrl: "https://panel.example.com/people/u2",
+          profileUrl: "https://app.example.com/people/u2",
         },
         createdBy: {
           name: "Wati",
-          profileUrl: "https://panel.example.com/people/u3",
+          profileUrl: "https://app.example.com/people/u3",
         },
         comments: [
           {
             author: {
               name: "Dewi",
-              profileUrl: "https://panel.example.com/people/u4",
+              profileUrl: "https://app.example.com/people/u4",
             },
           },
           {},

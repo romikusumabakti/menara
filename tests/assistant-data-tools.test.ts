@@ -163,9 +163,9 @@ describe("list_environments", () => {
           {
             key: "ACME",
             name: "Acme Membership",
-            url: "https://panel.example.com/ACME",
+            url: "https://app.example.com/ACME",
           },
-          { key: "BETA", name: "Beta", url: "https://panel.example.com/BETA" },
+          { key: "BETA", name: "Beta", url: "https://app.example.com/BETA" },
         ],
         environments: [
           { ref: "ACME/dev", name: "Dev" },
@@ -176,7 +176,7 @@ describe("list_environments", () => {
             url: "https://uat.example.invalid",
             owner: {
               name: "Budi",
-              profileUrl: "https://panel.example.com/people/owner-1",
+              profileUrl: "https://app.example.com/people/owner-1",
             },
           },
           { ref: "BETA/qa", name: "QA", kind: "qa" },
@@ -570,7 +570,7 @@ describe("get_environment_status", () => {
         lock: {
           by: {
             name: "Sari",
-            profileUrl: "https://panel.example.com/people/u2",
+            profileUrl: "https://app.example.com/people/u2",
           },
           reason: "UAT in progress",
           expiresAt: "2026-11-18T10:00:00Z",
@@ -643,7 +643,7 @@ describe("get_environment_status", () => {
 });
 
 beforeAll(() => {
-  vi.stubEnv("BETTER_AUTH_URL", "https://panel.example.com");
+  vi.stubEnv("BETTER_AUTH_URL", "https://app.example.com");
 });
 
 const deployEntry = (id: string, createdAt: string, over = {}) => ({
@@ -708,7 +708,7 @@ describe("list_deploys and get_deploy", () => {
       result as { data: { deploys: Array<{ by?: unknown }> } }
     ).data.deploys.map((d) => d.by);
     expect(by).toEqual([
-      { name: "Ana", profileUrl: "https://panel.example.com/people/u-ana" },
+      { name: "Ana", profileUrl: "https://app.example.com/people/u-ana" },
       "ci-bot",
       undefined,
     ]);
@@ -769,7 +769,7 @@ describe("list_deploys and get_deploy", () => {
       trigger: "manual",
       by: {
         name: "Budi",
-        profileUrl: "https://panel.example.com/people/u-budi",
+        profileUrl: "https://app.example.com/people/u-budi",
       },
       at: "2026-11-15T00:00:00Z",
       durationSeconds: 90,
@@ -981,25 +981,26 @@ describe("builds, issues and people", () => {
         people: [
           {
             name: "Budi Santoso",
-            profileUrl: "https://panel.example.com/people/p1",
+            profileUrl: "https://app.example.com/people/p1",
             callName: "Budi",
             email: "budi@example.invalid",
             title: "QA",
             role: "qa",
-            projects: [
-              {
-                key: "ACME",
-                name: "Acme Membership",
-                url: "https://panel.example.com/ACME",
-              },
-            ],
+            projects: ["ACME"],
           },
           {
             name: "Sari",
-            profileUrl: "https://panel.example.com/people/p2",
+            profileUrl: "https://app.example.com/people/p2",
             email: "sari@example.invalid",
             role: "engineer",
             deactivated: true,
+          },
+        ],
+        projects: [
+          {
+            key: "ACME",
+            name: "Acme Membership",
+            url: "https://app.example.com/ACME",
           },
         ],
       },
@@ -1167,7 +1168,7 @@ describe("get_overview", () => {
       expect(result.projects[1]).toEqual({
         key: "ACME",
         name: "Acme Membership",
-        url: "https://panel.example.com/ACME",
+        url: "https://app.example.com/ACME",
         environments: [
           {
             ref: "ACME/env-1",
@@ -1316,7 +1317,7 @@ describe("servers and activity", () => {
             action: "deploy.requested",
             by: {
               name: "Budi",
-              profileUrl: "https://panel.example.com/people/u1",
+              profileUrl: "https://app.example.com/people/u1",
             },
             at: "2026-11-18T01:00:00Z",
             details: { tag: "v1" },

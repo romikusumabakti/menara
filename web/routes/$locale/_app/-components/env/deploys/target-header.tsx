@@ -1,9 +1,11 @@
 import {
   CircleAlert,
-  ExternalLink,
+  GitBranch,
   Loader2,
   Lock,
+  Package,
   Rocket,
+  Server,
   Undo2,
 } from "lucide-react";
 import * as React from "react";
@@ -20,21 +22,13 @@ import {
 import {
   Tooltip,
   TooltipContent,
+  TooltipHint,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { DATE_TIME } from "@/lib/format-date";
 import type { DeployTargetState } from "@/web/api/deploys";
-import {
-  DurationText,
-  useDeploymentActorText,
-  ViewLogButton,
-} from "./deployment-parts";
-import {
-  deploymentDurationMs,
-  type HeaderState,
-  shortSha,
-  type TimelineDeployment,
-} from "./timeline-model";
+import { ViewLogButton } from "./deployment-parts";
+import type { HeaderState, TimelineDeployment } from "./timeline-model";
 
 /** A deploy or rollback whose request is in flight. */
 export type PendingAction = { kind: "deploy" | "rollback"; tag: string };
@@ -143,45 +137,57 @@ export function TargetHeader({
         <CardAction className="col-start-1 row-span-1 row-start-auto flex flex-col items-start gap-1.5 justify-self-start md:col-start-2 md:row-span-2 md:row-start-1 md:items-end md:justify-self-end">
           <div className="flex flex-wrap justify-start gap-2 md:justify-end">
             {rollbackTag && (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={rollbackDisabled}
-                aria-disabled={rollbackDisabled || undefined}
-                aria-describedby={
-                  rollbackReason === null
-                    ? undefined
-                    : sharedReason
-                      ? deployReasonId
-                      : rollbackReasonId
-                }
-                onClick={() => actions.rollback()}
-              >
-                {pending?.kind === "rollback" ? (
-                  <Loader2 data-icon="inline-start" className="animate-spin" />
-                ) : (
-                  <Undo2 data-icon="inline-start" />
-                )}
-                {t("rollbackTo", { tag: rollbackTag })}
-              </Button>
+              <TooltipHint label={t("rollbackTo", { tag: rollbackTag })}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label={t("rollbackTo", { tag: rollbackTag })}
+                  disabled={rollbackDisabled}
+                  aria-disabled={rollbackDisabled || undefined}
+                  aria-describedby={
+                    rollbackReason === null
+                      ? undefined
+                      : sharedReason
+                        ? deployReasonId
+                        : rollbackReasonId
+                  }
+                  onClick={() => actions.rollback()}
+                >
+                  {pending?.kind === "rollback" ? (
+                    <Loader2
+                      data-icon="inline-start"
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <Undo2 data-icon="inline-start" />
+                  )}
+                  {t("rollbackShort")}
+                </Button>
+              </TooltipHint>
             )}
             {latest && (
-              <Button
-                size="sm"
-                disabled={deployDisabled}
-                aria-disabled={deployDisabled || undefined}
-                aria-describedby={
-                  deployReason === null ? undefined : deployReasonId
-                }
-                onClick={() => actions.deploy(latest.tag)}
-              >
-                {pending?.kind === "deploy" && pending.tag === latest.tag ? (
-                  <Loader2 data-icon="inline-start" className="animate-spin" />
-                ) : (
-                  <Rocket data-icon="inline-start" />
-                )}
-                {t("deployLatest", { tag: latest.tag })}
-              </Button>
+              <TooltipHint label={t("deployTag", { tag: latest.tag })}>
+                <Button
+                  size="sm"
+                  aria-label={t("deployTag", { tag: latest.tag })}
+                  disabled={deployDisabled}
+                  aria-disabled={deployDisabled || undefined}
+                  aria-describedby={
+                    deployReason === null ? undefined : deployReasonId
+                  }
+                  onClick={() => actions.deploy(latest.tag)}
+                >
+                  {pending?.kind === "deploy" && pending.tag === latest.tag ? (
+                    <Loader2
+                      data-icon="inline-start"
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <Rocket data-icon="inline-start" />
+                  )}
+                  {t("deployLatest")}
+                </Button>
+              </TooltipHint>
             )}
           </div>
           {reasons.map((r) => (
@@ -198,7 +204,13 @@ export function TargetHeader({
       )}
 
       <div className="col-span-full flex flex-col gap-1 text-sm">
-        <FocalLine focal={header.focal} onViewLog={actions.viewLog} />
+        {header.note && (
+          <NoteLine
+            note={header.note}
+            focal={header.focal}
+            onViewLog={actions.viewLog}
+          />
+        )}
         {header.failure && (
           <FailureLine failure={header.failure} onViewLog={actions.viewLog} />
         )}
@@ -207,7 +219,8 @@ export function TargetHeader({
   );
 }
 
-// Repo, branch, server and path; wraps on narrow screens instead of clipping.
+// Branch, server, artifact and repo; wraps on narrow screens instead of
+// clipping. The full path and the systemd unit sit in the artifact's tooltip.
 function TargetSubtitle({
   target,
   serverName,
@@ -220,143 +233,111 @@ function TargetSubtitle({
     target.kind === "jar"
       ? `${target.deployDir}/${target.jarName}`
       : target.deployDir;
-  const code = "font-mono text-sm";
-  const parts: React.ReactElement[] = [];
-  if (target.repoFullName) {
-    parts.push(
-      <code key="repo" className={code} title={t("serviceRepo")}>
-        {target.repoFullName}
-      </code>
-    );
-  }
-  parts.push(
-    <code key="branch" className={code}>
-      {target.sourceBranch}
-    </code>
-  );
-  if (serverName) {
-    parts.push(<span key="server">{serverName}</span>);
-  }
-  parts.push(
-    <code key="path" className={code} title={path}>
-      {path}
-    </code>
-  );
-  if (target.kind === "jar") {
-    parts.push(
-      <code key="unit" className={code}>
-        {target.systemdUnit}
-      </code>
-    );
-  }
+  const artifact =
+    target.kind === "jar"
+      ? target.jarName
+      : (target.deployDir.split("/").filter(Boolean).pop() ?? target.deployDir);
   return (
-    <CardDescription className="flex flex-wrap gap-x-1 break-all">
-      {parts.map((part, i) => (
-        <React.Fragment key={part.key}>
-          {i > 0 && <span aria-hidden="true"> · </span>}
-          {part}
-        </React.Fragment>
-      ))}
+    <CardDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <MetaItem icon={<GitBranch aria-hidden />}>
+        <code className="font-mono">{target.sourceBranch}</code>
+      </MetaItem>
+      {serverName && (
+        <MetaItem icon={<Server aria-hidden />}>{serverName}</MetaItem>
+      )}
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <span
+              // biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard focus target for the path tooltip
+              tabIndex={0}
+              className="inline-flex items-center gap-1 break-all"
+            />
+          }
+        >
+          <Package className="size-3.5 shrink-0" aria-hidden />
+          <code className="font-mono">{artifact}</code>
+        </TooltipTrigger>
+        <TooltipContent className="flex-col items-start font-mono">
+          <span>{path}</span>
+          {target.kind === "jar" && target.systemdUnit && (
+            <span>{t("serviceUnit", { unit: target.systemdUnit })}</span>
+          )}
+        </TooltipContent>
+      </Tooltip>
+      {target.repoFullName && (
+        <code className="font-mono" title={t("serviceRepo")}>
+          {target.repoFullName}
+        </code>
+      )}
     </CardDescription>
   );
 }
 
-function FocalLine({
+function MetaItem({
+  icon,
+  children,
+}: {
+  icon: React.ReactElement;
+  children: React.ReactNode;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      {React.cloneElement(icon as React.ReactElement<{ className?: string }>, {
+        className: "size-3.5 shrink-0",
+      })}
+      {children}
+    </span>
+  );
+}
+
+// The states no Live row carries: the current deploy failed, or none ran yet.
+function NoteLine({
+  note,
   focal,
   onViewLog,
 }: {
+  note: NonNullable<HeaderState["note"]>;
   focal: HeaderState["focal"];
   onViewLog: CardActions["viewLog"];
 }) {
   const t = useTranslations("deploys");
   const format = useFormatter();
   const relative = useRelativeTimeText();
-  const actorText = useDeploymentActorText();
 
-  if (focal.kind === "never") {
+  if (note.kind === "neverDeployed") {
     return (
-      <p data-slot="deploy-focal" className="italic text-muted-foreground">
+      <p data-slot="deploy-note" className="italic text-muted-foreground">
         {t("neverDeployed")}
       </p>
     );
   }
-
-  if (focal.kind === "failedCurrent") {
-    const d = focal.deployment;
-    return (
-      <div
-        data-slot="deploy-focal"
-        className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-destructive"
-      >
-        <CircleAlert className="size-4 shrink-0" aria-hidden />
-        <span
-          title={
-            d ? format.dateTime(new Date(settledAt(d)), DATE_TIME) : undefined
-          }
-        >
-          {d
-            ? t("focalFailed", { tag: focal.tag, time: relative(settledAt(d)) })
-            : t("focalFailedNoTime", { tag: focal.tag })}
-        </span>
-        {focal.lastGood && (
-          <span>{t("focalLastGood", { tag: focal.lastGood })}</span>
-        )}
-        {d?.runId && (
-          <ViewLogButton
-            onClick={() => d.runId && onViewLog({ runId: d.runId, tag: d.tag })}
-          />
-        )}
-      </div>
-    );
-  }
-
+  if (focal.kind !== "failedCurrent") return null;
   const d = focal.deployment;
-  const duration = d ? deploymentDurationMs(d) : null;
-  const sha = shortSha(focal.commitSha);
   return (
-    <p
-      data-slot="deploy-focal"
-      className="flex flex-wrap items-center gap-x-1.5 gap-y-1"
+    <div
+      data-slot="deploy-note"
+      className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-destructive"
     >
-      <span className="font-medium">{t("focalLive", { tag: focal.tag })}</span>
-      {sha &&
-        (focal.pipelineUrl ? (
-          <a
-            href={focal.pipelineUrl}
-            target="_blank"
-            rel="noreferrer"
-            aria-label={`${t("viewPipelineFor", { sha })} ${t("opensInNewTab")}`}
-            className="inline-flex items-center gap-1 font-mono text-muted-foreground hover:text-foreground"
-          >
-            {sha}
-            <ExternalLink className="size-3.5" aria-hidden />
-          </a>
-        ) : (
-          <code className="font-mono text-muted-foreground">{sha}</code>
-        ))}
-      {d && (
-        <>
-          <span aria-hidden="true"> · </span>
-          <span
-            className="text-muted-foreground"
-            title={format.dateTime(new Date(settledAt(d)), DATE_TIME)}
-          >
-            {t("focalDeployedBy", {
-              time: relative(settledAt(d)),
-              actor: actorText(d),
-            })}
-          </span>
-        </>
+      <CircleAlert className="size-4 shrink-0" aria-hidden />
+      <span
+        title={
+          d ? format.dateTime(new Date(settledAt(d)), DATE_TIME) : undefined
+        }
+      >
+        {d
+          ? t("focalFailed", { tag: focal.tag, time: relative(settledAt(d)) })
+          : t("focalFailedNoTime", { tag: focal.tag })}
+      </span>
+      {note.lastGoodTag && (
+        <span>{t("focalLastGood", { tag: note.lastGoodTag })}</span>
       )}
-      {duration !== null && (
-        <>
-          <span aria-hidden="true"> · </span>
-          <span className="text-muted-foreground">
-            <DurationText ms={duration} />
-          </span>
-        </>
+      {d?.runId && (
+        <ViewLogButton
+          onClick={() => d.runId && onViewLog({ runId: d.runId, tag: d.tag })}
+        />
       )}
-    </p>
+    </div>
   );
 }
 

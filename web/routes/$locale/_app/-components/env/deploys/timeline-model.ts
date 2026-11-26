@@ -265,6 +265,15 @@ export type HeaderState = {
       }
     | { kind: "never" };
   failure: { tag: string; deployment: TimelineDeployment } | null;
+  /**
+   * What the header says when no Live row carries the state: the current
+   * deploy failed (shown even when it is the latest finished one), or nothing
+   * was ever deployed.
+   */
+  note:
+    | { kind: "failedCurrent"; lastGoodTag: string | null }
+    | { kind: "neverDeployed" }
+    | null;
   deployLatest: {
     tag: string;
     blocked: "latestIsLive" | "deploying" | "held" | null;
@@ -331,6 +340,13 @@ export function headerState(input: TimelineInput): HeaderState {
       ? { tag: lastSettled.tag, deployment: lastSettled }
       : null;
 
+  const note: HeaderState["note"] =
+    focal.kind === "failedCurrent"
+      ? { kind: "failedCurrent", lastGoodTag: focal.lastGood }
+      : focal.kind === "never"
+        ? { kind: "neverDeployed" }
+        : null;
+
   const rows = buildTimeline(input);
   const latest = input.recentBuilds[0];
   let deployLatest: HeaderState["deployLatest"] = null;
@@ -362,6 +378,7 @@ export function headerState(input: TimelineInput): HeaderState {
   return {
     focal,
     failure,
+    note,
     deployLatest,
     rollbackTag: input.previousTag,
     rollbackBusy,

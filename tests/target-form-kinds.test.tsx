@@ -498,14 +498,14 @@ describe("target summary", () => {
     );
   });
 
-  it("static renders the web root", async () => {
+  it("static shows the last directory segment as the artifact", async () => {
     api.getActiveBuild.mockResolvedValue(null);
     await show({ kind: "static" });
     const line = container.querySelector("[data-slot='card-description']");
-    expect(line?.textContent).toBe("main · .10.129 · /var/www/core-web");
+    expect(line?.textContent).toBe("main.10.129core-web");
   });
 
-  it("jar renders the jar path and the unit", async () => {
+  it("jar shows the jar name as the artifact", async () => {
     api.getActiveBuild.mockResolvedValue(null);
     await show({
       kind: "jar",
@@ -514,8 +514,6 @@ describe("target summary", () => {
       systemdUnit: "core-web",
     });
     const line = container.querySelector("[data-slot='card-description']");
-    expect(line?.textContent).toBe(
-      "main · .10.129 · /opt/core-web/core-web-service.jar · core-web"
-    );
+    expect(line?.textContent).toBe("main.10.129core-web-service.jar");
   });
 });

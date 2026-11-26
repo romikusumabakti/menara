@@ -452,6 +452,7 @@ describe("headerState", () => {
       pipelineUrl: "https://ci.example.com/v2",
     });
     expect(h.focal.kind === "live" && h.focal.deployment?.id).toBe("new");
+    expect(h.note).toBeNull();
     expect(h.rollbackTag).toBe("v1");
   });
 
@@ -463,6 +464,7 @@ describe("headerState", () => {
       lastGood: "v1",
     });
     expect(h.failure).toBeNull();
+    expect(h.note).toEqual({ kind: "failedCurrent", lastGoodTag: "v1" });
     expect(h.deployLatest).toEqual({ tag: "v3", blocked: null });
     expect(h.rollbackTag).toBe("v1");
   });
@@ -560,6 +562,7 @@ describe("headerState", () => {
   it("no state at all is never, without Deploy latest", () => {
     const h = headerState(input());
     expect(h.focal).toEqual({ kind: "never" });
+    expect(h.note).toEqual({ kind: "neverDeployed" });
     expect(h.deployLatest).toBeNull();
     expect(h.failure).toBeNull();
     expect(h.rollbackTag).toBeNull();

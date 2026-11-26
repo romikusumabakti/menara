@@ -190,7 +190,11 @@ const buttonNamed = (text: string) =>
   [...header().querySelectorAll("button")].find((b) =>
     b.textContent?.includes(text)
   );
-const deployLatest = () => buttonNamed(prefix(d.deployLatest, "tag").trim());
+const deployLatest = () => buttonNamed(d.deployLatest);
+const rollbackButton = (tag: string) =>
+  [...header().querySelectorAll("button")].find(
+    (b) => b.getAttribute("aria-label") === d.rollbackTo.replace("{tag}", tag)
+  );
 const alertDialog = () => document.querySelector('[role="alertdialog"]');
 const prefix = (message: string, arg: string) =>
   message.split(`{${arg}}`)[0] ?? "";
@@ -227,28 +231,56 @@ describe("Deploys page header", () => {
 });
 
 describe("Deploy target header", () => {
-  it("live focal line names the tag, who deployed it, when and how long", async () => {
+  it("shows no Live focal line when a Live row carries it", async () => {
     await mount([liveTarget()]);
-    const focal = slot("deploy-focal");
-    expect(focal?.textContent).toContain("Live: v2");
-    expect(focal?.textContent).toContain("Ada Example");
-    expect(focal?.textContent).toContain("1m 30s");
-    const sha = focal?.querySelector("a");
-    expect(sha?.getAttribute("href")).toBe("https://ci.example.com/v2");
-    expect(sha?.getAttribute("target")).toBe("_blank");
-    expect(sha?.getAttribute("rel")).toBe("noreferrer");
-    expect(sha?.getAttribute("aria-label")).toContain(d.opensInNewTab);
-    expect(sha?.textContent).toBe("v2abcde");
+    expect(slot("deploy-focal")).toBeNull();
+    expect(slot("deploy-note")).toBeNull();
+    const livePrefix = "Live:";
+    expect(header().textContent).not.toContain(`${livePrefix} v2`);
   });
 
-  it("failed current: focal failure line, Deploy latest on the newer build", async () => {
+  it("meta line shows branch, server, artifact and repo; the path and unit sit in a tooltip", async () => {
+    await mount([
+      liveTarget({
+        kind: "jar",
+        deployDir: "/srv/a",
+        jarName: "app-a.jar",
+        systemdUnit: "app-a.service",
+      }),
+    ]);
+    const meta = slot("card-description");
+    expect(meta?.textContent).toContain("main");
+    expect(meta?.textContent).toContain("app-a.jar");
+    expect(meta?.textContent).toContain("acme/app");
+    expect(meta?.textContent).not.toContain("/srv/a");
+    expect(meta?.textContent).not.toContain("app-a.service");
+    act(() => root.unmount());
+    container.remove();
+    await mount([liveTarget({ deployDir: "/srv/acme-app" })]);
+    const compose = slot("card-description");
+    expect(compose?.textContent).toContain("acme-app");
+    expect(compose?.textContent).not.toContain("/srv/");
+  });
+
+  it("buttons are short; the tag is in the aria-label", async () => {
+    await mount([liveTarget({ recentBuilds: [build("v3", at("10:02:00"))] })]);
+    expect(rollbackButton("v1")?.textContent).toBe(d.rollbackShort);
+    const deploy = deployLatest();
+    expect(deploy?.textContent).toBe(d.deployLatest);
+    expect(deploy?.getAttribute("aria-label")).toBe(
+      d.deployTag.replace("{tag}", "v3")
+    );
+    expect(header().textContent).not.toContain("v3");
+  });
+
+  it("failed current shows a warning line naming the last good tag, Deploy latest on the newer build", async () => {
     await mount([failedTarget()]);
-    const focal = slot("deploy-focal");
+    const focal = slot("deploy-note");
     expect(focal?.textContent).toContain(
       prefix(d.focalFailed, "time").replace("{tag}", "v2")
     );
     expect(focal?.textContent).toContain("last good: v1");
-    const livePrefix = prefix(d.focalLive, "tag").trim();
+    const livePrefix = "Live:";
     expect(
       [...container.querySelectorAll("*")].some(
         (el) => el.textContent?.trim() === livePrefix
@@ -261,13 +293,20 @@ describe("Deploy target header", () => {
     expect(header().querySelectorAll("[aria-live]")).toHaveLength(0);
 
     const button = deployLatest();
-    expect(button?.textContent).toBe("Deploy latest (v3)");
+    expect(button?.getAttribute("aria-label")).toBe("Deploy v3");
     expect(button?.disabled).toBe(false);
     expect(button?.getAttribute("aria-disabled")).not.toBe("true");
     await act(async () => button?.click());
     expect(alertDialog()?.textContent).toContain(
       d.deployConfirmTitle.replace("{tag}", "v3")
     );
+  });
+
+  it("never deployed shows a muted line", async () => {
+    await mount([target({ recentBuilds: [build("v1", at("09:00:00"))] })]);
+    const note = slot("deploy-note");
+    expect(note?.textContent).toBe(d.neverDeployed);
+    expect(note?.className).toContain("text-muted-foreground");
   });
 
   it("failed current without its deployment in the list leaves out the time", async () => {
@@ -282,7 +321,7 @@ describe("Deploy target header", () => {
         ],
       }),
     ]);
-    const focal = slot("deploy-focal");
+    const focal = slot("deploy-note");
     expect(focal?.textContent).toContain(
       d.focalFailedNoTime.replace("{tag}", "v2")
     );
@@ -324,7 +363,7 @@ describe("Deploy target header", () => {
   it("Deploy latest is disabled with a visible reason when the newest build is live", async () => {
     await mount([liveTarget()]);
     const button = deployLatest();
-    expect(button?.textContent).toBe("Deploy latest (v2)");
+    expect(button?.getAttribute("aria-label")).toBe("Deploy v2");
     expect(button?.getAttribute("aria-disabled")).toBe("true");
     const reason = slot("deploy-actions-reason");
     expect(reason?.textContent).toBe(d.latestIsLive.replace("{tag}", "v2"));
@@ -355,7 +394,7 @@ describe("Deploy target header", () => {
         ],
       }),
     ]);
-    expect(slot("deploy-focal")?.textContent).toContain("Live: v2");
+    expect(slot("deploy-focal")).toBeNull();
     const button = deployLatest();
     expect(button?.getAttribute("aria-disabled")).toBe("true");
     expect(slot("deploy-actions-reason")?.textContent).toBe(d.latestDeploying);
@@ -372,7 +411,7 @@ describe("Deploy target header", () => {
 
   it("rollback button keeps the destructive confirmation", async () => {
     await mount([liveTarget()]);
-    const rollback = buttonNamed(d.rollbackTo.replace("{tag}", "v1"));
+    const rollback = rollbackButton("v1");
     expect(rollback?.disabled).toBe(false);
     await act(async () => rollback?.click());
     const confirm = [...(alertDialog()?.querySelectorAll("button") ?? [])].find(
@@ -400,8 +439,8 @@ describe("Deploy target header", () => {
         ],
       }),
     ]);
-    const rollback = buttonNamed(d.rollbackTo.replace("{tag}", "v1"));
-    expect(deployLatest()?.textContent).toBe("Deploy latest (v1)");
+    const rollback = rollbackButton("v1");
+    expect(deployLatest()?.getAttribute("aria-label")).toBe("Deploy v1");
     await act(async () => rollback?.click());
     const confirm = [...(alertDialog()?.querySelectorAll("button") ?? [])].find(
       (b) => b.textContent === "Roll back to v1"
@@ -410,7 +449,7 @@ describe("Deploy target header", () => {
     expect(state.rollbackTarget).toHaveBeenCalledWith("a");
     const spins = (b: HTMLButtonElement | undefined) =>
       Boolean(b?.querySelector(".animate-spin"));
-    expect(spins(buttonNamed(d.rollbackTo.replace("{tag}", "v1")))).toBe(true);
+    expect(spins(rollbackButton("v1"))).toBe(true);
     expect(spins(deployLatest())).toBe(false);
     await act(async () => resolve({ runId: "run-rb" }));
   });
@@ -434,7 +473,7 @@ describe("Deploy target header", () => {
         ],
       }),
     ]);
-    const rollback = buttonNamed(d.rollbackTo.replace("{tag}", "v1"));
+    const rollback = rollbackButton("v1");
     expect(rollback?.disabled).toBe(true);
     expect(rollback?.getAttribute("aria-disabled")).toBe("true");
     const describedBy = rollback?.getAttribute("aria-describedby");
@@ -472,11 +511,7 @@ describe("Deploy target header", () => {
       d.lock.disabledHint.replace("{reason}", "Release freeze")
     );
     expect(deployLatest()?.getAttribute("aria-disabled")).toBe("true");
-    expect(
-      buttonNamed(d.rollbackTo.replace("{tag}", "v1"))?.getAttribute(
-        "aria-disabled"
-      )
-    ).toBe("true");
+    expect(rollbackButton("v1")?.getAttribute("aria-disabled")).toBe("true");
   });
 
   it("subtitle wraps instead of truncating", async () => {

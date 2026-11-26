@@ -85,7 +85,14 @@ beforeEach(() => {
 describe("generateInstanceKey", () => {
   it("skips a generated private key that does not parse", () => {
     const real = ssh2.utils.generateKeyPairSync;
-    const good = real("ed25519");
+    // ssh2 occasionally generates an ed25519 key its own parser rejects
+    // (that is what generateInstanceKey retries around), so the "good" key
+    // must itself be one that parses — otherwise the code under test
+    // rightly skips it too and returns a third, unrelated key.
+    let good = real("ed25519");
+    while (ssh2.utils.parseKey(good.private) instanceof Error) {
+      good = real("ed25519");
+    }
     const spy = vi
       .spyOn(ssh2.utils, "generateKeyPairSync")
       .mockReturnValueOnce({

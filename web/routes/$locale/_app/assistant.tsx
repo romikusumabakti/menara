@@ -38,17 +38,13 @@ function AssistantPage() {
       ? ({ kind: "project", projectId: project } as const)
       : null;
 
-  // Fills the app shell's `main` (its padding undone, then restored) so the
-  // workspace scrolls its own panes, like the knowledge layout.
   return (
-    <div className="-mx-4 -my-6 h-[calc(100svh-3.5rem)] overflow-hidden px-4 py-6 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-      <AssistantWorkspace
-        initialContext={initialContext}
-        conversationId={c ?? null}
-        onConversationChange={(id) =>
-          navigate({ search: id ? { c: id } : {}, replace: true })
-        }
-      />
-    </div>
+    <AssistantWorkspace
+      initialContext={initialContext}
+      conversationId={c ?? null}
+      onConversationChange={(id) =>
+        navigate({ search: id ? { c: id } : {}, replace: true })
+      }
+    />
   );
 }

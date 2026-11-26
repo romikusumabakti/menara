@@ -2415,6 +2415,26 @@ describe("drafts panel in the workspace", () => {
     expect(panel()).toBeNull();
   });
 
+  it("sits in the shared workspace layout: chats as the left aside, drafts as the right aside", async () => {
+    await renderWorkspace();
+    const chatsNav = document.querySelector("nav");
+    const left = chatsNav?.closest("aside");
+    expect(left?.className).toContain("lg:w-64");
+    expect(left?.nextElementSibling?.tagName).toBe("MAIN");
+    queryClient.setQueryData(conversationKey, {
+      ...conversation,
+      drafts: [draft("d1")],
+    });
+    const item = [...document.querySelectorAll("nav button")].find((b) =>
+      b.textContent?.includes("Iuran")
+    ) as HTMLButtonElement | undefined;
+    await act(async () => item?.click());
+    await act(async () => toggle(1)?.click());
+    const right = panel()?.closest("aside");
+    expect(right?.className).toContain("lg:w-96");
+    expect(right).not.toBe(left);
+  });
+
   it("is closed initially and the Drafts button toggles it", async () => {
     await renderWorkspace();
     queryClient.setQueryData(conversationKey, {

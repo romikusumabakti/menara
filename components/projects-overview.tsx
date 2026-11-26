@@ -471,6 +471,13 @@ function ProjectCard({
   );
 }
 
+/**
+ * The environment row's grid from xl (dot, name, DB type, DB name, owner,
+ * activity). Shared with the Projects page skeleton so the rows do not jump.
+ */
+export const ENV_ROW_GRID =
+  "xl:grid xl:grid-cols-[0.875rem_minmax(0,1fr)_5.5rem_10rem_10rem_9rem]";
+
 function EnvironmentRow({
   env,
   projectKey,
@@ -495,7 +502,9 @@ function EnvironmentRow({
   // name, owner and activity are direct cells of fixed tracks, aligned across
   // every row (a missing value renders an empty cell to keep the columns).
   return (
-    <div className="group relative flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors xl:grid xl:grid-cols-[0.875rem_minmax(0,1fr)_5.5rem_10rem_10rem_9rem]">
+    <div
+      className={`group relative flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors ${ENV_ROW_GRID}`}
+    >
       <StatusDot activity={activity ?? null} />
       <span className="flex flex-col min-w-0 flex-1 gap-0.5 xl:contents">
         <span className="flex items-center gap-2 min-w-0">
@@ -552,7 +561,10 @@ function EnvironmentRow({
         </span>
       </span>
       <span className="contents xl:flex xl:items-center xl:justify-end xl:gap-3">
-        <span className="text-xs text-muted-foreground shrink-0 hidden sm:inline">
+        <span
+          title={activity ? undefined : t("neverActive")}
+          className="text-xs text-muted-foreground shrink-0 hidden sm:inline xl:min-w-0 xl:shrink xl:truncate"
+        >
           {activity ? <RelativeTime date={activity.runAt} /> : t("neverActive")}
         </span>
         <ChevronRight className="size-4 text-muted-foreground shrink-0 transition-transform group-hover:translate-x-0.5" />

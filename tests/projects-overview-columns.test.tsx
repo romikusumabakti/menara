@@ -157,4 +157,15 @@ describe("ProjectsOverview columns", () => {
     expect(links[1]?.className).not.toContain("max-w-[60%]");
     expect(links[1]?.className).toContain("min-w-0");
   });
+
+  it("lets the activity cell truncate with a title instead of overflowing", () => {
+    const never = [
+      ...container.querySelectorAll<HTMLElement>("span.xl\\:truncate"),
+    ].find((el) => el.getAttribute("title") === messages.home.neverActive);
+    expect(never).toBeDefined();
+    expect(never?.className).toContain("xl:min-w-0");
+    expect(never?.className).toContain("xl:shrink");
+    // the chevron stays beside it
+    expect(never?.nextElementSibling?.tagName.toLowerCase()).toBe("svg");
+  });
 });

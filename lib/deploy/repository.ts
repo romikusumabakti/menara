@@ -114,6 +114,7 @@ export type TargetState = DeployTarget &
 
 /** A deployment as the Deploys page lists it. */
 export type DeploymentEntry = Deployment & {
+  /** Same user as `userName`; backs the assistant's profile links. */
   userId: string | null;
   userName: string | null;
   triggeredBy: string | null;

@@ -288,9 +288,6 @@ export type HeaderState = {
     | {
         kind: "live";
         tag: string;
-        deployment: TimelineDeployment | null;
-        commitSha: string | null;
-        pipelineUrl: string | null;
       }
     | {
         kind: "failedCurrent";
@@ -319,29 +316,13 @@ export type HeaderState = {
   rollbackBusy: boolean;
 };
 
-function liveFocal(
-  tag: string,
-  deployment: TimelineDeployment | null,
-  input: TimelineInput
-): HeaderState["focal"] {
-  const build = input.recentBuilds.find((b) => b.tag === tag) ?? null;
-  return {
-    kind: "live",
-    tag,
-    deployment,
-    commitSha: build?.commitSha ?? deployment?.build?.commitSha ?? null,
-    pipelineUrl: build?.pipelineUrl ?? null,
-  };
-}
-
 function focalOf(
   input: TimelineInput,
   all: TimelineDeployment[]
 ): HeaderState["focal"] {
   const { currentTag, currentStatus } = input;
   if (currentTag && currentStatus === "success") {
-    const mine = all.filter((d) => d.tag === currentTag);
-    return liveFocal(currentTag, newestWith(mine, "success"), input);
+    return { kind: "live", tag: currentTag };
   }
   if (currentTag && currentStatus === "failed") {
     const mine = all.filter((d) => d.tag === currentTag);
@@ -358,7 +339,7 @@ function focalOf(
   // Deploying (or otherwise unsettled): keep the previous live info.
   const lastSuccess = newestWith(all, "success");
   return lastSuccess
-    ? liveFocal(lastSuccess.tag, lastSuccess, input)
+    ? { kind: "live", tag: lastSuccess.tag }
     : { kind: "never" };
 }
 

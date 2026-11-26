@@ -480,13 +480,7 @@ describe("headerState", () => {
         ],
       })
     );
-    expect(h.focal).toMatchObject({
-      kind: "live",
-      tag: "v2",
-      commitSha: "v2-sha",
-      pipelineUrl: "https://ci.example.com/v2",
-    });
-    expect(h.focal.kind === "live" && h.focal.deployment?.id).toBe("new");
+    expect(h.focal).toEqual({ kind: "live", tag: "v2" });
     expect(h.note).toBeNull();
     expect(h.rollbackTag).toBe("v1");
   });
@@ -601,25 +595,6 @@ describe("headerState", () => {
     expect(h.deployLatest).toBeNull();
     expect(h.failure).toBeNull();
     expect(h.rollbackTag).toBeNull();
-  });
-
-  it("live focal falls back to the deployment's build when the tag has no build row", () => {
-    const h = headerState(
-      input({
-        currentTag: "v1",
-        currentStatus: "success",
-        recentDeployments: [
-          deployment("v1", "success", {
-            build: { branch: "main", commitSha: "dep-sha" },
-          }),
-        ],
-      })
-    );
-    expect(h.focal).toMatchObject({
-      kind: "live",
-      commitSha: "dep-sha",
-      pipelineUrl: null,
-    });
   });
 
   it.each([

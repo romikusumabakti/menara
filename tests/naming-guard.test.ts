@@ -28,7 +28,7 @@ const ALLOWED: Allowed[] = [
   {
     path: ANY,
     construct:
-      /\b(?:LiveRunPanel|DeployLockPanel|ClockStatePanel|ProvisioningPanel(?:View)?|showProvisioningPanel|showPanel|DraftPanel|draftPanel|noTargetsPanel|PanelLeftIcon|panel(?:Drop|Key)Props)\b|\.cm-panels\b/g,
+      /\b(?:LiveRunPanel|ClockStatePanel|ProvisioningPanel(?:View)?|showProvisioningPanel|showPanel|DraftPanel|draftPanel|noTargetsPanel|PanelLeftIcon|panel(?:Drop|Key)Props)\b|\.cm-panels\b/g,
     reason:
       "UI component identifiers: the run, deploy-lock, provisioning, clock-state and draft panels, the sidebar toggle icon, CodeMirror panels",
   },

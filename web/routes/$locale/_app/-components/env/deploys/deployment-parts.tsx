@@ -73,12 +73,6 @@ function useDeploymentActor(): (d: TimelineDeployment) => {
   };
 }
 
-/** Who started a deployment, as plain text for translated sentences. */
-export function useDeploymentActorText(): (d: TimelineDeployment) => string {
-  const actor = useDeploymentActor();
-  return (d) => actor(d).text;
-}
-
 /** Who started a deployment; an auto deploy gets a bolt, an unknown user italics. */
 export function DeploymentActor({
   deployment,

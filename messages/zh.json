@@ -986,7 +986,7 @@
     "storageRemove": "移除存储",
     "storageRemoveTitle": "移除此存储？",
     "storageRemoveDescription": "该环境将失去与存储桶及其存储浏览器的连接。存储桶中的文件不会被删除。",
-    "storageRestricted": "此存储保存实例备份，因此其设置在此处隐藏。请在 Admin › Instance 中管理，或将其从此环境移除。",
+    "storageRestricted": "此存储与实例的备份位置重叠，因此只有 admin 和 infra 角色可以浏览，其设置在此处隐藏。请将其移除，然后连接备份位置之外的存储桶或键前缀。",
     "storageSaved": "存储已保存",
     "storageRemoved": "存储已移除",
     "tabDomain": "域名",
@@ -1917,7 +1917,7 @@
     "notConfiguredReadOnly": "可编辑此环境的成员可以连接其存储。",
     "openSettings": "打开存储设置",
     "restrictedTitle": "受限存储",
-    "restrictedDescription": "此存储保存实例备份,因此只有拥有存储文件访问权限的角色才能浏览。"
+    "restrictedDescription": "此存储与实例的备份位置重叠，因此只有 admin 和 infra 角色可以浏览。可编辑此环境的用户可以在 设置 › 存储 中移除它或将其指向其他位置。"
   },
   "s3Form": {
     "endpoint": "端点",

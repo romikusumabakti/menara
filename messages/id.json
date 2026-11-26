@@ -986,7 +986,7 @@
     "storageRemove": "Hapus penyimpanan",
     "storageRemoveTitle": "Hapus penyimpanan ini?",
     "storageRemoveDescription": "Environment kehilangan koneksi ke bucket dan penjelajah penyimpanannya. Berkas di dalam bucket tidak dihapus.",
-    "storageRestricted": "Penyimpanan ini menyimpan cadangan instance, sehingga pengaturannya disembunyikan di sini. Kelola di Admin › Instance, atau hapus dari environment ini.",
+    "storageRestricted": "Penyimpanan ini tumpang tindih dengan lokasi cadangan instance, sehingga hanya peran admin dan infra yang dapat menjelajahinya, dan pengaturannya disembunyikan di sini. Hapus, lalu hubungkan bucket atau key prefix di luar lokasi cadangan.",
     "storageSaved": "Penyimpanan disimpan",
     "storageRemoved": "Penyimpanan dihapus",
     "tabDomain": "Domain",
@@ -1917,7 +1917,7 @@
     "notConfiguredReadOnly": "Anggota yang dapat mengubah environment ini dapat menghubungkan penyimpanannya.",
     "openSettings": "Buka pengaturan penyimpanan",
     "restrictedTitle": "Penyimpanan terbatas",
-    "restrictedDescription": "Penyimpanan ini menyimpan cadangan instance, sehingga hanya peran dengan akses berkas penyimpanan yang dapat menjelajahinya."
+    "restrictedDescription": "Penyimpanan ini tumpang tindih dengan lokasi cadangan instance, sehingga hanya peran admin dan infra yang dapat menjelajahinya. Pengguna yang dapat mengedit environment ini dapat menghapus atau mengarahkannya ulang di Pengaturan › Penyimpanan."
   },
   "s3Form": {
     "endpoint": "Endpoint",

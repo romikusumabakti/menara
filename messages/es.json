@@ -986,7 +986,7 @@
     "storageRemove": "Quitar almacenamiento",
     "storageRemoveTitle": "¿Quitar este almacenamiento?",
     "storageRemoveDescription": "El entorno pierde su conexión con el bucket y su explorador de almacenamiento. Los archivos del bucket no se eliminan.",
-    "storageRestricted": "Este almacenamiento guarda las copias de seguridad de la instancia, por lo que su configuración se oculta aquí. Adminístralo en Admin › Instancia o quítalo de este entorno.",
+    "storageRestricted": "Este almacenamiento se solapa con la ubicación de las copias de seguridad de la instancia, por lo que solo los roles admin e infra pueden explorarlo y su configuración se oculta aquí. Quítalo y conecta un bucket o prefijo de clave fuera de esa ubicación.",
     "storageSaved": "Almacenamiento guardado",
     "storageRemoved": "Almacenamiento quitado",
     "tabDomain": "Dominio",
@@ -1917,7 +1917,7 @@
     "notConfiguredReadOnly": "Un miembro que pueda editar este entorno puede conectar su almacenamiento.",
     "openSettings": "Abrir ajustes de almacenamiento",
     "restrictedTitle": "Almacenamiento restringido",
-    "restrictedDescription": "Este almacenamiento contiene las copias de seguridad de la instancia, por lo que solo los roles con acceso a archivos de almacenamiento pueden explorarlo."
+    "restrictedDescription": "Este almacenamiento se solapa con la ubicación de las copias de seguridad de la instancia, por lo que solo los roles admin e infra pueden explorarlo. Quien pueda editar este entorno puede quitarlo o apuntarlo a otro lugar en Ajustes › Almacenamiento."
   },
   "s3Form": {
     "endpoint": "Endpoint",

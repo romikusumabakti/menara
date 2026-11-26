@@ -986,7 +986,7 @@
     "storageRemove": "Remove storage",
     "storageRemoveTitle": "Remove this storage?",
     "storageRemoveDescription": "The environment loses its connection to the bucket and its storage explorer. Files in the bucket are not deleted.",
-    "storageRestricted": "This storage holds the instance backups, so its settings are hidden here. Manage it in Admin › Instance, or remove it from this environment.",
+    "storageRestricted": "This storage overlaps the instance's backup location, so only admin and infra roles can browse it, and its settings are hidden here. Remove it, then connect a bucket or key prefix outside the backup location.",
     "storageSaved": "Storage saved",
     "storageRemoved": "Storage removed",
     "tabDomain": "Domain",
@@ -1917,7 +1917,7 @@
     "notConfiguredReadOnly": "A member who can edit this environment can connect its storage.",
     "openSettings": "Open storage settings",
     "restrictedTitle": "Restricted storage",
-    "restrictedDescription": "This storage holds the instance backups, so only roles with storage file access can browse it."
+    "restrictedDescription": "This storage overlaps the instance's backup location, so only admin and infra roles can browse it. Someone who can edit this environment can remove or repoint it in Settings › Storage."
   },
   "s3Form": {
     "endpoint": "Endpoint",

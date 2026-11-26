@@ -164,6 +164,30 @@ describe("environment storage page", () => {
     expect(container.textContent).toContain(enMessages.storage.restrictedTitle);
   });
 
+  it("tells a role without storage files why, and where the storage is changed", async () => {
+    const description = enMessages.storage.restrictedDescription;
+    expect(description).toContain("backup location");
+    expect(description).toContain("Settings › Storage");
+    expect(description).not.toContain("Admin");
+    for (const role of ["engineer", "qa"]) {
+      await render(
+        page({ canManage: role === "engineer" }),
+        pageClient(storage({ isBackupDestination: true }), role)
+      );
+      expect(document.querySelector("[data-testid=explorer]")).toBeNull();
+      expect(container.textContent, role).toContain(
+        enMessages.storage.restrictedTitle
+      );
+      expect(container.textContent, role).toContain(description);
+      act(() => root.unmount());
+      container.remove();
+    }
+    // The settings tab's notice no longer sends the owner to Admin › Instance.
+    const notice = enMessages.environmentSettings.storageRestricted;
+    expect(notice).toContain("backup location");
+    expect(notice).not.toContain("Admin");
+  });
+
   it("opens the explorer on the backup bucket for an org role with storage files", async () => {
     await render(
       page({ canManage: true }),

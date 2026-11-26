@@ -142,7 +142,8 @@ export async function getEnvironmentStorage(
  * keeps the stored one, which is allowed only when the location is
  * unchanged (else, and for a first save, the coded 400
  * s3SecretRequiredForLocationChange). Activity `storage.configured` lists
- * the changed field names, never their values.
+ * the changed field names, never their values; a save that changes nothing
+ * and brings no new secret records none.
  */
 export async function saveEnvironmentStorage(
   environmentId: string,
@@ -191,13 +192,16 @@ export async function saveEnvironmentStorage(
     return { saved: row, fields: changed };
   });
 
-  await recordActivity({
-    actorId: session.user.id,
-    action: "storage.configured",
-    entityType: "environment",
-    entityId: environmentId,
-    data: { environment, fields: fields.join(", ") },
-  });
+  // An unchanged re-save without a new secret is no configuration change.
+  if (fields.length > 0) {
+    await recordActivity({
+      actorId: session.user.id,
+      action: "storage.configured",
+      entityType: "environment",
+      entityId: environmentId,
+      data: { environment, fields: fields.join(", ") },
+    });
+  }
   // Never restricted: the overlap check above refused those.
   return toSafe(saved, false);
 }

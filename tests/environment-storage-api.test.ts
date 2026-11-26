@@ -579,6 +579,7 @@ describe("activity", () => {
       ENV,
       input({ region: "eu-west-1", secretKey: "fictional-secret-new" })
     );
+    // Nothing changed and no new secret: saved, but no activity entry.
     await storage.saveEnvironmentStorage(ENV, input({ region: "eu-west-1" }));
     await storage.removeEnvironmentStorage(ENV);
     expect(state.activity).toEqual([
@@ -599,13 +600,6 @@ describe("activity", () => {
         entityType: "environment",
         entityId: ENV,
         data: { environment: "ACME / Dev", fields: "region, secretKey" },
-      },
-      {
-        actorId: ACTOR,
-        action: "storage.configured",
-        entityType: "environment",
-        entityId: ENV,
-        data: { environment: "ACME / Dev", fields: "" },
       },
       {
         actorId: ACTOR,

@@ -415,10 +415,7 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
               "endpoint, region, bucket, keyPrefix, accessKeyId, forcePathStyle, secretKey",
           },
         },
-        {
-          entity_id: ENV_A,
-          data: { environment: "Kestrel · QA", fields: "" },
-        },
+        // ENV_A's unchanged re-save records nothing.
       ]);
     });
 

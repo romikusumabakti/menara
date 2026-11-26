@@ -5,12 +5,16 @@ import { createRoot } from "react-dom/client";
 import { IntlProvider } from "use-intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { locales } from "@/i18n/locales";
+import { GENERAL_QUESTIONS } from "@/lib/assistant/suggestions";
 import { ASSISTANT_COMPOSER_ID } from "@/web/components/assistant/assistant-shortcut";
 import {
   composerDrafts,
   NEW_CHAT,
 } from "@/web/components/assistant/composer-drafts";
-import { SuggestionChips } from "@/web/components/assistant/suggestion-chips";
+import {
+  RUN_KINDS,
+  SuggestionChips,
+} from "@/web/components/assistant/suggestion-chips";
 import { ME_QUERY_KEY } from "@/web/query-client";
 import enMessages from "../messages/en.json";
 
@@ -183,6 +187,17 @@ describe("SuggestionChips", () => {
 });
 
 describe("suggestion messages", () => {
+  it("has wording for every question and run kind the code can emit", () => {
+    const s = enMessages.assistant.suggestions as unknown as {
+      general: Record<string, string>;
+      runKind: Record<string, string>;
+    };
+    for (const q of GENERAL_QUESTIONS) expect(s.general[q], q).toBeTruthy();
+    for (const k of [...RUN_KINDS, "other"]) {
+      expect(s.runKind[k], k).toBeTruthy();
+    }
+  });
+
   const keys = (o: unknown, p = ""): string[] =>
     typeof o === "object" && o !== null
       ? Object.entries(o).flatMap(([k, v]) => keys(v, `${p}${k}.`))

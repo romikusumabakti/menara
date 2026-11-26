@@ -593,7 +593,7 @@ export function AssistantWorkspace({
             userId={userId}
             context={context}
           />
-          {emptyChat && !temporary && !conversation?.temporary && (
+          {emptyChat && !capped && !temporary && !conversation?.temporary && (
             <SuggestionChips draftKey={draftKey} />
           )}
           {emptyChat && (

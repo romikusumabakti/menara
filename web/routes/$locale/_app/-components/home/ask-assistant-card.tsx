@@ -32,9 +32,10 @@ const MAX_RECENTS = 3;
  * Starts a chat from Home with the Assistant's own composer: Home's box IS
  * New chat's, so what is typed, attached or picked here is the same draft
  * the Assistant shows under New chat (kept when leaving, cleared by a send).
- * The send creates the chat and opens it on /assistant. Below the box: the
- * latest chats, under starter-question chips that fill the box. Hidden unless the
- * assistant is on and the user sees a project.
+ * The send creates the chat and opens it on /assistant. Below the box:
+ * starter-question chips that fill it (not once the daily cap is reached),
+ * then the latest chats. Hidden unless the assistant is on and the user sees
+ * a project.
  */
 export function AskAssistantCard() {
   const t = useTranslations("homePage");
@@ -108,7 +109,7 @@ export function AskAssistantCard() {
         capResetsAt={capped ? allowance.resetsAt : null}
         readsImages={allowance.readsImages}
       />
-      <SuggestionChips draftKey={NEW_CHAT} />
+      {!capped && <SuggestionChips draftKey={NEW_CHAT} />}
       {/* Nothing until the chats load. */}
       {recents === undefined ? null : recents.length > 0 ? (
         <div className="flex flex-col gap-1">

@@ -4223,6 +4223,31 @@ describe("context picker", () => {
       expect(document.activeElement).toBe(before);
     });
 
+    it("hides suggestion chips when the daily cap is reached", async () => {
+      queryClient.setQueryData(["assistant", "suggestions"], {
+        items: [
+          {
+            kind: "general",
+            params: { question: "changedToday" },
+            context: null,
+          },
+        ],
+      });
+      await renderWorkspace();
+      expect(dock()?.querySelectorAll("[data-suggestion]")).toHaveLength(1);
+      await act(async () => {
+        queryClient.setQueryData(["assistant", "getAllowance"], {
+          enabled: true,
+          usedFraction: 1,
+          capReached: true,
+          resetsAt: "2026-11-17T17:00:00.000Z",
+          readsImages: true,
+        });
+      });
+      await settle();
+      expect(dock()?.querySelectorAll("[data-suggestion]")).toHaveLength(0);
+    });
+
     it("shows suggestion chips on an empty new chat, but not in a temporary one", async () => {
       queryClient.setQueryData(["assistant", "suggestions"], {
         items: [
@@ -4913,11 +4938,12 @@ describe("assistant messages", () => {
     const dir = "web/components/assistant";
     // `t` / `tAssistant` read `assistant`; `tErrors` `assistantErrors`;
     // `tCommon` `common`.
-    const namespaces: Record<string, Record<string, string>> = {
+    const namespaces: Record<string, object> = {
       t: en.assistant,
       tAssistant: en.assistant,
       tErrors: en.assistantErrors,
       tCommon: en.common,
+      tSuggestions: enMessages.assistant.suggestions,
     };
     const files = [
       ...readdirSync(dir).map((f) => `${dir}/${f}`),
@@ -4928,7 +4954,7 @@ describe("assistant messages", () => {
     for (const file of files) {
       const source = readFileSync(file, "utf8");
       for (const match of source.matchAll(
-        /\b(t|tAssistant|tErrors|tCommon)\("([a-zA-Z]+)"/g
+        /\b(t|tAssistant|tErrors|tCommon|tSuggestions)\("([a-zA-Z]+)"/g
       )) {
         const [, fn = "", key = ""] = match;
         used++;

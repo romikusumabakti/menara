@@ -11,7 +11,7 @@ import {
   useDraftUser,
 } from "./composer-drafts";
 
-const RUN_KINDS = [
+export const RUN_KINDS = [
   "backup",
   "restore",
   "mock_time",
@@ -76,7 +76,7 @@ export function SuggestionChips({
         return (
           <Button
             // Order is the server's; a kind can repeat (general).
-            key={i}
+            key={`${s.kind}-${i}`}
             data-suggestion
             variant="outline"
             size="sm"

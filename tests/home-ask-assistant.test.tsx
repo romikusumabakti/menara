@@ -296,6 +296,20 @@ describe("home ask-the-assistant card", () => {
     ).toBeTruthy();
   });
 
+  it("hides the chips when the daily cap is reached", async () => {
+    queryClient.setQueryData(["assistant", "suggestions"], {
+      items: [
+        {
+          kind: "general",
+          params: { question: "changedToday" },
+          context: null,
+        },
+      ],
+    });
+    await renderCard({ allowance: { ...ENABLED, capReached: true } });
+    expect(container.querySelector("[data-suggestion]")).toBeNull();
+  });
+
   it("a chip fills the prompt without sending", async () => {
     queryClient.setQueryData(["assistant", "suggestions"], {
       items: [

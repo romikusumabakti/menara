@@ -19,7 +19,10 @@ export type Suggestion = {
 };
 
 export const MAX_SUGGESTIONS = 4;
-const GENERAL_QUESTIONS = ["changedToday", "failedDeploysThisWeek"] as const;
+export const GENERAL_QUESTIONS = [
+  "changedToday",
+  "failedDeploysThisWeek",
+] as const;
 
 export function buildSuggestions(input: {
   attention: AttentionGroup[];

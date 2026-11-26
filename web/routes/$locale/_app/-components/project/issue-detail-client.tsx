@@ -24,6 +24,7 @@ import { MentionTextarea } from "@/components/mention-textarea";
 import { RelativeTime } from "@/components/relative-time";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { TooltipHint } from "@/components/ui/tooltip";
@@ -720,7 +721,7 @@ function IssueDetailView({
                       ?
                     </span>
                   )}
-                  <div className="flex-1 min-w-0 rounded-lg border bg-card p-3">
+                  <Card size="sm" className="flex-1 min-w-0 gap-0 p-3">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                       <UserName
                         user={c.author}
@@ -733,7 +734,7 @@ function IssueDetailView({
                     <p className="text-sm whitespace-pre-wrap break-words">
                       {c.body}
                     </p>
-                  </div>
+                  </Card>
                 </li>
               ))}
             </ul>

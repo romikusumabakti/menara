@@ -224,7 +224,7 @@ export function EnvironmentSettingsTabs({
         </TabsContent>
 
         <TabsContent value="danger">
-          <Card className="border-destructive/50">
+          <Card className="ring-destructive/50">
             <CardHeader>
               <CardTitle className="text-destructive">
                 {t("dangerZoneTitle")}

@@ -21,7 +21,14 @@ import {
   type DataTableColumnDef,
   DataTableColumnHeader,
 } from "@/components/ui/data-table";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { type RowAction, RowActions } from "@/components/ui/row-actions";
 import { TooltipHint } from "@/components/ui/tooltip";
 import { Link } from "@/i18n/navigation";
@@ -245,24 +252,23 @@ export function ServersClient({
 
   if (optimisticServers.length === 0) {
     return (
-      <div className="rounded-lg border bg-card">
-        <EmptyState
-          icon={ServerIcon}
-          title={t("emptyTitle")}
-          description={t("empty")}
-          action={
-            can.manage ? (
-              <Button
-                nativeButton={false}
-                render={<Link href="/servers/new" />}
-              >
-                <Plus className="size-4" />
-                {t("addServer")}
-              </Button>
-            ) : undefined
-          }
-        />
-      </div>
+      <Empty className="border border-dashed">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <ServerIcon />
+          </EmptyMedia>
+          <EmptyTitle>{t("emptyTitle")}</EmptyTitle>
+          <EmptyDescription>{t("empty")}</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent className="empty:hidden">
+          {can.manage ? (
+            <Button nativeButton={false} render={<Link href="/servers/new" />}>
+              <Plus className="size-4" />
+              {t("addServer")}
+            </Button>
+          ) : undefined}
+        </EmptyContent>
+      </Empty>
     );
   }
 

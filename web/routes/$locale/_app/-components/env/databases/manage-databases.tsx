@@ -7,7 +7,13 @@ import { LiveRunDialog } from "@/components/live-run-dialog";
 import { useProjectCan } from "@/components/project-role";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TooltipHint } from "@/components/ui/tooltip";
@@ -184,12 +190,15 @@ export function ManageDatabases({
       )}
 
       {filtered.length === 0 ? (
-        <EmptyState
-          icon={Search}
-          title={t("noMatchTitle")}
-          description={t("noMatchDescription")}
-          className="rounded-md border py-10"
-        />
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Search />
+            </EmptyMedia>
+            <EmptyTitle>{t("noMatchTitle")}</EmptyTitle>
+            <EmptyDescription>{t("noMatchDescription")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         // Fill the card's remaining height and scroll only these rows so the
         // header, search, tab bar, and page header stay pinned. The min-h

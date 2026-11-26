@@ -26,7 +26,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import {
   Field,
   FieldDescription,
@@ -408,7 +413,14 @@ function HistoryCard({
       </CardHeader>
       <CardContent>
         {backups.length === 0 ? (
-          <EmptyState icon={DatabaseBackup} title={t("historyEmpty")} />
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <DatabaseBackup />
+              </EmptyMedia>
+              <EmptyTitle>{t("historyEmpty")}</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <Table>
             <TableHeader>

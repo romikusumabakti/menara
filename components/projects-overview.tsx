@@ -17,6 +17,12 @@ import { RelativeTime, useRelativeTimeText } from "@/components/relative-time";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyContent,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { FacetedFilter } from "@/components/ui/faceted-filter";
 import { Input } from "@/components/ui/input";
 import {
@@ -301,23 +307,27 @@ export function ProjectsOverview({
       </div>
 
       {visible.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed px-4 py-12 text-center">
-          <p className="text-sm text-muted-foreground">
-            {query.trim()
-              ? t("noMatch", { query: query.trim() })
-              : t("noMatchGroups")}
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setQuery("");
-              setGroupFilter([]);
-            }}
-          >
-            {query.trim() ? t("clearSearch") : t("clearFilters")}
-          </Button>
-        </div>
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyTitle>
+              {query.trim()
+                ? t("noMatch", { query: query.trim() })
+                : t("noMatchGroups")}
+            </EmptyTitle>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setQuery("");
+                setGroupFilter([]);
+              }}
+            >
+              {query.trim() ? t("clearSearch") : t("clearFilters")}
+            </Button>
+          </EmptyContent>
+        </Empty>
       ) : sectioned ? (
         <div className="flex flex-col gap-6">
           {sections.map((section) => {

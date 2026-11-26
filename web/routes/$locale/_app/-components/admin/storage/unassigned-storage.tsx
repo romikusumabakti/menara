@@ -17,7 +17,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Label } from "@/components/ui/label";
 import { type RowAction, RowActions } from "@/components/ui/row-actions";
 import {
@@ -75,13 +81,15 @@ export function UnassignedStorage({
 
   if (connections.length === 0) {
     return (
-      <div className="rounded-lg border bg-card">
-        <EmptyState
-          icon={HardDrive}
-          title={t("emptyTitle")}
-          description={t("empty")}
-        />
-      </div>
+      <Empty className="border border-dashed">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <HardDrive />
+          </EmptyMedia>
+          <EmptyTitle>{t("emptyTitle")}</EmptyTitle>
+          <EmptyDescription>{t("empty")}</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 

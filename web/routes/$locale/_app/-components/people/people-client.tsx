@@ -4,7 +4,12 @@ import { useTranslations } from "use-intl";
 import { SearchSelect } from "@/components/search-select";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -113,7 +118,14 @@ export function PeopleClient({
         )}
       </div>
       {shown.length === 0 ? (
-        <EmptyState icon={UsersRound} title={t("empty")} />
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <UsersRound />
+            </EmptyMedia>
+            <EmptyTitle>{t("empty")}</EmptyTitle>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {shown.map((p) => (

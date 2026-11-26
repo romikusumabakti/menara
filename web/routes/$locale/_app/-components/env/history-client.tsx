@@ -15,7 +15,13 @@ import {
   type DataTableColumnDef,
   type DataTableFacet,
 } from "@/components/ui/data-table";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { UserName } from "@/components/user/user-name";
 import { runActorLabel } from "@/lib/deploy/run-actor";
 import { facetFilterFn } from "@/lib/facet-filter";
@@ -189,13 +195,15 @@ export function HistoryClient({ runs }: { runs: RunWithUser[] }) {
 
   if (runs.length === 0) {
     return (
-      <div className="rounded-lg border bg-card">
-        <EmptyState
-          icon={HistoryIcon}
-          title={t("emptyTitle")}
-          description={t("emptyDescription")}
-        />
-      </div>
+      <Empty className="border border-dashed">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <HistoryIcon />
+          </EmptyMedia>
+          <EmptyTitle>{t("emptyTitle")}</EmptyTitle>
+          <EmptyDescription>{t("emptyDescription")}</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 

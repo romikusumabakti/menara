@@ -5,7 +5,13 @@ import { useTranslations } from "use-intl";
 import { CiConnectionCard } from "@/components/ci-connection-form";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import {
   Table,
   TableBody,
@@ -13,6 +19,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  tableWrapperClass,
 } from "@/components/ui/table";
 import { Link } from "@/i18n/navigation";
 import { listCiConnectionsQuery } from "@/web/api/ci-connections";
@@ -42,19 +49,21 @@ function CiPage() {
     <>
       <PageHeader title={t("title")} subtitle={t("subtitle")} />
       {connections.length === 0 ? (
-        <div className="rounded-lg border bg-card">
-          <EmptyState
-            icon={Workflow}
-            title={t("emptyTitle")}
-            description={t("empty")}
-          />
-        </div>
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Workflow />
+            </EmptyMedia>
+            <EmptyTitle>{t("emptyTitle")}</EmptyTitle>
+            <EmptyDescription>{t("empty")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : connections.length === 1 && connections[0] ? (
         <div className="flex flex-col gap-4 max-w-2xl w-full">
           <CiConnectionCard connection={connections[0]} />
         </div>
       ) : (
-        <div className="rounded-lg border bg-card">
+        <div className={tableWrapperClass}>
           <Table>
             <TableHeader>
               <TableRow>

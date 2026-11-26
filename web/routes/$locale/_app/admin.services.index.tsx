@@ -7,7 +7,13 @@ import { PageHeader } from "@/components/page-header";
 import { RelativeTime } from "@/components/relative-time";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { FacetedFilter } from "@/components/ui/faceted-filter";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,6 +23,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  tableWrapperClass,
 } from "@/components/ui/table";
 import { Link } from "@/i18n/navigation";
 import {
@@ -97,13 +104,15 @@ function ServicesPage() {
         }
       />
       {services.length === 0 ? (
-        <div className="rounded-lg border bg-card">
-          <EmptyState
-            icon={Boxes}
-            title={t("emptyTitle")}
-            description={t("empty")}
-          />
-        </div>
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Boxes />
+            </EmptyMedia>
+            <EmptyTitle>{t("emptyTitle")}</EmptyTitle>
+            <EmptyDescription>{t("empty")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -129,7 +138,7 @@ function ServicesPage() {
               }
             />
           </div>
-          <div className="rounded-lg border bg-card">
+          <div className={tableWrapperClass}>
             <Table>
               <TableHeader>
                 <TableRow>

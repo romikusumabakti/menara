@@ -56,12 +56,12 @@ export function CompactSection({
   text: string;
 }) {
   return (
-    <div className="flex items-center gap-2 rounded-xl border bg-card px-3 py-2.5 text-sm">
+    <Card className="flex-row items-center gap-2 px-3 py-2.5">
       <Icon
         className={cn("size-4 shrink-0 text-muted-foreground", iconClassName)}
       />
       <span className="font-medium shrink-0">{title}</span>
       <span className="min-w-0 truncate text-muted-foreground">{text}</span>
-    </div>
+    </Card>
   );
 }

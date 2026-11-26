@@ -5,7 +5,13 @@ import { useFormatter, useTranslations } from "use-intl";
 import { useDialog } from "@/components/dialog-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { authClient } from "@/lib/auth-client";
 import { DATE_TIME } from "@/lib/format-date";
 
@@ -83,11 +89,15 @@ export function SessionsList({ currentToken }: { currentToken: string }) {
 
   if (sessions.length === 0) {
     return (
-      <EmptyState
-        icon={Monitor}
-        title={t("emptyTitle")}
-        description={t("emptyDescription")}
-      />
+      <Empty className="border border-dashed">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Monitor />
+          </EmptyMedia>
+          <EmptyTitle>{t("emptyTitle")}</EmptyTitle>
+          <EmptyDescription>{t("emptyDescription")}</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 

@@ -11,6 +11,12 @@ import { PageHeaderSkeleton } from "@/components/skeletons/page-header-skeleton"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link, redirect } from "@/i18n/navigation";
 import { stripProjectPrefix } from "@/lib/nav-path";
@@ -125,12 +131,14 @@ function ProjectOverviewPage() {
 
       <div className="flex flex-1 min-h-0 flex-col gap-4">
         {environments.length === 0 ? (
-          <div className="shrink-0 flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-12 text-center">
-            <p className="font-medium">{tOv("noEnvironments")}</p>
-            <p className="text-sm text-muted-foreground">
-              {tOv("noEnvironmentsDescription")}
-            </p>
-          </div>
+          <Empty className="shrink-0 flex-none border border-dashed">
+            <EmptyHeader>
+              <EmptyTitle>{tOv("noEnvironments")}</EmptyTitle>
+              <EmptyDescription>
+                {tOv("noEnvironmentsDescription")}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           // The card grid is the scroll box — there is nothing above it in
           // this panel to keep pinned. `content-start` because a grid that is
@@ -144,7 +152,7 @@ function ProjectOverviewPage() {
               // it (z-10) and opens the app instead.
               return (
                 <div key={env.id} className="group relative">
-                  <Card className="h-full py-0 group-hover:border-primary/50 group-hover:shadow-sm transition-all">
+                  <Card className="h-full py-0 group-hover:ring-primary/50 group-hover:shadow-sm transition-all">
                     <CardContent className="p-4 flex flex-col gap-2.5">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">

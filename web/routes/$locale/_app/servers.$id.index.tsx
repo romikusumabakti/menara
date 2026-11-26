@@ -13,7 +13,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Link } from "@/i18n/navigation";
 import { qualifiedEnvName } from "@/lib/nav-path";
 import { canOrg } from "@/lib/permissions";
@@ -108,12 +114,17 @@ function EditServerPage() {
           </CardHeader>
           <CardContent className="px-0 pb-0">
             {usage.length === 0 ? (
-              <EmptyState
-                icon={Folder}
-                title={tForm("usageEmptyTitle")}
-                description={tForm("usageEmptyDescription")}
-                className="py-10"
-              />
+              <Empty className="py-10">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <Folder />
+                  </EmptyMedia>
+                  <EmptyTitle>{tForm("usageEmptyTitle")}</EmptyTitle>
+                  <EmptyDescription>
+                    {tForm("usageEmptyDescription")}
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             ) : (
               <ul className="divide-y border-t">
                 {usage.map((u) => (

@@ -12,7 +12,14 @@ import { useTranslations } from "use-intl";
 import { useDialog } from "@/components/dialog-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { type RowAction, RowActions } from "@/components/ui/row-actions";
 import {
   Table,
@@ -21,6 +28,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  tableWrapperClass,
 } from "@/components/ui/table";
 import { Link } from "@/i18n/navigation";
 import {
@@ -58,24 +66,28 @@ export function StorageList({
 
   if (connections.length === 0) {
     return (
-      <div className="rounded-lg border bg-card">
-        <EmptyState
-          icon={HardDrive}
-          title={t("emptyTitle")}
-          description={canManage ? t("empty") : t("emptyReadOnly")}
-          action={
-            canManage ? (
-              <Button
-                nativeButton={false}
-                render={<Link href={`${basePath}/new`} />}
-              >
-                <Plus className="size-4" />
-                {t("addConnection")}
-              </Button>
-            ) : undefined
-          }
-        />
-      </div>
+      <Empty className="border border-dashed">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <HardDrive />
+          </EmptyMedia>
+          <EmptyTitle>{t("emptyTitle")}</EmptyTitle>
+          <EmptyDescription>
+            {canManage ? t("empty") : t("emptyReadOnly")}
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent className="empty:hidden">
+          {canManage ? (
+            <Button
+              nativeButton={false}
+              render={<Link href={`${basePath}/new`} />}
+            >
+              <Plus className="size-4" />
+              {t("addConnection")}
+            </Button>
+          ) : undefined}
+        </EmptyContent>
+      </Empty>
     );
   }
 
@@ -157,7 +169,7 @@ export function StorageList({
   }
 
   return (
-    <div className="rounded-lg border bg-card">
+    <div className={tableWrapperClass}>
       <Table>
         <TableHeader>
           <TableRow>

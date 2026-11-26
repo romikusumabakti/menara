@@ -52,7 +52,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -1573,12 +1580,16 @@ export function FileExplorer({ source, rootLabel }: Props) {
 
       {error ? (
         <div className="flex flex-1 min-h-0 items-center justify-center">
-          <EmptyState
-            icon={Folder}
-            title={t("loadFailed")}
-            description={error}
-            action={
-              hostKeyMismatch && source.kind === "sftp" ? (
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Folder />
+              </EmptyMedia>
+              <EmptyTitle>{t("loadFailed")}</EmptyTitle>
+              <EmptyDescription>{error}</EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent className="empty:hidden">
+              {hostKeyMismatch && source.kind === "sftp" ? (
                 <Button
                   variant="outline"
                   nativeButton={false}
@@ -1586,9 +1597,9 @@ export function FileExplorer({ source, rootLabel }: Props) {
                 >
                   {t("reviewHostKey")}
                 </Button>
-              ) : undefined
-            }
-          />
+              ) : undefined}
+            </EmptyContent>
+          </Empty>
         </div>
       ) : loading ? (
         // Skeleton mirrors whichever view is active (same panel, same shape) so
@@ -1640,11 +1651,15 @@ export function FileExplorer({ source, rootLabel }: Props) {
       ) : entries.length === 0 ? (
         panel(
           <div className="flex flex-1 min-h-0 items-center justify-center">
-            <EmptyState
-              icon={Folder}
-              title={t("emptyTitle")}
-              description={t("emptyDescription")}
-            />
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Folder />
+                </EmptyMedia>
+                <EmptyTitle>{t("emptyTitle")}</EmptyTitle>
+                <EmptyDescription>{t("emptyDescription")}</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           </div>
         )
       ) : (

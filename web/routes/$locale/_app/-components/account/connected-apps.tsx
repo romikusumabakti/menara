@@ -14,7 +14,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Link } from "@/i18n/navigation";
 import {
   type McpClientSetup,
@@ -119,11 +125,15 @@ function GrantsList() {
   const rows = grants.data ?? [];
   if (rows.length === 0) {
     return (
-      <EmptyState
-        icon={Bot}
-        title={t("emptyTitle")}
-        description={t("emptyDescription")}
-      />
+      <Empty className="border border-dashed">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Bot />
+          </EmptyMedia>
+          <EmptyTitle>{t("emptyTitle")}</EmptyTitle>
+          <EmptyDescription>{t("emptyDescription")}</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 

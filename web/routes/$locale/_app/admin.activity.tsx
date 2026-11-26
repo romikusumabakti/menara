@@ -4,8 +4,16 @@ import { Activity } from "lucide-react";
 import { useFormatter, useTranslations } from "use-intl";
 import { PageHeader } from "@/components/page-header";
 import { RelativeTime } from "@/components/relative-time";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { tableWrapperClass } from "@/components/ui/table";
 import { UserAvatar } from "@/components/user/user-avatar";
 import type { SignInMethod } from "@/lib/sign-in-method";
+import { cn } from "@/lib/utils";
 import { type listActivity, listActivityQuery } from "@/web/api/activity";
 import { requireOrgRole } from "@/web/project-guard";
 import { loaderQuery } from "@/web/query-client";
@@ -743,12 +751,16 @@ function ActivityPage() {
     <>
       <PageHeader title={t("title")} subtitle={t("subtitle")} />
       {events.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed px-4 py-12 text-center">
-          <Activity className="size-6 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t("empty")}</p>
-        </div>
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Activity />
+            </EmptyMedia>
+            <EmptyTitle>{t("empty")}</EmptyTitle>
+          </EmptyHeader>
+        </Empty>
       ) : (
-        <ul className="flex flex-col divide-y rounded-lg border">
+        <ul className={cn(tableWrapperClass, "flex flex-col divide-y")}>
           {events.map((e) => (
             <li
               key={e.id}

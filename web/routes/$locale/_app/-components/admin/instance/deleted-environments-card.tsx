@@ -10,7 +10,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -52,7 +57,14 @@ export function DeletedEnvironmentsCard() {
             <Skeleton className="h-8 w-full" />
           </div>
         ) : archives.data.length === 0 ? (
-          <EmptyState icon={Archive} title={t("empty")} />
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Archive />
+              </EmptyMedia>
+              <EmptyTitle>{t("empty")}</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <Table>
             <TableHeader>

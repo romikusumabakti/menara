@@ -15,7 +15,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { RowActions } from "@/components/ui/row-actions";
 import { Link } from "@/i18n/navigation";
 import {
@@ -65,12 +72,16 @@ export function JiraClient({
 
   if (optimistic.length === 0) {
     return (
-      <div className="rounded-lg border bg-card">
-        <EmptyState
-          icon={Cable}
-          title={t("emptyTitle")}
-          description={t("empty")}
-          action={
+      <Empty className="border border-dashed">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Cable />
+          </EmptyMedia>
+          <EmptyTitle>{t("emptyTitle")}</EmptyTitle>
+          <EmptyDescription>{t("empty")}</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          {
             <Button
               nativeButton={false}
               render={<Link href="/admin/jira/new" />}
@@ -79,8 +90,8 @@ export function JiraClient({
               {t("addConnection")}
             </Button>
           }
-        />
-      </div>
+        </EmptyContent>
+      </Empty>
     );
   }
 

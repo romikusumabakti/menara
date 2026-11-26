@@ -7,7 +7,14 @@ import { PageHeader } from "@/components/page-header";
 import { useProjectCan } from "@/components/project-role";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Link } from "@/i18n/navigation";
 import type { DeployTargetState } from "@/web/api/deploys";
 import type { EnvironmentWithServers } from "@/web/api/environments";
@@ -120,26 +127,30 @@ export function DeploysClient({
       <ProvisioningPanel environment={environment} targets={targets} />
 
       {targets.length === 0 ? (
-        <div className="rounded-lg border bg-card">
-          <EmptyState
-            icon={Rocket}
-            title={t("emptyTitle")}
-            description={t(
-              canConfigure ? "emptyDescription" : "emptyDescriptionReadOnly"
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Rocket />
+            </EmptyMedia>
+            <EmptyTitle>{t("emptyTitle")}</EmptyTitle>
+            <EmptyDescription>
+              {t(
+                canConfigure ? "emptyDescription" : "emptyDescriptionReadOnly"
+              )}
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent className="empty:hidden">
+            {canConfigure && (
+              <Button
+                render={<Link href={addTargetHref} />}
+                nativeButton={false}
+              >
+                <Plus data-icon="inline-start" />
+                {t("addTarget")}
+              </Button>
             )}
-            action={
-              canConfigure && (
-                <Button
-                  render={<Link href={addTargetHref} />}
-                  nativeButton={false}
-                >
-                  <Plus data-icon="inline-start" />
-                  {t("addTarget")}
-                </Button>
-              )
-            }
-          />
-        </div>
+          </EmptyContent>
+        </Empty>
       ) : (
         <div className="flex flex-col gap-4">
           {targets.map((target) => (

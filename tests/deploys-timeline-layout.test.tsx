@@ -281,6 +281,10 @@ describe("Deploy timeline layout", () => {
     const tag = slot("row-tag", first) as HTMLElement;
     expect(tag.textContent).toBe("…1a2b3c4");
     expect(tag.getAttribute("title")).toBe(one);
+    // Screen readers get the full tag, not the "…" short form.
+    expect(tag.getAttribute("aria-hidden")).toBe("true");
+    expect(tag.nextElementSibling?.className).toContain("sr-only");
+    expect(tag.nextElementSibling?.textContent).toBe(one);
     const copy = line.querySelector<HTMLButtonElement>(
       `button[aria-label="${d.row.copyTag.replace("{tag}", one)}"]`
     );

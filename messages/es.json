@@ -482,6 +482,7 @@
     "viewLog": "Ver registro",
     "deployLatest": "Desplegar la última",
     "deployTag": "Desplegar {tag}",
+    "deployLatestLabel": "Desplegar la última ({tag})",
     "rollbackShort": "Revertir",
     "serviceUnit": "Unidad systemd: {unit}",
     "latestIsLive": "La última compilación, {tag}, está en vivo.",

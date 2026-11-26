@@ -169,7 +169,7 @@ export function TargetHeader({
               <TooltipHint label={t("deployTag", { tag: latest.tag })}>
                 <Button
                   size="sm"
-                  aria-label={t("deployTag", { tag: latest.tag })}
+                  aria-label={t("deployLatestLabel", { tag: latest.tag })}
                   disabled={deployDisabled}
                   aria-disabled={deployDisabled || undefined}
                   aria-describedby={

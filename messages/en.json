@@ -482,6 +482,7 @@
     "viewLog": "View log",
     "deployLatest": "Deploy latest",
     "deployTag": "Deploy {tag}",
+    "deployLatestLabel": "Deploy latest ({tag})",
     "rollbackShort": "Roll back",
     "serviceUnit": "systemd unit: {unit}",
     "latestIsLive": "The latest build, {tag}, is live.",

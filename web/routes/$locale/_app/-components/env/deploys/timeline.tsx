@@ -225,9 +225,11 @@ function TimelineRowItem({
               data-slot="row-tag"
               className="min-w-0 truncate"
               title={row.tag}
+              aria-hidden={shortTag !== row.tag || undefined}
             >
               {shortTag}
             </span>
+            {shortTag !== row.tag && <span className="sr-only">{row.tag}</span>}
             <CopyButton
               value={row.tag}
               label={t("row.copyTag", { tag: row.tag })}

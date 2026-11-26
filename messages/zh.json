@@ -482,6 +482,7 @@
     "viewLog": "查看日志",
     "deployLatest": "部署最新版本",
     "deployTag": "部署 {tag}",
+    "deployLatestLabel": "部署最新版本（{tag}）",
     "rollbackShort": "回滚",
     "serviceUnit": "systemd 单元：{unit}",
     "latestIsLive": "最新构建 {tag} 已在运行。",

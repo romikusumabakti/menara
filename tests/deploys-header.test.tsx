@@ -268,8 +268,10 @@ describe("Deploy target header", () => {
     const deploy = deployLatest();
     expect(deploy?.textContent).toBe(d.deployLatest);
     expect(deploy?.getAttribute("aria-label")).toBe(
-      d.deployTag.replace("{tag}", "v3")
+      d.deployLatestLabel.replace("{tag}", "v3")
     );
+    // WCAG 2.5.3: the accessible name contains the visible text.
+    expect(deploy?.getAttribute("aria-label")).toContain(d.deployLatest);
     expect(header().textContent).not.toContain("v3");
   });
 
@@ -293,7 +295,7 @@ describe("Deploy target header", () => {
     expect(header().querySelectorAll("[aria-live]")).toHaveLength(0);
 
     const button = deployLatest();
-    expect(button?.getAttribute("aria-label")).toBe("Deploy v3");
+    expect(button?.getAttribute("aria-label")).toBe("Deploy latest (v3)");
     expect(button?.disabled).toBe(false);
     expect(button?.getAttribute("aria-disabled")).not.toBe("true");
     await act(async () => button?.click());
@@ -363,7 +365,7 @@ describe("Deploy target header", () => {
   it("Deploy latest is disabled with a visible reason when the newest build is live", async () => {
     await mount([liveTarget()]);
     const button = deployLatest();
-    expect(button?.getAttribute("aria-label")).toBe("Deploy v2");
+    expect(button?.getAttribute("aria-label")).toBe("Deploy latest (v2)");
     expect(button?.getAttribute("aria-disabled")).toBe("true");
     const reason = slot("deploy-actions-reason");
     expect(reason?.textContent).toBe(d.latestIsLive.replace("{tag}", "v2"));
@@ -440,7 +442,9 @@ describe("Deploy target header", () => {
       }),
     ]);
     const rollback = rollbackButton("v1");
-    expect(deployLatest()?.getAttribute("aria-label")).toBe("Deploy v1");
+    expect(deployLatest()?.getAttribute("aria-label")).toBe(
+      "Deploy latest (v1)"
+    );
     await act(async () => rollback?.click());
     const confirm = [...(alertDialog()?.querySelectorAll("button") ?? [])].find(
       (b) => b.textContent === "Roll back to v1"

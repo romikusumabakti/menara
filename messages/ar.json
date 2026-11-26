@@ -482,6 +482,7 @@
     "viewLog": "عرض السجل",
     "deployLatest": "نشر الأحدث",
     "deployTag": "نشر {tag}",
+    "deployLatestLabel": "نشر الأحدث ({tag})",
     "rollbackShort": "التراجع",
     "serviceUnit": "وحدة systemd: {unit}",
     "latestIsLive": "أحدث بناء، {tag}، قيد التشغيل.",

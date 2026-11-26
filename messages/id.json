@@ -482,6 +482,7 @@
     "viewLog": "Lihat log",
     "deployLatest": "Deploy terbaru",
     "deployTag": "Deploy {tag}",
+    "deployLatestLabel": "Deploy terbaru ({tag})",
     "rollbackShort": "Rollback",
     "serviceUnit": "Unit systemd: {unit}",
     "latestIsLive": "Build terbaru, {tag}, sudah aktif.",

@@ -4228,7 +4228,8 @@
     "unpinChat": "Unpin",
     "editQuestion": "Edit question",
     "suggestions": {
-      "failedRun": "Why did the {runKind} on {environment} fail?",
+"groupLabel": "Suggested questions",
+            "failedRun": "Why did the {runKind} on {environment} fail?",
       "myIssues": "{count, plural, one {Summarize my # open issue, starting with {firstKey}} other {Summarize my # open issues, starting with {firstKey}}}",
       "environment": "What is running on {environment} right now?",
       "general": {

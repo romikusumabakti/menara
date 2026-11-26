@@ -34,13 +34,7 @@ function contextOf(s: Suggestion) {
  * click fills the draft (never sends), sets the context the question is
  * about and focuses the box. Shown only while the draft is empty.
  */
-export function SuggestionChips({
-  draftKey,
-  onPick,
-}: {
-  draftKey: DraftKey;
-  onPick?: () => void;
-}) {
+export function SuggestionChips({ draftKey }: { draftKey: DraftKey }) {
   const tSuggestions = useTranslations("assistant.suggestions");
   const items = useQuery(assistantSuggestionsQuery()).data?.items;
   const userId = useDraftUser();
@@ -70,7 +64,12 @@ export function SuggestionChips({
   };
 
   return (
-    <div className="flex flex-wrap justify-center gap-2" data-suggestions>
+    <div
+      role="group"
+      aria-label={tSuggestions("groupLabel")}
+      className="flex flex-wrap justify-center gap-2"
+      data-suggestions
+    >
       {items.map((s, i) => {
         const text = wording(s);
         return (
@@ -89,7 +88,6 @@ export function SuggestionChips({
                 ...(context ? { context } : {}),
               }));
               document.getElementById(ASSISTANT_COMPOSER_ID)?.focus();
-              onPick?.();
             }}
           >
             {s.kind === "failedRun" && (

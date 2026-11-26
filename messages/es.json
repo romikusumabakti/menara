@@ -4228,7 +4228,8 @@
     "unpinChat": "Desfijar",
     "editQuestion": "Editar pregunta",
     "suggestions": {
-      "failedRun": "¿Por qué falló {runKind} en {environment}?",
+"groupLabel": "Preguntas sugeridas",
+            "failedRun": "¿Por qué falló {runKind} en {environment}?",
       "myIssues": "{count, plural, one {Resume mi # incidencia abierta, empezando por {firstKey}} other {Resume mis # incidencias abiertas, empezando por {firstKey}}}",
       "environment": "¿Qué se está ejecutando ahora en {environment}?",
       "general": {

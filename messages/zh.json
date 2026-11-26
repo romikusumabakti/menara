@@ -4228,7 +4228,8 @@
     "unpinChat": "取消置顶",
     "editQuestion": "编辑问题",
     "suggestions": {
-      "failedRun": "{environment} 上的{runKind}为什么失败了？",
+"groupLabel": "推荐问题",
+            "failedRun": "{environment} 上的{runKind}为什么失败了？",
       "myIssues": "{count, plural, other {总结我的 # 个未解决问题，从 {firstKey} 开始}}",
       "environment": "{environment} 现在运行着什么？",
       "general": {

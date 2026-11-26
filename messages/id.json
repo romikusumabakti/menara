@@ -4228,7 +4228,8 @@
     "unpinChat": "Lepas sematan",
     "editQuestion": "Edit pertanyaan",
     "suggestions": {
-      "failedRun": "Mengapa {runKind} di {environment} gagal?",
+"groupLabel": "Pertanyaan yang disarankan",
+            "failedRun": "Mengapa {runKind} di {environment} gagal?",
       "myIssues": "{count, plural, other {Ringkas # isu terbuka saya, mulai dari {firstKey}}}",
       "environment": "Apa yang sedang berjalan di {environment} sekarang?",
       "general": {

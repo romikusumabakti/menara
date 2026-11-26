@@ -4228,7 +4228,8 @@
     "unpinChat": "إلغاء التثبيت",
     "editQuestion": "تعديل السؤال",
     "suggestions": {
-      "failedRun": "لماذا فشل {runKind} في {environment}؟",
+"groupLabel": "أسئلة مقترحة",
+            "failedRun": "لماذا فشل {runKind} في {environment}؟",
       "myIssues": "{count, plural, one {لخّص مشكلتي المفتوحة، بدءًا من {firstKey}} two {لخّص مشكلتيّ المفتوحتين، بدءًا من {firstKey}} few {لخّص مشاكلي المفتوحة الـ # ، بدءًا من {firstKey}} many {لخّص مشاكلي المفتوحة الـ # ، بدءًا من {firstKey}} other {لخّص مشاكلي المفتوحة (#)، بدءًا من {firstKey}}}",
       "environment": "ما الذي يعمل الآن في {environment}؟",
       "general": {

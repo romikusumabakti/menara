@@ -119,6 +119,15 @@ describe("SuggestionChips", () => {
     expect(dots).toEqual([true, false, false, false, false]);
   });
 
+  it("is a named group of chips", async () => {
+    await render();
+    const group = container.querySelector('[role="group"]');
+    expect(group?.getAttribute("aria-label")).toBe(
+      enMessages.assistant.suggestions.groupLabel
+    );
+    expect(group?.querySelectorAll("[data-suggestion]")).toHaveLength(5);
+  });
+
   it("renders nothing while loading", async () => {
     await render(null);
     expect(container.textContent).toBe("");
@@ -155,25 +164,6 @@ describe("SuggestionChips", () => {
       kind: "project",
       projectId: "proj-1",
     });
-  });
-
-  it("calls onPick after a click", async () => {
-    const onPick = vi.fn();
-    queryClient.setQueryData(["assistant", "suggestions"], { items: ITEMS });
-    container = document.createElement("div");
-    document.body.append(container);
-    root = createRoot(container);
-    await act(async () => {
-      root.render(
-        <QueryClientProvider client={queryClient}>
-          <IntlProvider locale="en" messages={enMessages} timeZone="UTC">
-            <SuggestionChips draftKey={NEW_CHAT} onPick={onPick} />
-          </IntlProvider>
-        </QueryClientProvider>
-      );
-    });
-    await act(async () => chips()[3]?.click());
-    expect(onPick).toHaveBeenCalledOnce();
   });
 
   it("hides once the draft has text, and never overwrites it", async () => {

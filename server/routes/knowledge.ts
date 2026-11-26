@@ -7,6 +7,8 @@ import { knowledgeAttachments } from "@/lib/db/schema";
 import { sniffImage } from "@/lib/image-sniff";
 import { imgproxyUrl } from "@/lib/imgproxy";
 import {
+  currentViewer,
+  listRecentlyEdited,
   loadCollections,
   loadDocumentBySlug,
   loadRevisions,
@@ -57,6 +59,10 @@ export const knowledgeRouter = sessionRouter()
   .get("/tree", async (c) => {
     await requireOrgPermission({ knowledge: ["read"] });
     return c.json(await loadTreeNodes());
+  })
+  .get("/recent", async (c) => {
+    await requireOrgPermission({ knowledge: ["read"] });
+    return c.json({ items: await listRecentlyEdited(await currentViewer()) });
   })
   .get("/documents/:slug", bySlug, async (c) => {
     await requireOrgPermission({ knowledge: ["read"] });

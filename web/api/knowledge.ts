@@ -133,6 +133,17 @@ export const listTreeNodesQuery = (...args: Parameters<typeof listTreeNodes>) =>
     queryFn: () => listTreeNodes(...args),
   });
 
+/** The newest published documents the viewer can see, by latest content edit. */
+export async function listRecent() {
+  return parseResponse(routes.recent.$get());
+}
+
+export const recentKnowledgeQuery = (...args: Parameters<typeof listRecent>) =>
+  queryOptions({
+    queryKey: ["knowledge", "listRecent", args],
+    queryFn: () => listRecent(...args),
+  });
+
 /** One document by slug; rejects with a 404 ApiError when it is hidden. */
 export async function getDocument(slug: string) {
   return parseResponse(routes.documents[":slug"].$get({ param: { slug } }));

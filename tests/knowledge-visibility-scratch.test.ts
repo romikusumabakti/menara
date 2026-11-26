@@ -479,4 +479,122 @@ describe.skipIf(!enabled)("knowledge collection visibility on Postgres", () => {
     );
     expect((await readKnowledgeTool(infraViewer, "host-map")).ok).toBe(true);
   });
+
+  // Recently updated: runs last because it seeds documents dated in the far
+  // future so they sort ahead of everything above.
+  describe("recently edited documents", () => {
+    beforeAll(async () => {
+      const d = drizzle({ client });
+      const at = (iso: string) => new Date(iso);
+      const doc = async (
+        slug: string,
+        collectionId: string,
+        opts: {
+          createdAt: Date;
+          updatedAt?: Date;
+          published?: boolean;
+          createdById?: string;
+        }
+      ) =>
+        one(
+          await d
+            .insert(schema.knowledgeDocuments)
+            .values({
+              collectionId,
+              title: `Title ${slug}`,
+              slug,
+              content: slug,
+              contentText: slug,
+              rank: `r${slug.length}${slug}`,
+              publishedAt: opts.published === false ? null : opts.createdAt,
+              createdById: opts.createdById ?? ADMIN,
+              createdAt: opts.createdAt,
+              updatedAt: opts.updatedAt ?? opts.createdAt,
+            })
+            .returning()
+        ).id;
+      const revision = (
+        documentId: string,
+        createdAt: Date,
+        editedById: string | null
+      ) =>
+        d.insert(schema.knowledgeRevisions).values({
+          documentId,
+          title: "Old",
+          content: "old",
+          editedById,
+          createdAt,
+        });
+      // Only moved: updatedAt is bumped, no revision.
+      await doc("recent-moved", ids.guides, {
+        createdAt: at("2030-01-01T00:00:00Z"),
+        updatedAt: at("2031-01-01T00:00:00Z"),
+      });
+      const twice = await doc("recent-twice", ids.guides, {
+        createdAt: at("2029-01-01T00:00:00Z"),
+      });
+      await revision(twice, at("2030-02-01T00:00:00Z"), ADMIN);
+      await revision(twice, at("2030-03-01T00:00:00Z"), STAFF);
+      const orphan = await doc("recent-orphan", ids.guides, {
+        createdAt: at("2029-01-01T00:00:00Z"),
+      });
+      await revision(orphan, at("2030-06-01T00:00:00Z"), null);
+      const draft = await doc("recent-draft", ids.guides, {
+        createdAt: at("2032-01-01T00:00:00Z"),
+        published: false,
+        createdById: QA,
+      });
+      await revision(draft, at("2032-02-01T00:00:00Z"), QA);
+      await doc("recent-restricted", ids.infraCol, {
+        createdAt: at("2033-01-01T00:00:00Z"),
+      });
+      for (let n = 1; n <= 8; n++) {
+        await doc(`recent-bulk-${n}`, ids.guides, {
+          createdAt: at(`2020-01-0${n}T00:00:00Z`),
+        });
+      }
+    });
+
+    it("orders by the latest content edit and names that editor", async () => {
+      const { listRecentlyEdited } = await import("@/lib/knowledge");
+      const items = await listRecentlyEdited(qa);
+      expect(items.slice(0, 3).map((i) => i.slug)).toEqual([
+        "recent-orphan",
+        "recent-twice",
+        "recent-moved",
+      ]);
+      const [orphan, twice, moved] = items;
+      expect(orphan?.editedBy).toBeNull();
+      expect(twice?.editedBy?.name).toBe("staff");
+      expect(twice?.editedAt.toISOString()).toBe("2030-03-01T00:00:00.000Z");
+      // Never edited: counts as edited at creation, by its creator.
+      expect(moved?.editedBy?.name).toBe("admin");
+      expect(moved?.editedAt.toISOString()).toBe("2030-01-01T00:00:00.000Z");
+      expect(twice?.collection).toEqual({ id: ids.guides, name: "Guides" });
+    });
+
+    it("never lists drafts, not even the author's or a manager's", async () => {
+      const { listRecentlyEdited } = await import("@/lib/knowledge");
+      for (const viewer of [qa, admin]) {
+        const slugs = (await listRecentlyEdited(viewer, 50)).map((i) => i.slug);
+        expect(slugs).not.toContain("recent-draft");
+        expect(slugs).not.toContain("qa-draft");
+      }
+    });
+
+    it("hides collections restricted to other roles, per role", async () => {
+      const { listRecentlyEdited } = await import("@/lib/knowledge");
+      const slugs = async (v: KnowledgeViewer) =>
+        (await listRecentlyEdited(v, 50)).map((i) => i.slug);
+      expect(await slugs(qa)).not.toContain("recent-restricted");
+      expect((await slugs(infra))[0]).toBe("recent-restricted");
+      expect((await slugs(admin))[0]).toBe("recent-restricted");
+    });
+
+    it("returns at most 8 by default", async () => {
+      const { listRecentlyEdited } = await import("@/lib/knowledge");
+      expect(await listRecentlyEdited(qa)).toHaveLength(8);
+      expect(await listRecentlyEdited(qa, 3)).toHaveLength(3);
+    });
+  });
 });

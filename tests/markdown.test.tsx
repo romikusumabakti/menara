@@ -201,6 +201,19 @@ describe("Markdown", () => {
     expect(plain.querySelector("h1")?.hasAttribute("id")).toBe(false);
   });
 
+  it("in-page anchors reach the heading ids", async () => {
+    const el = await render({
+      content: "[see](#setup)\n\n# Setup",
+      mode: "static",
+      headingIds: true,
+    });
+    const a = el.querySelector("a");
+    expect(a?.getAttribute("href")).toBe("#setup");
+    expect(a?.hasAttribute("data-app-link")).toBe(false);
+    expect(a?.getAttribute("target")).toBeNull();
+    expect(el.querySelector("h1")?.id).toBe("setup");
+  });
+
   it("raw HTML is dropped", async () => {
     const el = await render({
       content: "<b>x</b><script>y</script>",

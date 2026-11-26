@@ -43,6 +43,17 @@ describe("classifyLink", () => {
     });
   });
 
+  it("keeps in-page anchors on the page, without sanitize's prefix", () => {
+    expect(classifyLink("#setup", ORIGIN)).toEqual({
+      kind: "anchor",
+      hash: "#setup",
+    });
+    expect(classifyLink("#user-content-setup", ORIGIN)).toEqual({
+      kind: "anchor",
+      hash: "#setup",
+    });
+  });
+
   it("treats other origins and protocol-relative links as external", () => {
     expect(classifyLink("https://other.example.com/people/x", ORIGIN)).toEqual({
       kind: "external",

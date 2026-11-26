@@ -121,6 +121,13 @@ function MarkdownLink({
       </Link>
     );
   }
+  // Same page: no router, no new tab.
+  if (target.kind === "anchor")
+    return (
+      <a href={target.hash} className={linkClass}>
+        {children}
+      </a>
+    );
   if (target.kind === "app")
     return (
       <Link href={target.path} className={linkClass}>

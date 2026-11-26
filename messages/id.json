@@ -2934,7 +2934,6 @@
     "subtitle": "Akun Cloudflare tempat {{APP_NAME}} mengelola tunnel, aplikasi Access, dan record DNS.",
     "formTitle": "Akun",
     "formDescription": "Satu token API mencakup tunnel, Access, dan DNS. Kosongkan token untuk mempertahankan yang tersimpan.",
-    "name": "Nama",
     "accountId": "Account ID",
     "accountIdDescription": "Account ID 32 karakter dari dashboard Cloudflare.",
     "accountIdInvalid": "Masukkan Account ID 32 karakter",

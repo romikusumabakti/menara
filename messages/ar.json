@@ -2934,7 +2934,6 @@
     "subtitle": "حساب Cloudflare الذي يدير فيه {{APP_NAME}} الأنفاق وتطبيقات Access وسجلات DNS.",
     "formTitle": "الحساب",
     "formDescription": "رمز API واحد يغطي الأنفاق وAccess وDNS. اترك الرمز فارغًا للإبقاء على المخزَّن.",
-    "name": "الاسم",
     "accountId": "معرّف الحساب",
     "accountIdDescription": "معرّف الحساب المكوّن من 32 حرفًا من لوحة تحكم Cloudflare.",
     "accountIdInvalid": "أدخل معرّف الحساب المكوّن من 32 حرفًا",

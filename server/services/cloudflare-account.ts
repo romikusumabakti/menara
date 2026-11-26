@@ -34,13 +34,16 @@ function toSafe(row: CloudflareAccount): SafeCloudflareAccount {
   return { ...rest, hasToken: !!apiToken };
 }
 
+// The column is kept (expand/contract) but no longer edited: the first save
+// stores this label and later saves leave it alone.
+const DEFAULT_ACCOUNT_NAME = "Cloudflare";
+
 // A blank token keeps the stored one; a non-blank one is trimmed.
 export const cloudflareAccountInputSchema = z.object({
   accountId: z
     .string()
     .trim()
     .regex(/^[0-9a-f]{32}$/, "Invalid account id"),
-  name: z.string().trim().min(1).max(120),
   apiToken: z.string().trim().max(2048).optional(),
   accessIdpId: z.string().trim().max(255).nullable().optional(),
 });
@@ -70,7 +73,7 @@ export async function saveCloudflareAccount(
       .insert(cloudflareAccounts)
       .values({
         accountId: input.accountId,
-        name: input.name,
+        name: DEFAULT_ACCOUNT_NAME,
         apiToken: encryptSecret(newToken),
         accessIdpId: input.accessIdpId || null,
       })
@@ -82,7 +85,6 @@ export async function saveCloudflareAccount(
     }
     const patch: Partial<typeof cloudflareAccounts.$inferInsert> = {
       accountId: input.accountId,
-      name: input.name,
       updatedAt: new Date(),
     };
     if (newToken) patch.apiToken = encryptSecret(newToken);
@@ -98,7 +100,7 @@ export async function saveCloudflareAccount(
   if (!saved) throw new Error("Cloudflare account was not saved");
 
   // Field names only: neither the token nor any other value is logged.
-  const fields = ["accountId", "name", "accessIdpId"];
+  const fields = ["accountId", "accessIdpId"];
   if (newToken) fields.push("apiToken");
   await recordActivity({
     actorId: session.user.id,

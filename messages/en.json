@@ -2934,7 +2934,6 @@
     "subtitle": "The Cloudflare account in which {{APP_NAME}} manages tunnels, Access apps and DNS records.",
     "formTitle": "Account",
     "formDescription": "One API token covers tunnels, Access and DNS. Leave the token blank to keep the stored one.",
-    "name": "Name",
     "accountId": "Account ID",
     "accountIdDescription": "The 32-character account ID from the Cloudflare dashboard.",
     "accountIdInvalid": "Enter the 32-character account ID",

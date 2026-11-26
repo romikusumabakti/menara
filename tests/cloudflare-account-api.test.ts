@@ -138,12 +138,29 @@ describe("PUT /api/cloudflare-account", () => {
   it("a blank token keeps the stored one", async () => {
     const res = await send("PUT", "/api/cloudflare-account", {
       accountId: ACCOUNT_ID,
-      name: "Renamed",
       apiToken: "",
     });
     expect(res.status).toBe(200);
     expect(state.lastSet).not.toHaveProperty("apiToken");
-    expect(state.lastSet).toHaveProperty("name", "Renamed");
+  });
+
+  it("saves without a name and keeps the existing one", async () => {
+    const res = await send("PUT", "/api/cloudflare-account", {
+      accountId: ACCOUNT_ID,
+      apiToken: "",
+    });
+    expect(res.status).toBe(200);
+    expect(state.lastSet).not.toHaveProperty("name");
+  });
+
+  it("names the first account Cloudflare", async () => {
+    state.rows = [];
+    const res = await send("PUT", "/api/cloudflare-account", {
+      accountId: ACCOUNT_ID,
+      apiToken: "first-token",
+    });
+    expect(res.status).toBe(200);
+    expect(state.inserted).toHaveProperty("name", "Cloudflare");
   });
 
   it("stores a new token encrypted and never echoes it", async () => {

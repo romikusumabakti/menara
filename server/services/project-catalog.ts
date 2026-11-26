@@ -27,6 +27,7 @@ import {
   servers,
 } from "@/lib/db/schema";
 import { pgErrorCode } from "@/lib/domains/errors";
+import { drainLegacyConnections } from "@/lib/environment-storage";
 import { OWNER_COLUMNS } from "@/lib/environments";
 import { canCreateProject } from "@/lib/permissions";
 import { isProjectReleasable } from "@/lib/releases/repository";
@@ -344,6 +345,8 @@ async function recordDefaultServerChange(
   });
 }
 
+class DeleteRefused extends Error {}
+
 /**
  * Delete a project. Cascades to its environments (their runs and variables)
  * and to its issues — the caller must confirm this destructive action first.
@@ -364,6 +367,9 @@ async function recordDefaultServerChange(
  * delete holds every environment's lock exclusively (as a Menara-only
  * environment delete does), so an enable in flight finishes first, and its
  * WHERE re-checks for a recorded login.
+ * Each environment's old s3_connections rows are drained in the same
+ * transaction (drainLegacyConnections), so the cascade leaves no
+ * unassigned connection with its secret behind.
  */
 export async function removeProject(
   id: string,
@@ -453,6 +459,11 @@ export async function removeProject(
       for (const environment of owned) {
         await holdEnvironmentExclusive(tx, environment.id);
       }
+      // Before the cascade: the old connections' FK would only null
+      // environment_id, leaving unassigned rows with their secrets.
+      for (const environment of owned) {
+        await drainLegacyConnections(tx, environment.id);
+      }
       const [row] = await tx
         .delete(projects)
         .where(
@@ -463,14 +474,18 @@ export async function removeProject(
           )
         )
         .returning({ id: projects.id });
+      // Refused (see below): undo the drains too.
+      if (!row) throw new DeleteRefused();
       return row;
     });
   } catch (error) {
-    // restrict_violation: a release was made since the check. Releases hold
-    // the only ON DELETE RESTRICT foreign key a project delete can reach.
-    if (pgErrorCode(error) === "23001") await refuse("projectHasReleases");
-    console.error(`Failed to delete project ${id}:`, error);
-    return { success: false, message: "Failed to delete project" };
+    if (!(error instanceof DeleteRefused)) {
+      // restrict_violation: a release was made since the check. Releases hold
+      // the only ON DELETE RESTRICT foreign key a project delete can reach.
+      if (pgErrorCode(error) === "23001") await refuse("projectHasReleases");
+      console.error(`Failed to delete project ${id}:`, error);
+      return { success: false, message: "Failed to delete project" };
+    }
   }
   // Nothing deleted: a login is recorded, a variable was escrowed since the
   // check, or the project is gone.

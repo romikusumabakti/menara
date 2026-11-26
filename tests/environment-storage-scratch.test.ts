@@ -19,8 +19,10 @@ import {
 // one storage (view = sees the environment, manage = edits its settings +
 // a strong sign-in), that an environment the caller can't see answers 404,
 // that secrets never come back and stay with their location, the backup
-// destination refusals, the activity rows, that saves, removes and both
-// environment deletes drain the environment's old s3_connections rows, the
+// destination refusals, the activity rows, that saves, removes, both
+// environment deletes and the project delete drain the environment's old
+// s3_connections rows (detaching those an archive or the legacy backup
+// setting still names), the
 // removal of the admin handling of unassigned connections, and the explorer's
 // access rule for an environment's storage (that environment's rights).
 //
@@ -720,6 +722,46 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
         expect(row?.backup_destination_id).toBe(CONN_A);
       }
     );
+
+    it("the project delete drains each of its environments", async () => {
+      const { removeProject } = await import(
+        "@/server/services/project-catalog"
+      );
+      const PROJECT_C = "00000000-0000-7000-8000-00000000c001";
+      const ENV_C1 = "00000000-0000-7000-8000-00000000c0e1";
+      const ENV_C2 = "00000000-0000-7000-8000-00000000c0e2";
+      const CONN_C1 = "00000000-0000-7000-8000-00000000c0c1";
+      const CONN_C2 = "00000000-0000-7000-8000-00000000c0c2";
+      await sql`insert into projects (id, name, key)
+        values (${PROJECT_C}, 'Plover', 'PLO')`;
+      await sql`insert into environments (id, project_id, name, slug) values
+        (${ENV_C1}, ${PROJECT_C}, 'Plover QA', 'qa'),
+        (${ENV_C2}, ${PROJECT_C}, 'Plover UAT', 'uat')`;
+      await sql`insert into s3_connections (id, name, environment_id,
+          endpoint, region, bucket, access_key_id, secret_key)
+        values
+          (${CONN_C1}, 'Plover files', ${ENV_C1},
+            'https://objects.example.test', 'us-east-1', 'fictional-plover',
+            'AKPLOVER', ${encryptSecret("fictional-secret-plover")}),
+          (${CONN_C2}, 'Plover archive', ${ENV_C2},
+            'https://objects.example.test', 'us-east-1', 'fictional-plover',
+            'AKPLOVER', ${encryptSecret("fictional-secret-plover")})`;
+      await sql`insert into environment_archives (environment_id,
+          project_name, environment_name, environment_slug, expires_at,
+          location, s3_connection_id, key_prefix, completed_at)
+        values (${MISSING}, 'Plover', 'Plover Old', 'old',
+          now() + interval '30 days', 's3', ${CONN_C2}, 'archives/old/',
+          now())`;
+      as(ADMIN, "admin");
+      expect(await removeProject(PROJECT_C)).toEqual({ success: true });
+      // Not left behind unassigned with its secret.
+      expect(await connection(CONN_C1)).toBeUndefined();
+      // Still named by an archive: detached, kept.
+      expect(await connection(CONN_C2)).toMatchObject({
+        environment_id: null,
+      });
+      expect(await connection(CONN_A)).toBeDefined();
+    });
 
     it.each(callers)(
       "%s deletes an unreferenced connection",

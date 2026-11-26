@@ -495,7 +495,7 @@ function EnvironmentRow({
   // name, owner and activity are direct cells of fixed tracks, aligned across
   // every row (a missing value renders an empty cell to keep the columns).
   return (
-    <div className="group relative flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors xl:grid xl:grid-cols-[0.875rem_minmax(0,1fr)_5.5rem_11rem_11rem_9rem]">
+    <div className="group relative flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors xl:grid xl:grid-cols-[0.875rem_minmax(0,1fr)_5.5rem_10rem_10rem_9rem]">
       <StatusDot activity={activity ?? null} />
       <span className="flex flex-col min-w-0 flex-1 gap-0.5 xl:contents">
         <span className="flex items-center gap-2 min-w-0">
@@ -527,7 +527,10 @@ function EnvironmentRow({
             <span className="hidden xl:block" />
           )}
           {env.dbName ? (
-            <code title={env.dbName} className="font-mono truncate">
+            <code
+              title={env.dbName}
+              className="relative z-10 font-mono truncate"
+            >
               {env.dbName}
             </code>
           ) : (
@@ -536,7 +539,7 @@ function EnvironmentRow({
           {env.owner ? (
             <span
               title={env.owner.name}
-              className="hidden min-w-0 items-center gap-1 sm:flex"
+              className="relative z-10 hidden min-w-0 items-center gap-1 sm:flex"
             >
               <span aria-hidden className="xl:hidden">
                 ·

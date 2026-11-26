@@ -126,6 +126,7 @@ describe("ProjectsOverview columns", () => {
     expect(tracks).toContain("minmax(0,1fr)");
     // dot + name + DB type + DB name + owner + activity
     expect(tracks).toHaveLength(6);
+    expect(tracks.slice(3, 5)).toEqual(["10rem", "10rem"]);
     // every row emits the same number of grid cells, so columns stay aligned
     const cells = (r: Element) =>
       [...r.children].flatMap((c) =>
@@ -137,7 +138,11 @@ describe("ProjectsOverview columns", () => {
   it("truncates the DB name and owner with the full value in title", () => {
     const db = container.querySelector(`code[title="${LONG_DB}"]`);
     expect(db?.className).toContain("truncate");
+    expect(db?.className).toContain("z-10");
+    expect(db?.className).toContain("relative");
     const owner = container.querySelector('[title="Alice Example Longname"]');
+    expect(owner?.className).toContain("z-10");
+    expect(owner?.className).toContain("relative");
     expect(owner?.querySelector(".truncate")?.textContent).toBe(
       "Alice Example Longname"
     );

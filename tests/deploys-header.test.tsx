@@ -372,7 +372,7 @@ describe("Deploy target header", () => {
     expect(button?.getAttribute("aria-describedby")).toBe(reason?.id);
   });
 
-  it("while the newest build deploys the focal line keeps the live tag and Deploy latest says why it waits", async () => {
+  it("while the newest build deploys, a note keeps the live tag and Deploy latest says why it waits", async () => {
     await mount([
       liveTarget({
         currentTag: "v3",
@@ -394,7 +394,7 @@ describe("Deploy target header", () => {
         ],
       }),
     ]);
-    expect(slot("deploy-focal")).toBeNull();
+    expect(slot("deploy-note")?.textContent).toBe("Live: v2");
     const button = deployLatest();
     expect(button?.getAttribute("aria-disabled")).toBe("true");
     expect(slot("deploy-actions-reason")?.textContent).toBe(d.latestDeploying);

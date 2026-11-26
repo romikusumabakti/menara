@@ -474,6 +474,7 @@
     "markRelease": "Tandai sebagai rilis",
     "releasePreparing": "Menyiapkan rilis…",
     "serviceRepo": "Repositori service",
+    "liveNote": "Aktif: {tag}",
     "focalFailed": "Deploy terakhir {tag} gagal {time} — server mungkin menjalankan versi parsial",
     "focalFailedNoTime": "Deploy terakhir {tag} gagal — server mungkin menjalankan versi parsial",
     "focalLastGood": "· terakhir berhasil: {tag}",

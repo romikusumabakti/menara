@@ -474,6 +474,7 @@
     "markRelease": "Mark as release",
     "releasePreparing": "Preparing release…",
     "serviceRepo": "服务的代码仓库",
+    "liveNote": "运行中：{tag}",
     "focalFailed": "{tag} 的最近一次部署于 {time} 失败——服务器可能运行着不完整的版本",
     "focalFailedNoTime": "{tag} 的最近一次部署失败——服务器可能运行着不完整的版本",
     "focalLastGood": "· 上次成功版本：{tag}",

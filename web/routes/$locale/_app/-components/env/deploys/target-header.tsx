@@ -312,6 +312,13 @@ function NoteLine({
       </p>
     );
   }
+  if (note.kind === "lastLive") {
+    return (
+      <p data-slot="deploy-note" className="text-muted-foreground">
+        {t("liveNote", { tag: note.tag })}
+      </p>
+    );
+  }
   if (focal.kind !== "failedCurrent") return null;
   const d = focal.deployment;
   return (

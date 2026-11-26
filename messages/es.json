@@ -474,6 +474,7 @@
     "markRelease": "Mark as release",
     "releasePreparing": "Preparing release…",
     "serviceRepo": "El repositorio del servicio",
+    "liveNote": "En vivo: {tag}",
     "focalFailed": "El último despliegue de {tag} falló {time}: el servidor puede ejecutar una versión parcial",
     "focalFailedNoTime": "El último despliegue de {tag} falló: el servidor puede ejecutar una versión parcial",
     "focalLastGood": "· último correcto: {tag}",

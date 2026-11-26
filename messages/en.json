@@ -474,6 +474,7 @@
     "markRelease": "Mark as release",
     "releasePreparing": "Preparing release…",
     "serviceRepo": "The service's repository",
+    "liveNote": "Live: {tag}",
     "focalFailed": "Last deploy of {tag} failed {time} — the server may run a partial version",
     "focalFailedNoTime": "Last deploy of {tag} failed — the server may run a partial version",
     "focalLastGood": "· last good: {tag}",

@@ -33,6 +33,7 @@ import {
   deploymentDurationMs,
   elapsedMs,
   logDeployment,
+  PAGE_FIRST,
   type RowActionPlan,
   rowActions,
   shortSha,
@@ -43,7 +44,6 @@ import {
 type Deployment = DeployTargetState["recentDeployments"][number];
 
 /** Rows shown at first, and how many more each "Show more" adds. */
-export const PAGE_FIRST = 10;
 export const PAGE_MORE = 20;
 
 const ELAPSED_TICK_MS = 1000;

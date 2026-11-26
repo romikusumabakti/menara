@@ -474,6 +474,7 @@
     "markRelease": "Mark as release",
     "releasePreparing": "Preparing release…",
     "serviceRepo": "مستودع الخدمة",
+    "liveNote": "قيد التشغيل: {tag}",
     "focalFailed": "فشل آخر نشر لـ {tag} {time} — قد يشغّل الخادم إصدارًا جزئيًا",
     "focalFailedNoTime": "فشل آخر نشر لـ {tag} — قد يشغّل الخادم إصدارًا جزئيًا",
     "focalLastGood": "· آخر إصدار سليم: {tag}",

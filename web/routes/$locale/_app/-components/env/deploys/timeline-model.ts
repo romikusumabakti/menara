@@ -248,6 +248,9 @@ const BUSY_STATUSES: ReadonlySet<RowStatusKind> = new Set([
   "held",
 ]);
 
+/** Rows the timeline shows at first. */
+export const PAGE_FIRST = 10;
+
 export type HeaderState = {
   focal:
     | {
@@ -273,6 +276,7 @@ export type HeaderState = {
   note:
     | { kind: "failedCurrent"; lastGoodTag: string | null }
     | { kind: "neverDeployed" }
+    | { kind: "lastLive"; tag: string }
     | null;
   deployLatest: {
     tag: string;
@@ -340,14 +344,20 @@ export function headerState(input: TimelineInput): HeaderState {
       ? { tag: lastSettled.tag, deployment: lastSettled }
       : null;
 
+  const rows = buildTimeline(input);
+
+  // A Live row carries the live tag; without one in the first page (a deploy
+  // is running, or the live tag is older than the shown rows) the header does.
+  const liveVisible = rows.slice(0, PAGE_FIRST).some((r) => r.isLive);
   const note: HeaderState["note"] =
     focal.kind === "failedCurrent"
       ? { kind: "failedCurrent", lastGoodTag: focal.lastGood }
       : focal.kind === "never"
         ? { kind: "neverDeployed" }
-        : null;
+        : liveVisible
+          ? null
+          : { kind: "lastLive", tag: focal.tag };
 
-  const rows = buildTimeline(input);
   const latest = input.recentBuilds[0];
   let deployLatest: HeaderState["deployLatest"] = null;
   if (latest) {

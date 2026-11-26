@@ -431,6 +431,40 @@ const failedCurrentInput = () =>
     ],
   });
 
+describe("headerState note for a live tag without a visible Live row", () => {
+  it("deploying with a previous success keeps the last live tag", () => {
+    const h = headerState(
+      input({
+        currentTag: "v3",
+        currentStatus: "running",
+        previousTag: "v2",
+        recentBuilds: [build("v3", at(3)), build("v2", at(2))],
+        recentDeployments: [
+          deployment("v3", "running", { id: "r3", createdAt: at(6) }),
+          deployment("v2", "success", { id: "s2", createdAt: at(5) }),
+        ],
+      })
+    );
+    expect(h.note).toEqual({ kind: "lastLive", tag: "v2" });
+  });
+
+  it("a live tag older than the first page keeps a note", () => {
+    const tags = Array.from({ length: 12 }, (_, i) => `v${i + 1}`);
+    const h = headerState(
+      input({
+        currentTag: "v1",
+        currentStatus: "success",
+        previousTag: null,
+        recentBuilds: tags.map((tag, i) => build(tag, at(i + 1))).reverse(),
+        recentDeployments: [
+          deployment("v1", "success", { id: "s1", createdAt: at(1) }),
+        ],
+      })
+    );
+    expect(h.note).toEqual({ kind: "lastLive", tag: "v1" });
+  });
+});
+
 describe("headerState", () => {
   it("live focal line with who, when and the pipeline link", () => {
     const h = headerState(

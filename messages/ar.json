@@ -1736,6 +1736,7 @@
     "newDocument": "مستند جديد",
     "newDocumentHint": "اكتب صفحة جديدة لقاعدة معرفة الفريق.",
     "newCollection": "مجموعة جديدة",
+    "collectionsHeading": "المجموعات",
     "newCollectionHint": "تجمع المجموعات المستندات ذات الصلة.",
     "collectionName": "الاسم",
     "collectionDescription": "الوصف (اختياري)",

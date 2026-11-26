@@ -1736,6 +1736,7 @@
     "newDocument": "新建文档",
     "newDocumentHint": "为团队知识库撰写新页面。",
     "newCollection": "新建集合",
+    "collectionsHeading": "集合",
     "newCollectionHint": "集合用于归类相关文档。",
     "collectionName": "名称",
     "collectionDescription": "描述（可选）",

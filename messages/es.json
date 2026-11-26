@@ -1736,6 +1736,7 @@
     "newDocument": "Nuevo documento",
     "newDocumentHint": "Escribe una página nueva para la base de conocimiento del equipo.",
     "newCollection": "Nueva colección",
+    "collectionsHeading": "Colecciones",
     "newCollectionHint": "Las colecciones agrupan documentos relacionados.",
     "collectionName": "Nombre",
     "collectionDescription": "Descripción (opcional)",

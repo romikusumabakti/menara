@@ -46,7 +46,9 @@ vi.mock("@/web/api/knowledge", () => ({
   deleteCollection: vi.fn(),
 }));
 vi.mock("@/components/knowledge-search", () => ({
-  KnowledgeSearch: () => null,
+  KnowledgeSearchProvider: ({ children }: { children: React.ReactNode }) =>
+    children,
+  KnowledgeSearchTrigger: () => null,
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
@@ -96,6 +98,26 @@ const hrefs = () =>
   [...container.querySelectorAll("a")].map((a) => a.getAttribute("href"));
 
 describe("knowledge for a staff user", () => {
+  it("orders the sidebar New document, then Collections, with no title link", async () => {
+    state.role = "admin";
+    const Layout = LayoutRoute.options.component as React.ComponentType;
+    await render(<Layout />);
+    const text = container.textContent ?? "";
+    expect(text.indexOf(messages.knowledge.newDocument)).toBeGreaterThan(-1);
+    expect(text.indexOf(messages.knowledge.newDocument)).toBeLessThan(
+      text.indexOf(messages.knowledge.collectionsHeading)
+    );
+    expect(text.indexOf(messages.knowledge.collectionsHeading)).toBeLessThan(
+      text.indexOf("Handbook")
+    );
+    expect(hrefs()).not.toContain("/knowledge");
+    expect(
+      container.querySelector(
+        `button[aria-label="${messages.knowledge.newCollection}"]`
+      )
+    ).not.toBeNull();
+  });
+
   it("shows no New document action in the layout", async () => {
     state.role = "staff";
     const Layout = LayoutRoute.options.component as React.ComponentType;

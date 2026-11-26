@@ -298,3 +298,26 @@ describe("markdownToRichText", () => {
     expect(markdownToRichText("hi", "datacenter")).toBe("hi");
   });
 });
+
+describe("adfToMarkdown edge whitespace in marked text", () => {
+  // Neighbours keep the paragraph trim from hiding the edge spaces.
+  const render = (value: string, type: string) =>
+    adfToMarkdown(
+      doc({
+        type: "paragraph",
+        content: [text("<"), text(value, [{ type }]), text(">")],
+      })
+    );
+
+  it("keeps trailing spaces outside strong", () => {
+    expect(render("Objectives: ", "strong")).toBe("<**Objectives:** >");
+  });
+
+  it("keeps edge spaces outside em", () => {
+    expect(render(" a ", "em")).toBe("< *a* >");
+  });
+
+  it("leaves whitespace-only text unmarked", () => {
+    expect(render("  ", "strong")).toBe("<  >");
+  });
+});

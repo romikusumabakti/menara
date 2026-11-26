@@ -46,7 +46,7 @@ function StorageFilesPage() {
         subtitle={t("storageFilesSubtitle", { bucket: connection.bucket })}
       />
       <FileExplorer
-        source={{ kind: "s3", connectionId }}
+        source={{ kind: "s3", environmentId }}
         rootLabel={connection.bucket}
       />
     </>

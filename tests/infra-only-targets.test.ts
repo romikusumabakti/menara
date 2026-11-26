@@ -2,20 +2,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Restricted targets (lib/restricted-targets): the engineer grant opens the
 // terminal and the server file explorer fleet-wide, but not on an infra-only
-// server or the instance backup bucket. A bucket belongs to an environment
-// and takes that environment's rights; an unassigned one is admin/infra only.
+// server or an environment storage inside the instance backup destination.
+// A storage belongs to an environment and takes that environment's rights.
 // The database is a fake that answers by table.
 
 const NORMAL_ID = "0197f3a0-1b2c-7def-8000-000000000001";
 const INFRA_ID = "0197f3a0-1b2c-7def-8000-000000000002";
-const BUCKET_ID = "0197f3a0-1b2c-7def-8000-0000000000b1";
-const BACKUP_BUCKET_ID = "0197f3a0-1b2c-7def-8000-0000000000b2";
-// A bucket of an environment in p2, a project the members below don't see,
-// and one no environment owns.
-const OTHER_BUCKET_ID = "0197f3a0-1b2c-7def-8000-0000000000b3";
-const FREE_BUCKET_ID = "0197f3a0-1b2c-7def-8000-0000000000b4";
-const ENV_P1 = "0197f3a0-1b2c-7def-8000-0000000000e1";
-const ENV_P2 = "0197f3a0-1b2c-7def-8000-0000000000e2";
+// Environments in p1 (one with its storage on the backup destination's
+// bucket) and in p2, a project the members below don't see.
+const BUCKET_ID = "0197f3a0-1b2c-7def-8000-0000000000e1";
+const BACKUP_BUCKET_ID = "0197f3a0-1b2c-7def-8000-0000000000e3";
+const OTHER_BUCKET_ID = "0197f3a0-1b2c-7def-8000-0000000000e2";
 
 const state = vi.hoisted(() => ({
   session: {
@@ -23,7 +20,8 @@ const state = vi.hoisted(() => ({
     session: { signInMethod: "passkey" },
   },
   memberships: [] as { projectId: string }[],
-  backupId: null as string | null,
+  // The backup destination's bucket, or null when none is configured.
+  backupBucket: null as string | null,
   activity: [] as Record<string, unknown>[],
 }));
 
@@ -77,32 +75,38 @@ vi.mock("@/lib/db", async () => {
           if (table === schema.projects) {
             return answer(() => [{ id: "p1" }, { id: "p2" }]);
           }
-          if (table === schema.s3Connections) {
+          if (table === schema.environmentStorage) {
             return answer(() => {
               // The row as Postgres returns it: its id in canonical form.
               const id = whereId()?.toLowerCase();
-              const row = (environmentId: string | null) => [
+              if (
+                !id ||
+                ![BUCKET_ID, BACKUP_BUCKET_ID, OTHER_BUCKET_ID].includes(id)
+              ) {
+                return [];
+              }
+              return [
                 {
-                  id,
-                  environmentId,
+                  environmentId: id,
                   endpoint: "https://objects.example.test",
-                  bucket: `bucket-${id}`,
+                  region: "us-east-1",
+                  bucket:
+                    id === BACKUP_BUCKET_ID ? "acme-backups" : `bucket-${id}`,
                   keyPrefix: null,
+                  accessKeyId: "AKFICTIONAL",
+                  secretKey: "fictional-secret",
+                  forcePathStyle: true,
                 },
               ];
-              if (id === BUCKET_ID) return row(ENV_P1);
-              if (id === OTHER_BUCKET_ID) return row(ENV_P2);
-              if (id === BACKUP_BUCKET_ID || id === FREE_BUCKET_ID) {
-                return row(null);
-              }
-              return [];
             });
           }
           if (table === schema.environments) {
             return answer(() => {
               const id = whereId()?.toLowerCase();
-              if (id === ENV_P1) return [{ projectId: "p1" }];
-              if (id === ENV_P2) return [{ projectId: "p2" }];
+              if (id === BUCKET_ID || id === BACKUP_BUCKET_ID) {
+                return [{ projectId: "p1" }];
+              }
+              if (id === OTHER_BUCKET_ID) return [{ projectId: "p2" }];
               return [];
             });
           }
@@ -110,24 +114,16 @@ vi.mock("@/lib/db", async () => {
             return answer(() => state.memberships);
           }
           if (table === schema.instanceSettings) {
-            return answer(() => {
-              // Postgres compares uuids case-insensitively; so does this fake
-              // when the query filters on one (backup_destination_id = …).
-              // No backup_s3_* destination here: only the legacy setting.
-              const id = whereId();
-              if (id === undefined) {
-                return [
-                  {
-                    id: state.backupId,
-                    legacyId: state.backupId,
-                    endpoint: null,
-                    bucket: null,
-                    keyPrefix: null,
-                  },
-                ];
-              }
-              return id.toLowerCase() === state.backupId ? [{ id: 1 }] : [];
-            });
+            return answer(() => [
+              {
+                legacyId: null,
+                endpoint: state.backupBucket
+                  ? "https://backups.example.test"
+                  : null,
+                bucket: state.backupBucket,
+                keyPrefix: null,
+              },
+            ]);
           }
           if (table === schema.servers) {
             return answer(() => {
@@ -195,7 +191,7 @@ const download = (source: unknown) =>
   );
 
 beforeEach(() => {
-  state.backupId = BACKUP_BUCKET_ID;
+  state.backupBucket = "acme-backups";
   state.activity = [];
   resolved.sources = [];
 });
@@ -244,11 +240,11 @@ describe("file explorer on restricted targets", () => {
   it("denies an engineer member the instance backup bucket", async () => {
     as("engineer", "p1");
     await expect(
-      listEntries({ kind: "s3", connectionId: BACKUP_BUCKET_ID }, "")
+      listEntries({ kind: "s3", environmentId: BACKUP_BUCKET_ID }, "")
     ).rejects.toBeInstanceOf(ForbiddenError);
     const res = await app.request(
       `/api/explorer/archive?source=${encodeURIComponent(
-        JSON.stringify({ kind: "s3", connectionId: BACKUP_BUCKET_ID })
+        JSON.stringify({ kind: "s3", environmentId: BACKUP_BUCKET_ID })
       )}`
     );
     expect(res.status).toBe(403);
@@ -257,17 +253,17 @@ describe("file explorer on restricted targets", () => {
 
   // z.uuid() accepts uppercase and resolveBackend's uuid lookup matches it,
   // so the restriction must not hinge on the id's case.
-  it("denies an engineer member the backup bucket named in uppercase", async () => {
+  it("denies an engineer member the backup storage named in uppercase", async () => {
     as("engineer", "p1");
     await expect(
       listEntries(
-        { kind: "s3", connectionId: BACKUP_BUCKET_ID.toUpperCase() },
+        { kind: "s3", environmentId: BACKUP_BUCKET_ID.toUpperCase() },
         ""
       )
     ).rejects.toBeInstanceOf(ForbiddenError);
     const res = await download({
       kind: "s3",
-      connectionId: BACKUP_BUCKET_ID.toUpperCase(),
+      environmentId: BACKUP_BUCKET_ID.toUpperCase(),
     });
     expect(res.status).toBe(403);
     await expect(
@@ -298,7 +294,7 @@ describe("file explorer on restricted targets", () => {
       await listEntries({ kind: "sftp", serverId: NORMAL_ID }, "")
     ).toEqual({ success: true, data: [] });
     expect(
-      await listEntries({ kind: "s3", connectionId: BUCKET_ID }, "")
+      await listEntries({ kind: "s3", environmentId: BUCKET_ID }, "")
     ).toEqual({ success: true, data: [] });
   });
 
@@ -308,19 +304,15 @@ describe("file explorer on restricted targets", () => {
       { success: true, data: [] }
     );
     expect(
-      await listEntries({ kind: "s3", connectionId: BACKUP_BUCKET_ID }, "")
+      await listEntries({ kind: "s3", environmentId: BACKUP_BUCKET_ID }, "")
     ).toEqual({ success: true, data: [] });
   });
 
-  it("keeps an unassigned bucket to admin and infra, backup destination or not", async () => {
-    state.backupId = null;
+  it("opens a storage beside the destination like any other", async () => {
+    state.backupBucket = null;
     as("engineer", "p1");
-    await expect(
-      listEntries({ kind: "s3", connectionId: FREE_BUCKET_ID }, "")
-    ).rejects.toMatchObject({ status: 404 });
-    as("infra");
     expect(
-      await listEntries({ kind: "s3", connectionId: FREE_BUCKET_ID }, "")
+      await listEntries({ kind: "s3", environmentId: BACKUP_BUCKET_ID }, "")
     ).toEqual({ success: true, data: [] });
     expect(resolved.sources).toHaveLength(1);
   });
@@ -329,9 +321,12 @@ describe("file explorer on restricted targets", () => {
     for (const role of ["engineer", "qa"]) {
       as(role, "p1");
       await expect(
-        listEntries({ kind: "s3", connectionId: OTHER_BUCKET_ID }, "")
+        listEntries({ kind: "s3", environmentId: OTHER_BUCKET_ID }, "")
       ).rejects.toMatchObject({ status: 404 });
-      const res = await download({ kind: "s3", connectionId: OTHER_BUCKET_ID });
+      const res = await download({
+        kind: "s3",
+        environmentId: OTHER_BUCKET_ID,
+      });
       expect(res.status).toBe(404);
     }
     expect(resolved.sources).toEqual([]);
@@ -340,15 +335,15 @@ describe("file explorer on restricted targets", () => {
   it("opens an environment's bucket to engineers only, not to QA", async () => {
     as("qa", "p1");
     await expect(
-      listEntries({ kind: "s3", connectionId: BUCKET_ID }, "")
+      listEntries({ kind: "s3", environmentId: BUCKET_ID }, "")
     ).rejects.toBeInstanceOf(ForbiddenError);
     await expect(
-      deleteEntry({ kind: "s3", connectionId: BUCKET_ID }, "a.txt")
+      deleteEntry({ kind: "s3", environmentId: BUCKET_ID }, "a.txt")
     ).rejects.toBeInstanceOf(ForbiddenError);
     expect(resolved.sources).toEqual([]);
     as("engineer", "p1");
     expect(
-      await deleteEntry({ kind: "s3", connectionId: BUCKET_ID }, "a.txt")
+      await deleteEntry({ kind: "s3", environmentId: BUCKET_ID }, "a.txt")
     ).toMatchObject({ success: false });
     expect(resolved.sources).toHaveLength(1);
   });

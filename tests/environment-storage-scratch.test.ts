@@ -22,7 +22,7 @@ import {
 // destination refusals, the activity rows, that saves, removes and both
 // environment deletes drain the environment's old s3_connections rows, the
 // admin assignment of unassigned connections, and the explorer's access rule
-// for a connection (its environment's rights; unassigned = admin only).
+// for an environment's storage (that environment's rights).
 //
 //   ENVIRONMENT_STORAGE_SCRATCH=1 env -u SECRETS_KEY bun --bun vitest run tests/environment-storage-scratch.test.ts
 const enabled = process.env.ENVIRONMENT_STORAGE_SCRATCH === "1";
@@ -910,10 +910,10 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
     });
   });
 
-  describe("the explorer on an environment's connection", () => {
-    const src = (connectionId: string) => ({ kind: "s3", connectionId });
+  describe("the explorer on an environment's storage", () => {
+    const src = (environmentId: string) => ({ kind: "s3", environmentId });
 
-    it("lists connections but opens no files for QA, BA, PM and observer", async () => {
+    it("shows the storage but opens no files for QA, BA, PM and observer", async () => {
       for (const [id, role] of [
         [QA, "qa"],
         [BA, "ba"],
@@ -923,18 +923,18 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
         as(id, role);
         expect(await svc.getEnvironmentStorage(ENV_A)).not.toBeNull();
         for (const call of [
-          () => explorer.listEntries(src(CONN_A), ""),
-          () => explorer.getDownloadTarget(src(CONN_A), "a.txt"),
-          () => explorer.readFileText(src(CONN_A), "a.txt"),
-          () => explorer.folderStats(src(CONN_A), ""),
-          () => explorer.deleteEntry(src(CONN_A), "a.txt"),
+          () => explorer.listEntries(src(ENV_A), ""),
+          () => explorer.getDownloadTarget(src(ENV_A), "a.txt"),
+          () => explorer.readFileText(src(ENV_A), "a.txt"),
+          () => explorer.folderStats(src(ENV_A), ""),
+          () => explorer.deleteEntry(src(ENV_A), "a.txt"),
         ]) {
           expect(await refusal(call())).toMatchObject({ status: 403 });
         }
         for (const route of ["download", "archive"]) {
           const res = await app.request(
             `/api/explorer/${route}?source=${encodeURIComponent(
-              JSON.stringify(src(CONN_A))
+              JSON.stringify(src(ENV_A))
             )}&path=a.txt`
           );
           expect(res.status).toBe(403);
@@ -945,7 +945,7 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
 
     it("browses as an engineer, confined to the prefix", async () => {
       as(ENGINEER, "engineer");
-      expect(await explorer.listEntries(src(CONN_A), "")).toEqual({
+      expect(await explorer.listEntries(src(ENV_A), "")).toEqual({
         success: true,
         data: [],
       });
@@ -960,25 +960,25 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
 
     it("changes files with the environment's manage right", async () => {
       as(ENGINEER, "engineer");
-      expect(await explorer.deleteEntry(src(CONN_A), "a.txt")).toMatchObject({
+      expect(await explorer.deleteEntry(src(ENV_A), "a.txt")).toMatchObject({
         success: true,
       });
     });
 
-    it("answers 404 for a connection of an environment the caller can't see", async () => {
+    it("answers 404 for the storage of an environment the caller can't see", async () => {
       for (const [id, role] of [
         [ENGINEER, "engineer"],
         [QA, "qa"],
       ] as const) {
         as(id, role);
         expect(
-          await refusal(explorer.listEntries(src(CONN_B), ""))
+          await refusal(explorer.listEntries(src(ENV_B), ""))
         ).toMatchObject({ status: 404 });
         expect(
-          await refusal(explorer.deleteEntry(src(CONN_B), "a.txt"))
+          await refusal(explorer.deleteEntry(src(ENV_B), "a.txt"))
         ).toMatchObject({ status: 404 });
         expect(
-          await refusal(explorer.getDownloadTarget(src(CONN_B), "a.txt"))
+          await refusal(explorer.getDownloadTarget(src(ENV_B), "a.txt"))
         ).toMatchObject({ status: 404 });
         expect(
           await refusal(explorer.listEntries(src(MISSING), ""))
@@ -986,19 +986,19 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
       }
       const download = await app.request(
         `/api/explorer/download?source=${encodeURIComponent(
-          JSON.stringify(src(CONN_B))
+          JSON.stringify(src(ENV_B))
         )}&path=a.txt`
       );
       expect(download.status).toBe(404);
       const archive = await app.request(
         `/api/explorer/archive?source=${encodeURIComponent(
-          JSON.stringify(src(CONN_B))
+          JSON.stringify(src(ENV_B))
         )}`
       );
       expect(archive.status).toBe(404);
       const form = new FormData();
       form.set("file", new File(["x"], "a.txt"));
-      form.set("source", JSON.stringify(src(CONN_B)));
+      form.set("source", JSON.stringify(src(ENV_B)));
       form.set("path", "");
       const upload = await app.request("/api/explorer/upload", {
         method: "POST",
@@ -1013,7 +1013,7 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
       as(QA, "qa");
       const form = new FormData();
       form.set("file", new File(["x"], "a.txt"));
-      form.set("source", JSON.stringify(src(CONN_A)));
+      form.set("source", JSON.stringify(src(ENV_A)));
       form.set("path", "");
       const upload = await app.request("/api/explorer/upload", {
         method: "POST",
@@ -1024,26 +1024,40 @@ describe.skipIf(!enabled)("environment storage on Postgres", () => {
       expect(s3.opened).toEqual([]);
     });
 
-    it("keeps unassigned connections for admins and infra", async () => {
+    it("answers 404 for an environment without storage, to admins too", async () => {
+      for (const [id, role] of [
+        [ENGINEER, "engineer"],
+        [ADMIN, "admin"],
+      ] as const) {
+        as(id, role);
+        expect(
+          await refusal(explorer.listEntries(src(ENV_A2), ""))
+        ).toMatchObject({ status: 404 });
+      }
+      expect(s3.opened).toEqual([]);
+    });
+
+    it("logs a file action against the environment", async () => {
       as(ENGINEER, "engineer");
-      expect(
-        await refusal(explorer.listEntries(src(CONN_FREE), ""))
-      ).toMatchObject({ status: 404 });
-      as(INFRA, "infra");
-      expect(await explorer.listEntries(src(CONN_FREE), "")).toMatchObject({
-        success: true,
-      });
-      as(ADMIN, "admin");
-      expect(await explorer.listEntries(src(CONN_BACKUP), "")).toMatchObject({
-        success: true,
-      });
+      await explorer.deleteEntry(src(ENV_A), "a.txt");
+      const rows = await sql<
+        { entity_type: string; entity_id: string; data: { target: string } }[]
+      >`select entity_type, entity_id, data from activity_log
+        where action = 'files.delete'`;
+      expect(rows).toEqual([
+        expect.objectContaining({
+          entity_type: "environment",
+          entity_id: ENV_A,
+        }),
+      ]);
+      expect(rows[0]?.data.target).toContain("Kestrel");
     });
 
     it("needs a strong sign-in to browse", async () => {
       as(ENGINEER, "engineer", "password");
-      expect(
-        await refusal(explorer.listEntries(src(CONN_A), ""))
-      ).toMatchObject({ status: 403, code: "strong_sign_in_required" });
+      expect(await refusal(explorer.listEntries(src(ENV_A), ""))).toMatchObject(
+        { status: 403, code: "strong_sign_in_required" }
+      );
       expect(s3.opened).toEqual([]);
     });
   });

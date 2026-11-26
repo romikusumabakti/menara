@@ -45,7 +45,7 @@ const { normalizeS3Key } = await import("@/lib/explorer/path");
 
 const s3 = {
   kind: "s3",
-  connectionId: "0197f3a0-1b2c-7def-8000-0000000000b1",
+  environmentId: "0197f3a0-1b2c-7def-8000-0000000000b1",
 } as const;
 
 describe("unsupported object names", () => {

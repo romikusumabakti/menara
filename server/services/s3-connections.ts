@@ -18,7 +18,7 @@ import {
 import { canOrg, type OrgPermissions } from "@/lib/permissions";
 import {
   backupDestinationId,
-  isRestrictedSource,
+  isRestrictedConnection,
   restrictedConnectionCheck,
 } from "@/lib/restricted-targets";
 import { CodedHTTPException, notFound } from "@/server/errors";
@@ -232,7 +232,7 @@ export async function assignS3Connection(
   if (current.environmentId !== null) {
     throw await conflict("s3ConnectionAlreadyAssigned");
   }
-  if (await isRestrictedSource({ kind: "s3", connectionId })) {
+  if (await isRestrictedConnection(connectionId)) {
     throw await conflict("s3BackupDestinationNotAssignable");
   }
   const [archive] = await db

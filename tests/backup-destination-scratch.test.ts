@@ -528,17 +528,26 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
   });
 
   describe("restricted targets", () => {
-    const src = (connectionId: string) => ({
+    const src = (environmentId: string) => ({
       kind: "s3" as const,
-      connectionId,
+      environmentId,
     });
+    // The environment's one storage, on the destination's bucket.
+    const storeAt = (keyPrefix: string) =>
+      sql`insert into environment_storage (environment_id, endpoint, region,
+          bucket, key_prefix, access_key_id, secret_key)
+        values (${ENV}, ${ENDPOINT}, 'auto', ${BUCKET}, ${keyPrefix},
+          'AKSTORE', ${encryptSecret("s-store")})
+        on conflict (environment_id) do update set
+          key_prefix = excluded.key_prefix`;
 
-    it("an environment's connection on the destination's bucket and prefix is never browsable from it", async () => {
+    it("an environment's storage on the destination's bucket and prefix is never browsable from it", async () => {
       await svc.saveBackupDestination(destination());
+      await storeAt("acme/dumps/");
       as(ENGINEER, "engineer");
-      expect(
-        await refusal(explorer.listEntries(src(CONN_SAME), ""))
-      ).toMatchObject({ status: 403 });
+      expect(await refusal(explorer.listEntries(src(ENV), ""))).toMatchObject({
+        status: 403,
+      });
       // Nor probed as the environment's storage.
       expect(
         await refusal(
@@ -553,7 +562,8 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
         )
       ).toEqual({ status: 409, code: "s3BackupDestinationOverlap" });
       // Beside the destination's prefix, the same bucket is the environment's.
-      expect(await explorer.listEntries(src(CONN_OTHER), "")).toMatchObject({
+      await storeAt("uploads/");
+      expect(await explorer.listEntries(src(ENV), "")).toMatchObject({
         success: true,
       });
       expect(s3.opened).toHaveLength(1);
@@ -633,9 +643,9 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
       expect(await storage.getEnvironmentStorage(ENV)).toMatchObject({
         isBackupDestination: true,
       });
-      expect(
-        await refusal(explorer.listEntries(src(CONN_SAME), ""))
-      ).toMatchObject({ status: 403 });
+      expect(await refusal(explorer.listEntries(src(ENV), ""))).toMatchObject({
+        status: 403,
+      });
       expect(s3.opened).toEqual([]);
       for (const endpoint of [
         "https://OBJECTS.example.test.:443/",
@@ -680,11 +690,12 @@ describe.skipIf(!enabled)("the backup destination on Postgres", () => {
       expect(await refusal(admin.assignS3Connection(CONN_LEGACY, ENV))).toEqual(
         { status: 409, code: "s3BackupDestinationNotAssignable" }
       );
-      // The engineer grant never reaches it.
+      // No explorer source names a connection any more: by its id it is
+      // no environment's storage, so not found.
       as(ENGINEER, "engineer");
       expect(
         await refusal(explorer.listEntries(src(CONN_LEGACY), ""))
-      ).toMatchObject({ status: 403 });
+      ).toMatchObject({ status: 404 });
     });
   });
 

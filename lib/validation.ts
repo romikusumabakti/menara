@@ -624,10 +624,11 @@ export const jiraProjectLinkSchema = z.object({
 export type JiraConnectionInput = z.infer<typeof jiraConnectionInputSchema>;
 export type JiraProjectLinkInput = z.infer<typeof jiraProjectLinkSchema>;
 
-// A browsed location. `kind` selects the backend; the id names the connection
-// or server. Credentials are NEVER part of this — the action layer loads them.
+// A browsed location. `kind` selects the backend; the id names the
+// environment (whose one object storage is browsed) or the server.
+// Credentials are NEVER part of this — the action layer loads them.
 export const explorerSourceSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("s3"), connectionId: z.uuid() }),
+  z.object({ kind: z.literal("s3"), environmentId: z.uuid() }),
   z.object({ kind: z.literal("sftp"), serverId: z.uuid() }),
 ]);
 

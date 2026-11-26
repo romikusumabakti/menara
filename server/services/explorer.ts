@@ -42,9 +42,9 @@ import { getServerTranslator } from "@/server/i18n";
 // Storage explorer actions. Filesystem/bucket access is powerful (SFTP runs as
 // the SSH user, often root), so every entry point is authorized for what it
 // does (read or write) before any credential load: a server by the org files
-// permission, an environment's bucket by that environment's rights, and the
-// restricted targets (infra-only servers, the instance backup bucket,
-// unassigned buckets) by the org role alone
+// permission, an environment's storage by that environment's rights, and the
+// restricted targets (infra-only servers, a storage inside the instance
+// backup destination) by the org role alone
 // (lib/restricted-targets#authorizeExplorerSource). Credentials are
 // never in a payload: the client sends a source descriptor of ids, and
 // resolveBackend loads creds server-side.
@@ -106,8 +106,8 @@ export async function recordFileAction(
   await recordActivity({
     actorId,
     action,
-    entityType: source.kind === "s3" ? "s3Connection" : "server",
-    entityId: source.kind === "s3" ? source.connectionId : source.serverId,
+    entityType: source.kind === "s3" ? "environment" : "server",
+    entityId: source.kind === "s3" ? source.environmentId : source.serverId,
     data: { target, ...data },
   });
 }

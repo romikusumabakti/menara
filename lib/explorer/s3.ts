@@ -10,7 +10,7 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import type { S3Connection } from "@/lib/db/schema";
+import type { EnvironmentStorage } from "@/lib/db/schema";
 import { basename, normalizeS3Key, PathError, storedKeyPrefix } from "./path";
 import type { DownloadTarget, ExplorerEntry, StorageBackend } from "./types";
 
@@ -62,11 +62,12 @@ export async function testS3Connection(
   }
 }
 
-// S3-compatible backend. One instance per connection row. `Delimiter: "/"` turns
-// a flat key namespace into a directory view: keys sharing a prefix up to the
-// next slash collapse into a `CommonPrefix` (a "folder"), the rest are files.
+// S3-compatible backend. One instance per environment storage row.
+// `Delimiter: "/"` turns a flat key namespace into a directory view: keys
+// sharing a prefix up to the next slash collapse into a `CommonPrefix` (a
+// "folder"), the rest are files.
 //
-// A connection with a key prefix is confined to it: the prefix is the
+// A storage with a key prefix is confined to it: the prefix is the
 // explorer's root, every path the client sends is normalised (normalizeS3Key:
 // no "..", no encoded or lookalike separators) and then put under the prefix,
 // and every key handed back has the prefix taken off again. The prefix root
@@ -74,7 +75,7 @@ export async function testS3Connection(
 // file.
 export function createS3Backend(
   conn: Pick<
-    S3Connection,
+    EnvironmentStorage,
     | "endpoint"
     | "region"
     | "bucket"

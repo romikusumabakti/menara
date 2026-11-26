@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { s3Connections, servers } from "@/lib/db/schema";
+import { environmentStorage, servers } from "@/lib/db/schema";
+import { environmentName } from "@/lib/environments";
 import { decryptNullable, decryptSecret } from "@/lib/secrets";
 import { sshTarget } from "@/lib/ssh-connect";
 import { createS3Backend } from "./s3";
@@ -11,13 +12,15 @@ export type { ExplorerEntry, StorageBackend } from "./types";
 
 // A storage location the explorer browses. Carries only ids — credentials are
 // loaded server-side here so they never live in a client payload or job record
-// (same discipline as JobMap in lib/queue.ts).
+// (same discipline as JobMap in lib/queue.ts). An S3 source is an
+// environment's one object storage (environment_storage).
 export type ExplorerSource =
-  | { kind: "s3"; connectionId: string }
+  | { kind: "s3"; environmentId: string }
   | { kind: "sftp"; serverId: string };
 
 // Resolve a source to a live backend, loading and injecting credentials from
-// the DB. Returns null when the referenced connection/server no longer exists.
+// the DB. Returns null when the environment has no storage or the server no
+// longer exists.
 // This is the ONLY place credentials are read for the explorer.
 export async function resolveBackend(
   source: ExplorerSource,
@@ -25,15 +28,15 @@ export async function resolveBackend(
   actorId?: string
 ): Promise<StorageBackend | null> {
   if (source.kind === "s3") {
-    const [conn] = await db
+    const [storage] = await db
       .select()
-      .from(s3Connections)
-      .where(eq(s3Connections.id, source.connectionId))
+      .from(environmentStorage)
+      .where(eq(environmentStorage.environmentId, source.environmentId))
       .limit(1);
-    if (!conn) return null;
+    if (!storage) return null;
     return createS3Backend({
-      ...conn,
-      secretKey: decryptSecret(conn.secretKey),
+      ...storage,
+      secretKey: decryptSecret(storage.secretKey),
     });
   }
 
@@ -50,16 +53,11 @@ export async function resolveBackend(
   );
 }
 
-// The display name of a source's server or connection, for the activity log.
+// The display name of a source's server or environment, for the activity log.
 // A separate cheap lookup (no credential load) run after an action succeeded.
 export async function targetName(source: ExplorerSource): Promise<string> {
   if (source.kind === "s3") {
-    const [conn] = await db
-      .select({ name: s3Connections.name })
-      .from(s3Connections)
-      .where(eq(s3Connections.id, source.connectionId))
-      .limit(1);
-    return conn?.name ?? "";
+    return (await environmentName(source.environmentId)) ?? "";
   }
   const [server] = await db
     .select({ name: servers.name })

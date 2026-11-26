@@ -9,7 +9,12 @@ import {
   requireProjectPermission,
 } from "@/lib/authz";
 import { db } from "@/lib/db";
-import { instanceSettings, s3Connections, servers } from "@/lib/db/schema";
+import {
+  environmentStorage,
+  instanceSettings,
+  s3Connections,
+  servers,
+} from "@/lib/db/schema";
 import type { ExplorerSource } from "@/lib/explorer";
 import {
   canOrg,
@@ -23,11 +28,13 @@ import { notFound } from "@/server/errors";
 // reach (lib/permissions#canOrgAccessTarget), nor an environment's rights.
 // An infra-only server (servers.infra_only), and the places that hold full
 // dumps of the Menara database: the backup destination (instance_settings
-// backup_s3_*), which is no S3 connection and so never an explorer source,
-// but any connection pointing into it (the same bucket name on any
-// endpoint, a key prefix inside the destination's or containing it), and the S3 connection
-// backups went to before the destination got its own credentials
-// (instance_settings.backup_destination_id), until a later release drops it.
+// backup_s3_*), which is no environment's storage and so never an explorer
+// source, but any storage pointing into it (the same bucket name on any
+// endpoint, a key prefix inside the destination's or containing it). The
+// legacy s3_connections code also treats the connection backups went to
+// before the destination got its own credentials
+// (instance_settings.backup_destination_id) as restricted, until the
+// contract release drops both.
 
 /**
  * The S3 connection instance backups went to before the backup destination
@@ -105,10 +112,9 @@ export async function overlapsBackupDestination(
 type S3ConnectionLocation = S3Location & { id: string };
 
 /**
- * The restricted-connection check, loaded once for many rows: whether a
- * connection is the legacy backup destination connection or reaches into
- * the backup destination (locationsOverlap). The rule isRestrictedSource
- * applies, for the pages' isBackupDestination flag.
+ * The restricted-connection check for the legacy s3_connections code, loaded
+ * once for many rows: whether a connection is the legacy backup destination
+ * connection or reaches into the backup destination (locationsOverlap).
  */
 export async function restrictedConnectionCheck(): Promise<
   (connection: S3ConnectionLocation) => boolean
@@ -121,29 +127,58 @@ export async function restrictedConnectionCheck(): Promise<
 }
 
 /**
- * Whether an explorer source is a restricted target. An unknown server or
- * connection is not: the explorer then answers it as not found, as before.
+ * Whether a legacy s3_connections row is restricted (restrictedConnectionCheck);
+ * an unknown connection is not. Looked up in SQL, with uuid semantics, and
+ * the row's own id then compared, so "<UPPERCASE id>" is no way round.
+ */
+export async function isRestrictedConnection(
+  connectionId: string
+): Promise<boolean> {
+  const [[connection], isRestricted] = await Promise.all([
+    db
+      .select({
+        id: s3Connections.id,
+        endpoint: s3Connections.endpoint,
+        bucket: s3Connections.bucket,
+        keyPrefix: s3Connections.keyPrefix,
+      })
+      .from(s3Connections)
+      .where(eq(s3Connections.id, connectionId))
+      .limit(1),
+    restrictedConnectionCheck(),
+  ]);
+  return connection ? isRestricted(connection) : false;
+}
+
+// The location of an environment's storage, or null when none is configured.
+// Looked up by uuid, as resolveBackend's lookup is.
+async function environmentStorageLocation(
+  environmentId: string
+): Promise<S3Location | null> {
+  const [row] = await db
+    .select({
+      endpoint: environmentStorage.endpoint,
+      bucket: environmentStorage.bucket,
+      keyPrefix: environmentStorage.keyPrefix,
+    })
+    .from(environmentStorage)
+    .where(eq(environmentStorage.environmentId, environmentId))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Whether an explorer source is a restricted target: an infra-only server,
+ * or an environment storage reaching into the backup destination. An
+ * unknown server or an environment without storage is not: the explorer
+ * then answers it as not found.
  */
 export async function isRestrictedSource(
   source: ExplorerSource
 ): Promise<boolean> {
   if (source.kind === "s3") {
-    // Looked up in SQL, with the uuid semantics resolveBackend's lookup uses;
-    // the row's own id is then compared, so "<UPPERCASE id>" is no way round.
-    const [[connection], isRestricted] = await Promise.all([
-      db
-        .select({
-          id: s3Connections.id,
-          endpoint: s3Connections.endpoint,
-          bucket: s3Connections.bucket,
-          keyPrefix: s3Connections.keyPrefix,
-        })
-        .from(s3Connections)
-        .where(eq(s3Connections.id, source.connectionId))
-        .limit(1),
-      restrictedConnectionCheck(),
-    ]);
-    return connection ? isRestricted(connection) : false;
+    const location = await environmentStorageLocation(source.environmentId);
+    return location !== null && (await overlapsBackupDestination(location));
   }
   const [row] = await db
     .select({ infraOnly: servers.infraOnly })
@@ -165,13 +200,13 @@ const STORAGE_FILES: OrgPermissions = { storage: ["files"] };
 
 /**
  * The environment rights an explorer call on that environment's storage
- * connection needs. Listing the connections themselves only takes viewing
- * the environment (server/services/environment-storage), but the objects in
- * an application bucket are the application's data, like its variables: so
- * reading them takes project `variable:read`, the engineer-set statement
- * that reads the environment's secret-bearing data (the managed .env). QA,
- * BA, PM and observer don't hold it. Changing files takes editing the
- * environment's settings (`environment:update`, the right
+ * needs. Viewing the storage config only takes viewing the environment
+ * (server/services/environment-storage), but the objects in an application
+ * bucket are the application's data, like its variables: so reading them
+ * takes project `variable:read`, the engineer-set statement that reads the
+ * environment's secret-bearing data (the managed .env). QA, BA, PM and
+ * observer don't hold it. Changing files takes editing the environment's
+ * settings (`environment:update`, the right
  * server/services/environments#updateEnvironment checks).
  */
 export const ENVIRONMENT_STORAGE_RIGHTS: Record<
@@ -189,15 +224,13 @@ export const ENVIRONMENT_STORAGE_RIGHTS: Record<
  *
  * - A server: the org `server:files` permission, then, for a caller who has
  *   it only through the engineer grant, the infra-only check (unchanged).
- * - An S3 connection owned by an environment: that environment's rights
+ * - An environment's storage: that environment's rights
  *   (ENVIRONMENT_STORAGE_RIGHTS by intent) plus a strong sign-in, as every
  *   file explorer needs. An environment the caller can't see is a 404, like
- *   a connection that does not exist.
- * - An unassigned S3 connection, or one into the backup destination
- *   wherever it sits (isRestrictedSource): the org role's own `storage:files`
- *   (admin, infra), never the engineer grant nor an environment's rights. An
- *   unassigned one is a 404 to everyone else (it is not theirs to know of); a
- *   restricted one stays the 403 it always was.
+ *   one without storage.
+ * - A storage reaching into the backup destination (isRestrictedSource): the
+ *   org role's own `storage:files` (admin, infra), never the engineer grant
+ *   nor an environment's rights; a 403 to everyone else.
  */
 export async function authorizeExplorerSource(
   source: ExplorerSource,
@@ -215,23 +248,14 @@ export async function authorizeExplorerSource(
   }
 
   const session = await requireSession();
-  const [connection] = await db
-    .select({ environmentId: s3Connections.environmentId })
-    .from(s3Connections)
-    .where(eq(s3Connections.id, source.connectionId))
-    .limit(1);
-  if (!connection) notFound();
-  if (await isRestrictedSource(source)) {
-    requireOrgGrant(session, STORAGE_FILES);
-    return session;
-  }
-  if (connection.environmentId === null) {
-    if (!canOrg(session.user.role, STORAGE_FILES)) notFound();
+  const location = await environmentStorageLocation(source.environmentId);
+  if (!location) notFound();
+  if (await overlapsBackupDestination(location)) {
     requireOrgGrant(session, STORAGE_FILES);
     return session;
   }
   await requireProjectPermission(
-    { environmentId: connection.environmentId },
+    { environmentId: source.environmentId },
     ENVIRONMENT_STORAGE_RIGHTS[intent]
   );
   assertStrongSession(session);

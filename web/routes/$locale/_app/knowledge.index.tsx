@@ -21,6 +21,7 @@ import {
 } from "@/web/api/knowledge";
 import { useMe } from "@/web/api/session";
 import { loaderQuery } from "@/web/query-client";
+import { KnowledgeLandingPending } from "./-components/knowledge/knowledge-landing-pending";
 
 export const Route = createFileRoute("/$locale/_app/knowledge/")({
   loader: async ({ context: { queryClient } }) => {
@@ -29,6 +30,7 @@ export const Route = createFileRoute("/$locale/_app/knowledge/")({
       loaderQuery(queryClient, recentKnowledgeQuery()),
     ]);
   },
+  pendingComponent: KnowledgeLandingPending,
   component: KnowledgeHome,
 });
 
@@ -53,14 +55,17 @@ function KnowledgeHome() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 py-10">
-      <div className="flex flex-col gap-4 text-center">
-        <h1 className="font-semibold text-2xl tracking-tight">
-          {t("landingTitle")}
-        </h1>
-        <KnowledgeSearchTrigger variant="hero" />
+    // WorkspaceLayout's main neither scrolls nor pads, so the page does both.
+    <div className="h-full overflow-y-auto px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 py-10">
+        <div className="flex flex-col gap-4 text-center">
+          <h1 className="font-semibold text-2xl tracking-tight">
+            {t("landingTitle")}
+          </h1>
+          <KnowledgeSearchTrigger variant="hero" />
+        </div>
+        <RecentlyUpdated canWrite={canWrite} />
       </div>
-      <RecentlyUpdated canWrite={canWrite} />
     </div>
   );
 }

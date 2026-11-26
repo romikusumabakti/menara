@@ -134,6 +134,26 @@ describe("knowledge landing", () => {
     ).toContain(messages.knowledge.newDocument);
   });
 
+  it("scrolls on its own and keeps the page side padding", async () => {
+    state.collections = [COLLECTION];
+    await render();
+    const scroller = container.firstElementChild as HTMLElement;
+    const cls = [...scroller.classList];
+    expect(cls).toEqual(
+      expect.arrayContaining([
+        "h-full",
+        "overflow-y-auto",
+        "px-4",
+        "sm:px-6",
+        "lg:px-8",
+      ])
+    );
+  });
+
+  it("has its own pending skeleton instead of the app-wide spinner", () => {
+    expect(Route.options.pendingComponent).toBeTypeOf("function");
+  });
+
   it("shows no New document button to readers", async () => {
     state.role = "staff";
     state.collections = [COLLECTION];
